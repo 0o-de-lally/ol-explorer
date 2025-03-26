@@ -77,7 +77,17 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   };
 
   const handleAddressPress = (address: string) => {
-    navigation.navigate('AccountDetails', { address });
+    // Validate the address before navigating
+    if (!address || typeof address !== 'string') {
+      console.error('Invalid address:', address);
+      return;
+    }
+
+    // Ensure address has the 0x prefix
+    const formattedAddress = address.startsWith('0x') ? address : `0x${address}`;
+    console.log(`Navigating to account details for: ${formattedAddress}`);
+
+    navigation.navigate('AccountDetails', { address: formattedAddress });
   };
 
   if (loading) {
