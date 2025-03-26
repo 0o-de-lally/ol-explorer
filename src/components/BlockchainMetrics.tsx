@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
 import { blockTimeStore } from '../store/blockTimeStore';
+import { formatTimestamp } from '../utils/formatters';
 
 export const BlockchainMetrics: React.FC = () => {
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
@@ -15,39 +16,6 @@ export const BlockchainMetrics: React.FC = () => {
 
   const formatNumber = (num: number) => {
     return num.toLocaleString();
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    // Debug timestamp value
-    console.log(`BlockchainMetrics formatTimestamp input:`, timestamp);
-
-    // Handle different timestamp formats:
-    // - If timestamp is in microseconds (very large number > 1 trillion), convert to milliseconds
-    let timeInMs = timestamp;
-    if (timestamp > 1000000000000) {
-      timeInMs = Math.floor(timestamp / 1000); // Convert microseconds to milliseconds
-      console.log(`Converting large timestamp from microseconds to milliseconds:`, timeInMs);
-    }
-
-    // Create date object from milliseconds
-    const date = new Date(timeInMs);
-
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.warn(`Invalid date from timestamp: ${timestamp}`);
-      return 'Invalid Date';
-    }
-
-    return date.toLocaleString(undefined, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-      timeZoneName: 'short'
-    });
   };
 
   // Get primitive values from observables and ensure they are numbers

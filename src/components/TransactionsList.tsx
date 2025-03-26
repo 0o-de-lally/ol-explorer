@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { getRelativeTimeString } from '../store/blockTimeStore';
+import { formatTimestamp } from '../utils/formatters';
 
 type TransactionsListProps = {
   testID?: string;
@@ -68,44 +69,6 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   const formatNumber = (num: number | string | undefined) => {
     if (num === undefined) return '0';
     return Number(num).toLocaleString();
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    // Validate the timestamp value
-    if (!timestamp) {
-      return 'Unknown';
-    }
-
-    try {
-      console.log(`TransactionsList formatTimestamp - input: ${timestamp}`);
-
-      // Always treat timestamp as milliseconds for consistency with TransactionDetails
-      // In getTransactions, we already convert any microsecond timestamps to milliseconds
-      const date = new Date(timestamp);
-
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn(`Invalid date from timestamp: ${timestamp}`);
-        return 'Invalid Date';
-      }
-
-      const formatted = date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        timeZoneName: 'short'
-      });
-
-      console.log(`Formatted timestamp: ${formatted}`);
-      return formatted;
-    } catch (error) {
-      console.error('Error formatting timestamp:', error);
-      return 'Invalid Date';
-    }
   };
 
   // Determine function label based on transaction type

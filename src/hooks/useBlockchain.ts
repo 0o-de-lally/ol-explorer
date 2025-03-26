@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { blockchainStore } from '../store/blockchainStore';
+import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { useSdk } from './useSdk';
 
 export const useBlockchain = () => {
@@ -8,7 +8,7 @@ export const useBlockchain = () => {
 
   const refreshData = useCallback(async () => {
     if (!sdk.isInitialized) return;
-    
+
     setIsLoading(true);
     try {
       // Fetch latest transactions
@@ -22,9 +22,12 @@ export const useBlockchain = () => {
         sdk.getChainId()
       ]);
 
-      blockchainStore.blockHeight.set(blockHeight);
-      blockchainStore.epoch.set(epoch);
-      blockchainStore.chainId.set(chainId);
+      // Use the blockchainActions to update store values
+      blockchainActions.setStats({
+        blockHeight,
+        epoch,
+        chainId
+      });
     } catch (error) {
       console.error('Error refreshing blockchain data:', error);
     } finally {

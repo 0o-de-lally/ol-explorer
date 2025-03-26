@@ -226,10 +226,10 @@ export const useSdk = (): BlockchainSDK => {
 
         // Keep the raw timestamp from the API - do not convert it
         // We'll handle the conversion consistently at display time
-        const rawTimestamp = typeof tx.timestamp === 'string' 
-          ? tx.timestamp 
+        const rawTimestamp = typeof tx.timestamp === 'string'
+          ? tx.timestamp
           : String(tx.timestamp || Date.now());
-        
+
         console.log(`Transaction ${tx.hash} raw timestamp: ${rawTimestamp}`);
 
         return {
@@ -309,7 +309,7 @@ export const useSdk = (): BlockchainSDK => {
           version: Math.floor(Math.random() * 1000000),
           sender: `0x${Math.random().toString(16).substring(2, 42)}`,
           sequence_number: Math.floor(Math.random() * 100),
-          timestamp: Date.now(),
+          timestamp: String(Date.now()),
           type: 'entry_function',
           status: 'success',
           gas_used: Math.floor(Math.random() * 1000),
@@ -343,7 +343,7 @@ export const useSdk = (): BlockchainSDK => {
         version: parseInt(tx.version) || 0,
         sender: tx.sender || tx.proposer || '',
         sequence_number: parseInt(tx.sequence_number) || 0,
-        timestamp: parseInt(tx.timestamp) || Date.now(),
+        timestamp: typeof tx.timestamp === 'string' ? tx.timestamp : String(tx.timestamp || Date.now()),
         type: tx.type || 'unknown',
         status: tx.success ? 'success' : 'failure',
         gas_used: parseInt(tx.gas_used) || 0,
@@ -378,7 +378,7 @@ export const useSdk = (): BlockchainSDK => {
         version: Math.floor(Math.random() * 1000000),
         sender: `0x${Math.random().toString(16).substring(2, 42)}`,
         sequence_number: Math.floor(Math.random() * 100),
-        timestamp: Date.now(),
+        timestamp: String(Date.now()),
         type: 'entry_function',
         status: 'success',
         gas_used: Math.floor(Math.random() * 1000),

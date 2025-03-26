@@ -9,6 +9,7 @@ import { TransactionDetail } from '../types/blockchain';
 import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { getRelativeTimeString } from '../store/blockTimeStore';
+import { formatTimestamp } from '../utils/formatters';
 
 type TransactionDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'TransactionDetails'>;
@@ -63,43 +64,6 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
   const handleBackPress = () => {
     navigation.goBack();
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    // Validate the timestamp
-    if (!timestamp) {
-      return 'Unknown';
-    }
-
-    console.log(`TransactionDetails formatTimestamp - input: ${timestamp}`);
-
-    try {
-      // We expect timestamp to already be in milliseconds from the SDK layer processing
-      const date = new Date(timestamp);
-
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn(`Invalid date from timestamp: ${timestamp}`);
-        return 'Invalid Date';
-      }
-
-      const formatted = date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        timeZoneName: 'short'
-      });
-
-      console.log(`TransactionDetails formatted timestamp: ${formatted}`);
-      return formatted;
-    } catch (error) {
-      console.error('Error formatting timestamp:', error);
-      return 'Invalid Date';
-    }
   };
 
   const renderStatusBadge = (status: string) => {
