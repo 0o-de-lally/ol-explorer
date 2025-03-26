@@ -46,10 +46,37 @@ export const HomeScreen: React.FC = () => {
         blockchainActions.setTransactions(createMockTransactions(20));
         blockchainActions.setLoading(false);
       }
-    }, 3000); // After 3 seconds
+    }, 1000); // Reduced to 1 second for faster fallback
 
     return () => clearTimeout(timer);
   }, [sdk]);
+
+  // Force immediate data load on component mount
+  useEffect(() => {
+    // If we already have data, don't reload
+    if (blockchainStore.stats.blockHeight.get() !== null) {
+      return;
+    }
+
+    // Try to load data immediately
+    console.log('Initial data load');
+
+    // Start with a loading state
+    blockchainActions.setLoading(true);
+
+    // Use mock data if we don't have a real SDK connection
+    if (!sdk.isInitialized || sdk.error) {
+      console.log('SDK not initialized or has error, using mock data');
+      blockchainActions.setStats({
+        blockHeight: 500000,
+        epoch: 20,
+        chainId: 'testnet'
+      });
+      blockchainActions.setTransactions(createMockTransactions(20));
+      blockchainActions.setLoading(false);
+      setLoadingTimeout(true);
+    }
+  }, []);
 
   const fetchData = async () => {
     try {

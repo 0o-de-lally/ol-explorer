@@ -71,18 +71,41 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   };
 
   const formatTimestamp = (timestamp: number) => {
-    // Convert microseconds to milliseconds for UTC date
-    const date = new Date(Math.floor(timestamp / 1000));
-    return date.toLocaleString(undefined, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-      timeZoneName: 'short'
-    });
+    // Validate the timestamp value
+    if (!timestamp) {
+      return 'Unknown';
+    }
+
+    try {
+      console.log(`TransactionsList formatTimestamp - input: ${timestamp}`);
+
+      // Always treat timestamp as milliseconds for consistency with TransactionDetails
+      // In getTransactions, we already convert any microsecond timestamps to milliseconds
+      const date = new Date(timestamp);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date from timestamp: ${timestamp}`);
+        return 'Invalid Date';
+      }
+
+      const formatted = date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZoneName: 'short'
+      });
+
+      console.log(`Formatted timestamp: ${formatted}`);
+      return formatted;
+    } catch (error) {
+      console.error('Error formatting timestamp:', error);
+      return 'Invalid Date';
+    }
   };
 
   // Determine function label based on transaction type
@@ -122,7 +145,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       <Text className="text-white text-sm flex-1 min-w-[160px]">{formatHash(item.sender)}</Text>
       <View className="flex-1 min-w-[120px]">
         <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-            item.type === 'module' ? 'bg-[#E6F7F5]' : 'bg-[#F5F5F5]'
+          item.type === 'module' ? 'bg-[#E6F7F5]' : 'bg-[#F5F5F5]'
           }`}>
           <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
         </View>

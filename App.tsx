@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -36,6 +36,9 @@ try {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  // Reference to the navigation container
+  const navigationRef = useRef(null);
+
   // Log environment information for debugging
   useEffect(() => {
     console.log('App initialized');
@@ -58,7 +61,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <View className="flex-1 bg-background flex flex-col min-h-screen">
-        <NavigationContainer>
+        <NavigationContainer
+          ref={navigationRef}
+          onReady={() => {
+            // Ensure the app initializes properly with Home screen focused
+            console.log('Navigation container is ready');
+          }}
+        >
           <StatusBar style="light" />
           <Stack.Navigator
             initialRouteName="Home"

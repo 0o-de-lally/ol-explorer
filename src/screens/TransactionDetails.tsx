@@ -28,17 +28,17 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
     try {
       setLoading(true);
       setError(null);
-      
+
       if (!sdk.isInitialized || sdk.error) {
         throw new Error(sdk.error?.message || 'SDK is not initialized');
       }
-      
+
       if (!hash) {
         throw new Error('Transaction hash is required');
       }
-      
+
       const txDetails = await sdk.getTransactionByHash(hash);
-      
+
       if (!txDetails) {
         throw new Error(
           'Transaction not found. This could mean:\n\n' +
@@ -47,7 +47,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           '• The transaction has been pruned from the node\'s history'
         );
       }
-      
+
       setTransaction(txDetails);
     } catch (err) {
       console.error('Error fetching transaction details:', err);
@@ -66,23 +66,45 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   };
 
   const formatTimestamp = (timestamp: number) => {
-    // Convert microseconds to milliseconds for UTC date
-    const date = new Date(Math.floor(timestamp / 1000));
-    return date.toLocaleString(undefined, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-      timeZoneName: 'short'
-    });
+    // Validate the timestamp
+    if (!timestamp) {
+      return 'Unknown';
+    }
+
+    console.log(`TransactionDetails formatTimestamp - input: ${timestamp}`);
+
+    try {
+      // We expect timestamp to already be in milliseconds from the SDK layer processing
+      const date = new Date(timestamp);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date from timestamp: ${timestamp}`);
+        return 'Invalid Date';
+      }
+
+      const formatted = date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZoneName: 'short'
+      });
+
+      console.log(`TransactionDetails formatted timestamp: ${formatted}`);
+      return formatted;
+    } catch (error) {
+      console.error('Error formatting timestamp:', error);
+      return 'Invalid Date';
+    }
   };
 
   const renderStatusBadge = (status: string) => {
     const isSuccess = status === 'success';
-    
+
     return (
       <View style={[styles.statusBadge, isSuccess ? styles.successBadge : styles.failureBadge]}>
         <Text style={styles.statusText}>{status.toUpperCase()}</Text>
@@ -137,7 +159,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
       </SafeAreaView>
     );
   }
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header testID="header" />
@@ -148,89 +170,89 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           </TouchableOpacity>
           <Text style={styles.title}>Transaction Details</Text>
         </View>
-        
+
         <View style={styles.infoCard}>
           <View style={styles.topRow}>
             <Text style={styles.hashTitle}>Transaction Hash</Text>
             {renderStatusBadge(transaction.status)}
           </View>
           <Text style={styles.hash}>{transaction.hash}</Text>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Block Height</Text>
             <Text style={styles.infoValue}>{transaction.block_height}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Version</Text>
             <Text style={styles.infoValue}>{transaction.version}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Timestamp</Text>
             <Text style={styles.infoValue}>{formatTimestamp(transaction.timestamp)}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Sender</Text>
             <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
               <Text style={[styles.infoValue, styles.linkText]}>{transaction.sender}</Text>
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Sequence Number</Text>
             <Text style={styles.infoValue}>{transaction.sequence_number}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Transaction Type</Text>
             <Text style={styles.infoValue}>{transaction.type}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Gas Used</Text>
             <Text style={styles.infoValue}>{transaction.gas_used || 'N/A'}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Gas Unit Price</Text>
             <Text style={styles.infoValue}>{transaction.gas_unit_price || 'N/A'}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>VM Status</Text>
             <Text style={styles.infoValue}>{transaction.vm_status || 'N/A'}</Text>
           </View>
-          
+
           {transaction.epoch && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Epoch</Text>
               <Text style={styles.infoValue}>{transaction.epoch}</Text>
             </View>
           )}
-          
+
           {transaction.round && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Round</Text>
               <Text style={styles.infoValue}>{transaction.round}</Text>
             </View>
           )}
-          
+
           {transaction.state_change_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>State Change Hash</Text>
               <Text style={styles.infoValue}>{transaction.state_change_hash}</Text>
             </View>
           )}
-          
+
           {transaction.event_root_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Event Root Hash</Text>
               <Text style={styles.infoValue}>{transaction.event_root_hash}</Text>
             </View>
           )}
-          
+
           {transaction.accumulator_root_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Accumulator Root Hash</Text>
@@ -238,7 +260,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             </View>
           )}
         </View>
-        
+
         {transaction.events && transaction.events.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Events ({transaction.events.length})</Text>
@@ -252,7 +274,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             ))}
           </View>
         )}
-        
+
         {transaction.changes && transaction.changes.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>State Changes ({transaction.changes.length})</Text>
@@ -269,7 +291,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             ))}
           </View>
         )}
-        
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Payload</Text>
           <Text style={styles.payloadData}>

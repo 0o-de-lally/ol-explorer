@@ -18,8 +18,26 @@ export const BlockchainMetrics: React.FC = () => {
   };
 
   const formatTimestamp = (timestamp: number) => {
-    // Convert microseconds to milliseconds for UTC date
-    const date = new Date(Math.floor(timestamp / 1000));
+    // Debug timestamp value
+    console.log(`BlockchainMetrics formatTimestamp input:`, timestamp);
+
+    // Handle different timestamp formats:
+    // - If timestamp is in microseconds (very large number > 1 trillion), convert to milliseconds
+    let timeInMs = timestamp;
+    if (timestamp > 1000000000000) {
+      timeInMs = Math.floor(timestamp / 1000); // Convert microseconds to milliseconds
+      console.log(`Converting large timestamp from microseconds to milliseconds:`, timeInMs);
+    }
+
+    // Create date object from milliseconds
+    const date = new Date(timeInMs);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid date from timestamp: ${timestamp}`);
+      return 'Invalid Date';
+    }
+
     return date.toLocaleString(undefined, {
       year: 'numeric',
       month: '2-digit',

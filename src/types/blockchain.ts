@@ -3,13 +3,14 @@ export interface Transaction {
   version: number;
   sender: string;
   sequence_number: number;
-  timestamp: number;
+  timestamp: string | number;
   type: string;
-  status: 'success' | 'failure';
+  status: 'success' | 'failure' | 'pending';
   gas_used?: number;
   gas_unit_price?: number;
   vm_status?: string;
   block_height?: number;
+  function?: string;
   epoch?: string;
   round?: string;
   state_change_hash?: string;
