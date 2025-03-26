@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { Logo } from './Logo';
 
 type HeaderProps = {
   testID?: string;
@@ -24,9 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ testID }) => {
   return (
     <View className="bg-background py-4 px-5 flex-row items-center justify-between border-b border-border" testID={testID}>
       <TouchableOpacity className="flex-row items-center" onPress={handleHomePress}>
-        <View className="w-9 h-9 rounded-full bg-primary justify-center items-center mr-3">
-          <Text className="text-white font-bold text-base">OL</Text>
-        </View>
+        <Logo size={36} className="mr-3" />
         <Text className="text-white text-xl font-bold">Open Libra Explorer</Text>
       </TouchableOpacity>
 

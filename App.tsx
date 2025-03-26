@@ -3,12 +3,14 @@ import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { View } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { TransactionDetailsScreen } from './src/screens/TransactionDetails';
 import { AccountDetailsScreen } from './src/screens/AccountDetails';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { RootStackParamList } from './src/navigation/types';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { Footer } from './src/components/Footer';
 import { createMockLibraClient } from './src/services/mockSdk';
 
 // Constants
@@ -55,21 +57,24 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <Stack.Navigator
-          initialRouteName="Home"
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#0B1221' }
-          }}
-        >
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
-          <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
-          <Stack.Screen name="Search" component={SearchScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <View className="flex-1 bg-background flex flex-col min-h-screen">
+        <NavigationContainer>
+          <StatusBar style="light" />
+          <Stack.Navigator
+            initialRouteName="Home"
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#0B1221' }
+            }}
+          >
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
+            <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
+            <Stack.Screen name="Search" component={SearchScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+        <Footer />
+      </View>
     </ErrorBoundary>
   );
 }
