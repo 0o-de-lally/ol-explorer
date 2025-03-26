@@ -1,13 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { useSdk } from './useSdk';
+import { useSdkContext } from '../context/SdkContext';
 
 export const useBlockchain = () => {
   const [isLoading, setIsLoading] = useState(false);
   const sdk = useSdk();
+  const { isInitialized, isInitializing } = useSdkContext();
 
   const refreshData = useCallback(async () => {
-    if (!sdk.isInitialized) return;
+    if (!isInitialized) {
+      console.log('SDK not initialized yet, waiting before refreshing data');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -30,13 +35,24 @@ export const useBlockchain = () => {
       });
     } catch (error) {
       console.error('Error refreshing blockchain data:', error);
+      blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, [sdk]);
+  }, [sdk, isInitialized]);
+
+  // Auto-refresh when SDK becomes initialized
+  useEffect(() => {
+    if (isInitialized && !isInitializing) {
+      console.log('SDK initialized, automatically refreshing blockchain data');
+      refreshData();
+    }
+  }, [isInitialized, isInitializing]);
 
   return {
     refreshData,
-    isLoading
+    isLoading,
+    isInitialized,
+    isInitializing
   };
 }; 

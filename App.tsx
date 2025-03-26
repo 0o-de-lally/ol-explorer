@@ -10,7 +10,8 @@ import { AccountDetailsScreen } from './src/screens/AccountDetails';
 import { RootStackParamList } from './src/navigation/types';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { Footer } from './src/components/Footer';
-import { createMockLibraClient } from './src/services/mockSdk';
+import { SdkProvider } from './src/context/SdkContext';
+import { SdkLoadingIndicator } from './src/components/SdkLoadingIndicator';
 
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
@@ -22,13 +23,6 @@ if (typeof window !== 'undefined' && !window.Buffer) {
   } catch (error) {
     console.warn('Failed to polyfill Buffer:', error);
   }
-}
-
-// Pre-initialize mock client to ensure it's ready
-try {
-  createMockLibraClient();
-} catch (error) {
-  console.error('Failed to initialize mock client:', error);
 }
 
 // Create the navigation stack
@@ -59,29 +53,34 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <View className="flex-1 bg-background flex flex-col min-h-screen">
-        <NavigationContainer
-          ref={navigationRef}
-          onReady={() => {
-            // Ensure the app initializes properly with Home screen focused
-            console.log('Navigation container is ready');
-          }}
-        >
-          <StatusBar style="light" />
-          <Stack.Navigator
-            initialRouteName="Home"
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#0B1221' }
+      <SdkProvider>
+        <View className="flex-1 bg-background flex flex-col min-h-screen">
+          {/* Show loading indicator when SDK is initializing */}
+          <SdkLoadingIndicator />
+
+          <NavigationContainer
+            ref={navigationRef}
+            onReady={() => {
+              // Ensure the app initializes properly with Home screen focused
+              console.log('Navigation container is ready');
             }}
           >
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
-            <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
-        <Footer />
-      </View>
+            <StatusBar style="light" />
+            <Stack.Navigator
+              initialRouteName="Home"
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: '#0B1221' }
+              }}
+            >
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
+              <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+          <Footer />
+        </View>
+      </SdkProvider>
     </ErrorBoundary>
   );
 }
