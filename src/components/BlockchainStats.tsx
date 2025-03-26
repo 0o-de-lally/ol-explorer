@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
 
@@ -14,55 +14,23 @@ export const BlockchainStats: React.FC<BlockchainStatsProps> = ({ testID }) => {
   const formattedBlockHeight = stats.blockHeight.get()?.toLocaleString() || 'Loading...';
 
   return (
-    <View style={styles.containerWrapper} testID={testID}>
-      <View style={styles.container}>
-        <View style={styles.statBox}>
-          <Text style={styles.label}>Block Height</Text>
-          <Text style={styles.value}>{formattedBlockHeight}</Text>
+    <View className="flex-row justify-between w-full mb-5" testID={testID}>
+      <View className="flex-row justify-between w-full gap-5">
+        <View className="flex-1 bg-secondary rounded-lg p-5">
+          <Text className="text-white text-base font-bold mb-2.5">Block Height</Text>
+          <Text className="text-white text-2xl font-bold">{formattedBlockHeight}</Text>
         </View>
-        
-        <View style={styles.statBox}>
-          <Text style={styles.label}>Current Epoch</Text>
-          <Text style={styles.value}>{stats.epoch.get() || 'Loading...'}</Text>
+
+        <View className="flex-1 bg-secondary rounded-lg p-5">
+          <Text className="text-white text-base font-bold mb-2.5">Current Epoch</Text>
+          <Text className="text-white text-2xl font-bold">{stats.epoch.get() || 'Loading...'}</Text>
         </View>
-        
-        <View style={styles.statBox}>
-          <Text style={styles.label}>Chain ID</Text>
-          <Text style={styles.value}>{stats.chainId.get() || 'Loading...'}</Text>
+
+        <View className="flex-1 bg-secondary rounded-lg p-5">
+          <Text className="text-white text-base font-bold mb-2.5">Chain ID</Text>
+          <Text className="text-white text-2xl font-bold">{stats.chainId.get() || 'Loading...'}</Text>
         </View>
       </View>
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  containerWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 20,
-  },
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: 20,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#172234',
-    borderRadius: 8,
-    padding: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#FFFFFF',
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-}); 
+}; 

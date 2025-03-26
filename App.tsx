@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -38,13 +39,13 @@ export default function App() {
     console.log('App initialized');
     console.log('Environment:', process.env.NODE_ENV);
     console.log('Platform:', typeof window !== 'undefined' ? 'Browser' : 'Node.js');
-    
+
     // Log SDK initialization information with the correct pattern
     console.log(`Using Open Libra SDK with direct RPC connection to: ${OPENLIBRA_RPC_URL}`);
-    
+
     // Log the correct initialization pattern without custom fetch or header manipulation
     console.log('Using standard LibraClient initialization: new LibraClient(Network.MAINNET, OPENLIBRA_RPC_URL)');
-    
+
     if (typeof window !== 'undefined') {
       console.warn(
         'Note: For browser environments, the server needs proper CORS headers configured to allow requests.'
@@ -56,7 +57,7 @@ export default function App() {
     <ErrorBoundary>
       <NavigationContainer>
         <StatusBar style="light" />
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName="Home"
           screenOptions={{
             headerShown: false,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
 import { blockTimeStore } from '../store/blockTimeStore';
@@ -38,52 +38,25 @@ export const BlockchainMetrics: React.FC = () => {
   const lastBlockTimestampValue = Number(lastBlockTimestamp.get() ?? 0);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.metric}>
-        <Text style={styles.label}>Average Block Time</Text>
-        <Text style={styles.value}>
+    <View className="flex-row justify-around p-4 bg-secondary rounded-lg mx-4 mb-4">
+      <View className="items-center flex-1">
+        <Text className="text-text-muted text-xs mb-1">Average Block Time</Text>
+        <Text className="text-text-light text-base font-bold text-center">
           {!isNaN(blockTimeMsValue) ? formatBlockTime(blockTimeMsValue) : 'Calculating...'}
         </Text>
       </View>
-      <View style={styles.metric}>
-        <Text style={styles.label}>Latest Block</Text>
-        <Text style={styles.value}>
+      <View className="items-center flex-1">
+        <Text className="text-text-muted text-xs mb-1">Latest Block</Text>
+        <Text className="text-text-light text-base font-bold text-center">
           {!isNaN(lastBlockHeightValue) ? formatNumber(lastBlockHeightValue) : 'Loading...'}
         </Text>
       </View>
-      <View style={styles.metric}>
-        <Text style={styles.label}>Ledger Time</Text>
-        <Text style={styles.value}>
+      <View className="items-center flex-1">
+        <Text className="text-text-muted text-xs mb-1">Ledger Time</Text>
+        <Text className="text-text-light text-base font-bold text-center">
           {!isNaN(lastBlockTimestampValue) ? formatTimestamp(lastBlockTimestampValue) : 'Loading...'}
         </Text>
       </View>
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    backgroundColor: '#1A2235',
-    borderRadius: 8,
-    marginBottom: 16,
-    margin: 16,
-  },
-  metric: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  label: {
-    color: '#8F9BB3',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  value: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-}); 
+}; 

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  SafeAreaView,
+  TextInput,
+  TouchableOpacity,
   ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback
@@ -43,20 +42,20 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     try {
       // Try to get transaction by hash first
       const transaction = await sdk.getTransactionByHash(searchQuery);
-      
+
       if (transaction) {
         navigation.navigate('TransactionDetails', { hash: searchQuery });
         return;
       }
-      
+
       // If not a transaction, try to get account
       const account = await sdk.getAccount(searchQuery);
-      
+
       if (account) {
         navigation.navigate('AccountDetails', { address: searchQuery });
         return;
       }
-      
+
       // If neither, show error
       setSearchError('No transaction or account found with the provided ID');
     } catch (error) {
@@ -69,17 +68,17 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
 
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.container}>
-          <Text style={styles.title}>Search Blockchain</Text>
-          <Text style={styles.subtitle}>
+        <View className="flex-1 p-4 bg-background">
+          <Text className="text-2xl font-bold text-white mb-2">Search Blockchain</Text>
+          <Text className="text-base text-text-muted mb-6">
             Enter a transaction hash or account address
           </Text>
-          
-          <View style={styles.searchContainer}>
+
+          <View className="flex-row mb-4">
             <TextInput
-              style={styles.searchInput}
+              className="flex-1 bg-secondary rounded-lg p-3 text-base text-white mr-2"
               placeholder="Transaction hash or account address"
               placeholderTextColor="#6b7280"
               value={searchQuery}
@@ -88,38 +87,38 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
               autoCorrect={false}
               onSubmitEditing={handleSearch}
             />
-            
+
             <TouchableOpacity
-              style={styles.searchButton}
+              className="bg-primary rounded-lg p-3 justify-center items-center w-[100px]"
               onPress={handleSearch}
               disabled={isLoading}
             >
-              <Text style={styles.searchButtonText}>Search</Text>
+              <Text className="text-white text-base font-bold">Search</Text>
             </TouchableOpacity>
           </View>
-          
+
           {searchError && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{searchError}</Text>
+            <View className="bg-primary/20 p-4 rounded-lg mb-4">
+              <Text className="text-primary text-sm">{searchError}</Text>
             </View>
           )}
-          
+
           {isLoading && (
-            <View style={styles.loadingContainer}>
+            <View className="flex-row items-center mb-4">
               <ActivityIndicator size="large" color="#E75A5C" />
-              <Text style={styles.loadingText}>Searching...</Text>
+              <Text className="text-white text-base ml-3">Searching...</Text>
             </View>
           )}
-          
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Search Tips</Text>
-            <Text style={styles.infoText}>
+
+          <View className="bg-secondary rounded-lg p-5 mt-6">
+            <Text className="text-lg font-bold text-white mb-4">Search Tips</Text>
+            <Text className="text-sm text-text-muted mb-3">
               • Search for a specific transaction using its unique hash
             </Text>
-            <Text style={styles.infoText}>
+            <Text className="text-sm text-text-muted mb-3">
               • Search for an account using its full address
             </Text>
-            <Text style={styles.infoText}>
+            <Text className="text-sm text-text-muted mb-3">
               • Make sure to enter the complete hash or address
             </Text>
           </View>
@@ -127,90 +126,4 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
-};
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0B1221',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#0B1221',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#ADBAC7',
-    marginBottom: 24,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#172234',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  searchButton: {
-    backgroundColor: '#E75A5C',
-    borderRadius: 8,
-    padding: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 100,
-  },
-  searchButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(231, 90, 92, 0.2)',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#E75A5C',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  infoCard: {
-    backgroundColor: '#172234',
-    borderRadius: 8,
-    padding: 20,
-    marginTop: 24,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 16,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#ADBAC7',
-    marginBottom: 12,
-  },
-}); 
+}; 

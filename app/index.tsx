@@ -4,7 +4,7 @@ import { BlockchainMetrics } from '../src/components/BlockchainMetrics';
 
 export default function RootLayout() {
   return (
-    <View style={{ flex: 1, backgroundColor: '#0B1221' }}>
+    <View className="flex-1 bg-background">
       <BlockchainMetrics />
       <Slot />
     </View>

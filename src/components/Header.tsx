@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -22,71 +22,19 @@ export const Header: React.FC<HeaderProps> = ({ testID }) => {
   };
 
   return (
-    <View style={styles.container} testID={testID}>
-      <TouchableOpacity style={styles.logoContainer} onPress={handleHomePress}>
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoText}>OL</Text>
+    <View className="bg-background py-4 px-5 flex-row items-center justify-between border-b border-border" testID={testID}>
+      <TouchableOpacity className="flex-row items-center" onPress={handleHomePress}>
+        <View className="w-9 h-9 rounded-full bg-primary justify-center items-center mr-3">
+          <Text className="text-white font-bold text-base">OL</Text>
         </View>
-        <Text style={styles.title}>Open Libra Explorer</Text>
+        <Text className="text-white text-xl font-bold">Open Libra Explorer</Text>
       </TouchableOpacity>
-      
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearchPress}>
-          <Text style={styles.searchButtonText}>Search</Text>
+
+      <View className="flex-row items-center">
+        <TouchableOpacity className="bg-primary px-4 py-2 rounded justify-center items-center" onPress={handleSearchPress}>
+          <Text className="text-white font-bold">Search</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#0B1221',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E2736',
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E75A5C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  logoText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchButton: {
-    backgroundColor: '#E75A5C',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-}); 
+}; 

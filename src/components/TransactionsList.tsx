@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
   ActivityIndicator,
   Platform
 } from 'react-native';
@@ -24,9 +23,9 @@ type TransactionsListProps = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-export const TransactionsList: React.FC<TransactionsListProps> = ({ 
+export const TransactionsList: React.FC<TransactionsListProps> = ({
   testID,
-  onRefresh 
+  onRefresh
 }) => {
   const transactions = useObservable(blockchainStore.transactions);
   const isLoading = useObservable(blockchainStore.isLoading);
@@ -85,7 +84,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       timeZoneName: 'short'
     });
   };
-  
+
   // Determine function label based on transaction type
   const getFunctionLabel = (type: string) => {
     switch (type) {
@@ -102,201 +101,64 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
   const renderTableHeader = () => {
     return (
-      <View style={styles.tableHeader}>
-        <Text style={[styles.headerCell, styles.blockHeightCol]}>BLOCK HEIGHT</Text>
-        <Text style={[styles.headerCell, styles.versionCol]}>VERSION</Text>
-        <Text style={[styles.headerCell, styles.fromCol]}>FROM</Text>
-        <Text style={[styles.headerCell, styles.functionCol]}>FUNCTION</Text>
-        <Text style={[styles.headerCell, styles.timeCol]}>TIME</Text>
+      <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[100px]">BLOCK HEIGHT</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px]">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px]">FROM</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px]">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px]">TIME</Text>
       </View>
     );
   };
 
   const renderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TouchableOpacity 
-      style={styles.tableRow}
+    <TouchableOpacity
+      className="flex-row py-3 px-4 border-b border-border"
       onPress={() => handleTransactionPress(item.hash)}
       testID={`transaction-${item.hash}`}
     >
-      <Text style={[styles.cell, styles.blockHeightCol]}>{formatNumber(item.block_height)}</Text>
-      <Text style={[styles.cell, styles.versionCol]}>{formatNumber(item.version)}</Text>
-      <Text style={[styles.cell, styles.fromCol]}>{formatHash(item.sender)}</Text>
-      <View style={styles.functionColWrapper}>
-        <View style={[
-          styles.functionBadge,
-          item.type === 'script' ? styles.scriptBadge : 
-          item.type === 'module' ? styles.moduleBadge : styles.defaultBadge
-        ]}>
-          <Text style={styles.functionBadgeText}>{getFunctionLabel(item.type)}</Text>
+      <Text className="text-white text-sm flex-1 min-w-[100px]">{formatNumber(item.block_height)}</Text>
+      <Text className="text-white text-sm flex-1 min-w-[120px]">{formatNumber(item.version)}</Text>
+      <Text className="text-white text-sm flex-1 min-w-[160px]">{formatHash(item.sender)}</Text>
+      <View className="flex-1 min-w-[120px]">
+        <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
+            item.type === 'module' ? 'bg-[#E6F7F5]' : 'bg-[#F5F5F5]'
+          }`}>
+          <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
         </View>
       </View>
-      <Text style={[styles.cell, styles.timeCol]}>{formatTimestamp(item.timestamp)}</Text>
+      <Text className="text-white text-sm flex-1 min-w-[180px]">{formatTimestamp(item.timestamp)}</Text>
     </TouchableOpacity>
   );
 
   if (isLoading.get() && transactionArray.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
+      <View className="flex-1 justify-center items-center p-8 bg-secondary rounded-lg">
         <ActivityIndicator size="large" color="#E75A5C" />
-        <Text style={styles.loadingText}>Loading transactions...</Text>
+        <Text className="mt-4 text-base text-white">Loading transactions...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container} testID={testID}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Recent Transactions ({transactionArray.length})</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-          <Text style={styles.refreshButtonText}>↻ Refresh</Text>
+    <View className="flex-1 bg-secondary rounded-lg overflow-hidden" testID={testID}>
+      <View className="flex-row justify-between items-center p-4 border-b border-border">
+        <Text className="text-lg font-bold text-white">Recent Transactions ({transactionArray.length})</Text>
+        <TouchableOpacity className="p-2" onPress={onRefresh}>
+          <Text className="text-white font-bold">↻ Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {renderTableHeader()}
-      
+
       <FlatList
         data={transactionArray}
         keyExtractor={(item) => item.hash}
         renderItem={renderTransactionItem}
-        style={styles.tableBody}
-        contentContainerStyle={styles.listContent}
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={Platform.OS !== 'web'}
       />
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#172234',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2c3a50',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  refreshButton: {
-    padding: 8,
-  },
-  refreshButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#0D1626',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2c3a50',
-  },
-  tableBody: {
-    flex: 1,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2c3a50',
-  },
-  headerCell: {
-    fontWeight: 'bold',
-    color: '#ADBAC7',
-    fontSize: 14,
-  },
-  cell: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  blockHeightCol: {
-    flex: 1,
-    minWidth: 100,
-  },
-  versionCol: {
-    flex: 1,
-    minWidth: 120,
-  },
-  fromCol: {
-    flex: 1,
-    minWidth: 160,
-  },
-  functionCol: {
-    flex: 1,
-    minWidth: 120,
-  },
-  functionColWrapper: {
-    flex: 1,
-    minWidth: 120,
-  },
-  timeCol: {
-    flex: 1,
-    minWidth: 180,
-  },
-  functionBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  scriptBadge: {
-    backgroundColor: '#F3ECFF',
-  },
-  moduleBadge: {
-    backgroundColor: '#E6F7F5',
-  },
-  defaultBadge: {
-    backgroundColor: '#F5F5F5',
-  },
-  functionBadgeText: {
-    fontSize: 12,
-    color: '#333',
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#172234',
-    borderRadius: 8,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  column: {
-    flex: 1,
-  },
-  label: {
-    color: '#8F9BB3',
-    fontSize: 12,
-  },
-  value: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  timestamp: {
-    color: '#8F9BB3',
-    fontSize: 12,
-  },
-}); 
+}; 

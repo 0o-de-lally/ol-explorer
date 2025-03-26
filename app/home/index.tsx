@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { ScrollView, RefreshControl } from 'react-native';
 import { TransactionsList } from '../../src/components/TransactionsList';
 import { BlockchainMetrics } from '../../src/components/BlockchainMetrics';
 import { useBlockchain } from '../../src/hooks/useBlockchain';
@@ -8,8 +8,8 @@ export default function HomePage() {
   const { refreshData, isLoading } = useBlockchain();
 
   return (
-    <ScrollView 
-      style={styles.container}
+    <ScrollView
+      className="flex-1 bg-background"
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshData} />
       }
@@ -18,11 +18,4 @@ export default function HomePage() {
       <TransactionsList testID="transactions-list" onRefresh={refreshData} />
     </ScrollView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1221',
-  },
-}); 
+} 

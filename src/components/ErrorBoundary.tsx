@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 interface Props {
   children: ReactNode;
@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
       error: null,
       errorInfo: null
     });
-    
+
     // Reload the page if in a browser environment
     if (typeof window !== 'undefined') {
       window.location.reload();
@@ -50,16 +50,16 @@ class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       // You can render any custom fallback UI
       return (
-        <View style={styles.container}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          
+        <View className="flex-1 bg-background justify-center items-center p-5">
+          <Text className="text-primary text-2xl font-bold mb-4">Something went wrong</Text>
+
           {this.state.error && (
-            <View style={styles.errorDetailsContainer}>
-              <Text style={styles.errorMessage}>{this.state.error.toString()}</Text>
-              
+            <View className="bg-secondary p-4 rounded-lg w-full max-w-[600px] mb-6">
+              <Text className="text-white text-base text-center mb-4">{this.state.error.toString()}</Text>
+
               {this.state.error.message.includes('Buffer is not defined') && (
-                <View style={styles.additionalInfoContainer}>
-                  <Text style={styles.additionalInfoText}>
+                <View className="p-3 bg-background rounded mt-4">
+                  <Text className="text-text-muted text-sm leading-5">
                     This error is related to Node.js compatibility in the browser.
                     The application is trying to use the Buffer API which is not available in browsers.
                   </Text>
@@ -67,9 +67,12 @@ class ErrorBoundary extends Component<Props, State> {
               )}
             </View>
           )}
-          
-          <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+
+          <TouchableOpacity
+            className="bg-primary py-3 px-6 rounded"
+            onPress={this.handleRetry}
+          >
+            <Text className="text-white text-base font-bold">Retry</Text>
           </TouchableOpacity>
         </View>
       );
@@ -78,57 +81,5 @@ class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1221',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    color: '#E75A5C',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  errorDetailsContainer: {
-    backgroundColor: '#172234',
-    padding: 16,
-    borderRadius: 8,
-    width: '100%',
-    maxWidth: 600,
-    marginBottom: 24,
-  },
-  errorMessage: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  additionalInfoContainer: {
-    padding: 12,
-    backgroundColor: '#0D1626',
-    borderRadius: 4,
-    marginTop: 16,
-  },
-  additionalInfoText: {
-    color: '#ADBAC7',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  retryButton: {
-    backgroundColor: '#E75A5C',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
 
 export default ErrorBoundary; 

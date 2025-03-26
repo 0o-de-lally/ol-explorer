@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, Text, ActivityIndicator } from 'react-native';
+import { View, SafeAreaView, Text, ActivityIndicator } from 'react-native';
 import { Header } from '../components/Header';
 import { BlockchainStats } from '../components/BlockchainStats';
 import { TransactionsList } from '../components/TransactionsList';
@@ -34,65 +34,65 @@ export const HomeScreen: React.FC = () => {
       if (blockchainStore.stats.blockHeight.get() === null && !sdk.error) {
         setLoadingTimeout(true);
         console.log('Loading timeout reached, forcing mock data');
-        
+
         // Force some mock data
         blockchainActions.setStats({
           blockHeight: 500000,
           epoch: 20,
           chainId: 'testnet'
         });
-        
+
         // Generate mock transactions
         blockchainActions.setTransactions(createMockTransactions(20));
         blockchainActions.setLoading(false);
       }
     }, 3000); // After 3 seconds
-    
+
     return () => clearTimeout(timer);
   }, [sdk]);
 
   const fetchData = async () => {
     try {
       blockchainActions.setLoading(true);
-      
+
       // Fetch blockchain stats
       const [blockHeight, epoch, chainId] = await Promise.all([
         sdk.getLatestBlockHeight(),
         sdk.getLatestEpoch(),
         sdk.getChainId()
       ]);
-      
+
       blockchainActions.setStats({
         blockHeight,
         epoch,
         chainId
       });
-      
+
       // Fetch recent transactions
       const transactions = await sdk.getTransactions(20);
-      
+
       // Add block height to each transaction (in a real app, this would come from the API)
       const transactionsWithBlockHeight = transactions.map((tx, index) => ({
         ...tx,
         block_height: blockHeight - index, // This is a simplification for our demo
       }));
-      
+
       blockchainActions.setTransactions(transactionsWithBlockHeight);
       blockchainActions.setLoading(false);
     } catch (error) {
       blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
       blockchainActions.setLoading(false);
-      
+
       // If there's an error, use mock data
       setLoadingTimeout(true);
       console.log('Error fetching data, using mock data instead');
-      
+
       blockchainActions.setStats({
         blockHeight: 500000,
         epoch: 20,
         chainId: 'testnet'
       });
-      
+
       // Generate sample transactions on error
       blockchainActions.setTransactions(createMockTransactions(20));
     }
@@ -105,7 +105,7 @@ export const HomeScreen: React.FC = () => {
       if (sdk.error) {
         blockchainActions.setError(`SDK Error: ${sdk.error.message}`);
         blockchainActions.setLoading(false);
-        
+
         // If SDK initialization failed, use mock data immediately
         setLoadingTimeout(true);
         blockchainActions.setStats({
@@ -113,13 +113,13 @@ export const HomeScreen: React.FC = () => {
           epoch: 20,
           chainId: 'testnet'
         });
-        
+
         blockchainActions.setTransactions(createMockTransactions(20));
         return;
       }
-      
+
       fetchData();
-      
+
       // Set up polling for new data
       const pollInterval = setInterval(async () => {
         try {
@@ -128,22 +128,22 @@ export const HomeScreen: React.FC = () => {
             sdk.getLatestBlockHeight(),
             sdk.getTransactions(5) // Get only the 5 most recent transactions
           ]);
-          
+
           blockchainActions.setStats({ blockHeight });
-          
+
           // Add block height to the new transactions
           const transactionsWithBlockHeight = transactions.map((tx, index) => ({
             ...tx,
             block_height: blockHeight - index,
           }));
-          
+
           // Add only new transactions that aren't already in the store
-          const currentTransactions = transactionsWithBlockHeight.filter((tx: Transaction) => 
-            !blockchainStore.transactions.peek().some((existingTx: Transaction) => 
+          const currentTransactions = transactionsWithBlockHeight.filter((tx: Transaction) =>
+            !blockchainStore.transactions.peek().some((existingTx: Transaction) =>
               existingTx.hash === tx.hash
             )
           );
-          
+
           // Add each new transaction individually
           currentTransactions.forEach((tx: Transaction) => {
             blockchainActions.addTransaction(tx);
@@ -152,7 +152,7 @@ export const HomeScreen: React.FC = () => {
           console.error('Polling error:', error);
         }
       }, 10000); // Poll every 10 seconds
-      
+
       return () => {
         clearInterval(pollInterval);
       };
@@ -166,11 +166,11 @@ export const HomeScreen: React.FC = () => {
   // Display loading state while the SDK is initializing
   if (!sdk.isInitialized) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.loadingContainer}>
+        <View className="flex-1 justify-center items-center bg-background p-5">
           <ActivityIndicator size="large" color="#E75A5C" />
-          <Text style={styles.loadingText}>Initializing blockchain SDK...</Text>
+          <Text className="text-white text-lg mt-4 text-center">Initializing blockchain SDK...</Text>
         </View>
       </SafeAreaView>
     );
@@ -179,26 +179,26 @@ export const HomeScreen: React.FC = () => {
   // Display error state if the SDK failed to initialize
   if (sdk.error && !loadingTimeout) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>RPC Connection Error</Text>
-          <Text style={styles.errorMessage}>{sdk.error.message}</Text>
-          <Text style={styles.errorMessage}>
+        <View className="flex-1 justify-center items-center bg-background p-5">
+          <Text className="text-primary text-2xl font-bold mb-4">RPC Connection Error</Text>
+          <Text className="text-white text-base text-center mb-2">{sdk.error.message}</Text>
+          <Text className="text-white text-base text-center mb-2">
             Direct connection to Open Libra RPC at {`https://rpc.openlibra.space:8080/v1`} failed
           </Text>
           {sdk.error.message.includes('CORS') && (
-            <Text style={styles.errorNote}>
+            <Text className="text-text-muted text-sm text-center">
               This is a CORS policy restriction in the browser environment.
               The RPC server is not allowing cross-origin requests from your domain.
             </Text>
           )}
           {sdk.error.message.includes('Failed to fetch') && (
-            <Text style={styles.errorNote}>
+            <Text className="text-text-muted text-sm text-center">
               Network request failed. Check your internet connection or if the RPC endpoint is accessible.
             </Text>
           )}
-          <Text style={styles.errorNote}>Using mock data instead...</Text>
+          <Text className="text-text-muted text-sm text-center">Using mock data instead...</Text>
         </View>
       </SafeAreaView>
     );
@@ -206,16 +206,16 @@ export const HomeScreen: React.FC = () => {
 
   // If everything looks good, render the main content
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-background">
       <Header testID="header" />
-      <View style={styles.container}>
+      <View className="flex-1 p-4 bg-background">
         {loadingTimeout && (
-          <View style={styles.mockDataBanner}>
-            <Text style={styles.mockDataText}>
+          <View className="bg-primary/20 p-2.5 rounded mb-4">
+            <Text className="text-white text-sm text-center">
               Using sample data - Unable to connect to Open Libra RPC. This is simulated data.
             </Text>
-            <Text style={styles.mockDataSubtext}>
-              Connection to {`https://rpc.openlibra.space:8080/v1`} failed. 
+            <Text className="text-white text-xs text-center">
+              Connection to {`https://rpc.openlibra.space:8080/v1`} failed.
               Using standard SDK initialization without modifications.
             </Text>
           </View>
@@ -225,69 +225,4 @@ export const HomeScreen: React.FC = () => {
       </View>
     </SafeAreaView>
   );
-};
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0B1221',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#0B1221',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0B1221',
-    padding: 20,
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0B1221',
-    padding: 20,
-  },
-  errorTitle: {
-    color: '#E75A5C',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  errorMessage: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  errorNote: {
-    color: '#ADBAC7',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  mockDataBanner: {
-    backgroundColor: '#E75A5C33',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: 16,
-  },
-  mockDataText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  mockDataSubtext: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-}); 
+}; 
