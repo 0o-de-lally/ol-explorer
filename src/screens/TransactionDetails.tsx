@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -10,7 +10,27 @@ import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
-import { normalizeAddress } from '../utils/addressUtils';
+import { normalizeAddress, formatAddressForDisplay } from '../utils/addressUtils';
+
+// Get screen width to adjust formatting for mobile
+const screenWidth = Dimensions.get('window').width;
+const isMobile = screenWidth < 768;
+
+/**
+ * Format a hash value for display
+ * - For mobile: Shows abbreviated version with ellipsis
+ * - For desktop: Shows full hash
+ */
+const formatHashForDisplay = (hash: string, mobile = isMobile): string => {
+  if (!hash) return '';
+
+  // Always keep the 0x prefix
+  if (mobile) {
+    return formatAddressForDisplay(hash, 10, 8); // Show more characters for hashes
+  }
+
+  return hash;
+};
 
 type TransactionDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'TransactionDetails'>;
@@ -151,7 +171,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             <Text style={styles.hashTitle}>Transaction Hash</Text>
             {renderStatusBadge(transaction.status)}
           </View>
-          <Text style={styles.hash}>{transaction.hash}</Text>
+
+          {/* New format for hash display */}
+          <View style={styles.hashContainer}>
+            <Text style={styles.hash}>{formatHashForDisplay(transaction.hash, false)}</Text>
+          </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Block Height</Text>
@@ -171,7 +195,9 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Sender</Text>
             <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
-              <Text style={[styles.infoValue, styles.linkText]}>{transaction.sender}</Text>
+              <Text style={[styles.infoValue, styles.linkText]}>
+                {formatAddressForDisplay(transaction.sender)}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -217,21 +243,27 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           {transaction.state_change_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>State Change Hash</Text>
-              <Text style={styles.infoValue}>{transaction.state_change_hash}</Text>
+              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                {formatHashForDisplay(transaction.state_change_hash)}
+              </Text>
             </View>
           )}
 
           {transaction.event_root_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Event Root Hash</Text>
-              <Text style={styles.infoValue}>{transaction.event_root_hash}</Text>
+              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                {formatHashForDisplay(transaction.event_root_hash)}
+              </Text>
             </View>
           )}
 
           {transaction.accumulator_root_hash && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Accumulator Root Hash</Text>
-              <Text style={styles.infoValue}>{transaction.accumulator_root_hash}</Text>
+              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                {formatHashForDisplay(transaction.accumulator_root_hash)}
+              </Text>
             </View>
           )}
         </View>
@@ -242,9 +274,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             {transaction.events.map((event, index) => (
               <View key={index} style={styles.eventItem}>
                 <Text style={styles.eventType}>{event.type}</Text>
-                <Text style={styles.eventData}>
-                  {JSON.stringify(event.data, null, 2)}
-                </Text>
+                <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+                  <Text style={styles.eventData}>
+                    {JSON.stringify(event.data, null, 2)}
+                  </Text>
+                </ScrollView>
               </View>
             ))}
           </View>
@@ -257,11 +291,15 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               <View key={index} style={styles.changeItem}>
                 <Text style={styles.changeType}>{change.type}</Text>
                 <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
-                  <Text style={[styles.changeAddress, styles.linkText]}>{change.address}</Text>
+                  <Text style={[styles.changeAddress, styles.linkText]}>
+                    {formatAddressForDisplay(change.address)}
+                  </Text>
                 </TouchableOpacity>
-                <Text style={styles.changeData}>
-                  {JSON.stringify(change.data, null, 2)}
-                </Text>
+                <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+                  <Text style={styles.changeData}>
+                    {JSON.stringify(change.data, null, 2)}
+                  </Text>
+                </ScrollView>
               </View>
             ))}
           </View>
@@ -269,9 +307,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Payload</Text>
-          <Text style={styles.payloadData}>
-            {JSON.stringify(transaction.payload, null, 2)}
-          </Text>
+          <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+            <Text style={styles.payloadData}>
+              {JSON.stringify(transaction.payload, null, 2)}
+            </Text>
+          </ScrollView>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -292,9 +332,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    flexWrap: 'wrap',
   },
   backButton: {
     marginRight: 16,
+    marginBottom: 8,
   },
   backButtonText: {
     color: '#E75A5C',
@@ -305,6 +347,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
+    flexWrap: 'wrap',
   },
   infoCard: {
     backgroundColor: '#172234',
@@ -317,20 +361,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   hashTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    marginBottom: 4,
   },
-  hash: {
-    fontSize: 14,
-    color: '#FFFFFF',
+  hashContainer: {
     marginBottom: 20,
     padding: 10,
     backgroundColor: '#0D1626',
     borderRadius: 4,
-    fontFamily: 'monospace',
+  },
+  hash: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    flexWrap: 'wrap',
   },
   infoRow: {
     flexDirection: 'row',
@@ -339,17 +388,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2c3a50',
     paddingBottom: 12,
+    flexWrap: 'wrap',
   },
   infoLabel: {
     fontSize: 14,
     color: '#ADBAC7',
     flex: 1,
+    marginBottom: 4,
   },
   infoValue: {
     fontSize: 14,
     color: '#FFFFFF',
     flex: 2,
     textAlign: 'right',
+    flexWrap: 'wrap',
   },
   linkText: {
     color: '#E75A5C',
@@ -371,6 +423,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 4,
+    marginLeft: 8,
   },
   successBadge: {
     backgroundColor: '#4CAF50',
@@ -395,10 +448,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 8,
   },
+  codeScrollView: {
+    maxWidth: '100%',
+  },
   eventData: {
     fontSize: 12,
     color: '#ADBAC7',
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   changeItem: {
     marginBottom: 16,
@@ -420,12 +476,12 @@ const styles = StyleSheet.create({
   changeData: {
     fontSize: 12,
     color: '#ADBAC7',
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   payloadData: {
     fontSize: 12,
     color: '#ADBAC7',
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     padding: 12,
     backgroundColor: '#0D1626',
     borderRadius: 4,
