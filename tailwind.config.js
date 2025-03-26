@@ -21,6 +21,13 @@ module.exports = {
       },
     },
   },
+  // Improve handling of special characters in class names
+  separator: '_',
+  safelist: [
+    // Add any critical classes that might be dynamically generated
+    'bg-primary',
+    'text-white'
+  ],
   plugins: [],
 }
 
