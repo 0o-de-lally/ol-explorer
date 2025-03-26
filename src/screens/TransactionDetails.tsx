@@ -10,6 +10,7 @@ import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
+import { normalizeAddress } from '../utils/addressUtils';
 
 type TransactionDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'TransactionDetails'>;
@@ -83,9 +84,9 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
       return;
     }
 
-    // Ensure address has the 0x prefix
-    const formattedAddress = address.startsWith('0x') ? address : `0x${address}`;
-    console.log(`Navigating to account details for: ${formattedAddress}`);
+    // Normalize address using the same function everywhere
+    const formattedAddress = normalizeAddress(address);
+    console.log(`Navigating to account details for: ${formattedAddress} (original: ${address})`);
 
     navigation.navigate('AccountDetails', { address: formattedAddress });
   };

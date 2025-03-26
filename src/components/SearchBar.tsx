@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useSdk } from '../hooks/useSdk';
+import { normalizeAddress, isValidAddressFormat } from '../utils/addressUtils';
 
 export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -19,23 +20,28 @@ export const SearchBar: React.FC = () => {
         setError(null);
 
         try {
-            // Normalize the address (remove 0x prefix if present for consistency)
             const query = searchQuery.trim();
 
-            // Try account lookup first
-            console.log(`Searching for account: ${query}`);
-            const accountData = await sdk.getAccount(query);
+            // Check if query looks like an address
+            if (isValidAddressFormat(query)) {
+                // Normalize address for account lookup
+                const normalizedAddress = normalizeAddress(query);
+                console.log(`Searching for account: ${normalizedAddress} (original: ${query})`);
 
-            if (accountData) {
-                console.log('Account found, navigating to account details');
-                navigation.navigate('AccountDetails', { address: query });
-                setSearchQuery('');
-                setIsSearching(false);
-                return;
+                // Try account lookup with normalized address
+                const accountData = await sdk.getAccount(normalizedAddress);
+
+                if (accountData) {
+                    console.log('Account found, navigating to account details');
+                    navigation.navigate('AccountDetails', { address: normalizedAddress });
+                    setSearchQuery('');
+                    setIsSearching(false);
+                    return;
+                }
             }
 
-            // If account lookup fails, try transaction hash lookup
-            console.log('Account not found, trying transaction lookup');
+            // If account lookup fails or not an address format, try transaction hash lookup
+            console.log('Trying transaction lookup for:', query);
             const txDetails = await sdk.getTransactionByHash(query);
 
             if (txDetails) {

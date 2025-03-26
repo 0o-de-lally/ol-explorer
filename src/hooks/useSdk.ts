@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { BlockchainSDK, Transaction, TransactionDetail, Account } from '../types/blockchain';
 import { createMockLibraClient } from '../services/mockSdk';
 import { blockTimeStore, calculateBlockTime } from '../store/blockTimeStore';
+import { normalizeAddress } from '../utils/addressUtils';
 
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
@@ -408,14 +409,8 @@ export const useSdk = (): BlockchainSDK => {
         return null;
       }
 
-      // Normalize the address
-      // First, remove 0x prefix if present
-      const cleanAddress = address.startsWith('0x') ? address.slice(2) : address;
-      // Pad address to 64 characters with leading zeros if needed
-      const paddedAddress = cleanAddress.padStart(64, '0');
-      // Add 0x prefix back
-      const formattedAddress = `0x${paddedAddress}`;
-
+      // Normalize the address using the consistent function
+      const formattedAddress = normalizeAddress(address);
       console.log(`Getting account details for: ${formattedAddress} (original: ${address})`);
 
       // Get account info first to see if account exists
