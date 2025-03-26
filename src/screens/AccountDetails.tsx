@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Header } from '../components/Header';
 import { useSdk } from '../hooks/useSdk';
-import { Account } from '../types/blockchain';
+import { Account, AccountResource } from '../types/blockchain';
 
 type AccountDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'AccountDetails'>;
@@ -18,26 +18,41 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
 
   const fetchAccountDetails = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
+      // Validate the address first
+      if (!address || typeof address !== 'string') {
+        throw new Error('Invalid account address format');
+      }
+
+      // Check SDK initialization
       if (!sdk.isInitialized || sdk.error) {
         throw new Error(sdk.error?.message || 'SDK is not initialized');
       }
-      
+
+      console.log(`Fetching account details for: ${address}`);
       const accountData = await sdk.getAccount(address);
-      
+
       if (!accountData) {
         throw new Error(`Account with address ${address} not found`);
       }
-      
+
+      // Validate the returned account data
+      if (!accountData.address) {
+        throw new Error('Received invalid account data from API');
+      }
+
+      console.log('Account data received:', JSON.stringify(accountData, null, 2));
       setAccount(accountData);
     } catch (err) {
       console.error('Error fetching account details:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      setAccount(null);
     } finally {
       setLoading(false);
     }
@@ -57,6 +72,52 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
       minimumFractionDigits: 8,
       maximumFractionDigits: 8
     });
+  };
+
+  const toggleResourceExpansion = (index: number) => {
+    setExpandedResources(prevState => {
+      const newState = new Set(prevState);
+      if (newState.has(index)) {
+        newState.delete(index);
+      } else {
+        newState.add(index);
+      }
+      return newState;
+    });
+  };
+
+  const renderResourceItem = (resource: AccountResource, index: number) => {
+    const isExpanded = expandedResources.has(index);
+
+    // Get a simplified type name for display
+    const typeDisplay = resource.type.split('::').slice(-2).join('::');
+
+    // Determine if this is a coin resource
+    const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
+
+    // Get an appropriate icon/color based on resource type
+    const resourceColor = isCoinResource ? '#4CAF50' : '#3498db';
+
+    return (
+      <View key={index} style={styles.resourceItem}>
+        <TouchableOpacity
+          style={[styles.resourceHeader, { borderLeftColor: resourceColor, borderLeftWidth: 4 }]}
+          onPress={() => toggleResourceExpansion(index)}
+        >
+          <Text style={styles.resourceType}>{typeDisplay}</Text>
+          <Text style={styles.resourceExpandBtn}>{isExpanded ? '▼' : '▶'}</Text>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.resourceDataContainer}>
+            <Text style={styles.resourceFullType}>{resource.type}</Text>
+            <Text style={styles.resourceData}>
+              {JSON.stringify(resource.data, null, 2)}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
   };
 
   if (loading) {
@@ -102,7 +163,7 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
       </SafeAreaView>
     );
   }
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header testID="header" />
@@ -113,36 +174,39 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
           </TouchableOpacity>
           <Text style={styles.title}>Account Details</Text>
         </View>
-        
+
         <View style={styles.infoCard}>
           <View style={styles.topRow}>
             <Text style={styles.addressTitle}>Account Address</Text>
           </View>
           <Text style={styles.address}>{account.address}</Text>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Balance</Text>
             <Text style={styles.infoValue}>{formatBalance(account.balance)} OL</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Sequence Number</Text>
             <Text style={styles.infoValue}>{account.sequence_number}</Text>
           </View>
         </View>
-        
+
         {account.resources && account.resources.length > 0 && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Resources ({account.resources.length})</Text>
-            
-            {account.resources.map((resource, index) => (
-              <View key={index} style={styles.resourceItem}>
-                <Text style={styles.resourceType}>{resource.type}</Text>
-                <Text style={styles.resourceData}>
-                  {JSON.stringify(resource.data, null, 2)}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Resources ({account.resources.length})</Text>
+              <TouchableOpacity onPress={() => setExpandedResources(expandedResources.size === 0
+                ? new Set(account.resources.map((_, i) => i))
+                : new Set()
+              )}>
+                <Text style={styles.expandAllText}>
+                  {expandedResources.size === 0 ? 'Expand All' : 'Collapse All'}
                 </Text>
-              </View>
-            ))}
+              </TouchableOpacity>
+            </View>
+
+            {account.resources.map((resource, index) => renderResourceItem(resource, index))}
           </View>
         )}
       </ScrollView>
@@ -229,23 +293,54 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 16,
+  },
+  expandAllText: {
+    color: '#E75A5C',
+    fontSize: 14,
   },
   resourceItem: {
-    marginBottom: 16,
-    padding: 12,
+    marginBottom: 12,
     backgroundColor: '#0D1626',
     borderRadius: 4,
+    overflow: 'hidden',
+  },
+  resourceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
   },
   resourceType: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
+  },
+  resourceExpandBtn: {
+    fontSize: 14,
+    color: '#E75A5C',
+    marginLeft: 8,
+  },
+  resourceDataContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#2c3a50',
+    padding: 12,
+  },
+  resourceFullType: {
+    fontSize: 12,
+    color: '#8F9BB3',
     marginBottom: 8,
+    fontFamily: 'monospace',
   },
   resourceData: {
     fontSize: 12,

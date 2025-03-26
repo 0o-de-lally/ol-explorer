@@ -7,7 +7,6 @@ import { View } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { TransactionDetailsScreen } from './src/screens/TransactionDetails';
 import { AccountDetailsScreen } from './src/screens/AccountDetails';
-import { SearchScreen } from './src/screens/SearchScreen';
 import { RootStackParamList } from './src/navigation/types';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { Footer } from './src/components/Footer';
@@ -79,7 +78,6 @@ export default function App() {
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
             <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
-            <Stack.Screen name="Search" component={SearchScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <Footer />

@@ -402,37 +402,96 @@ export const useSdk = (): BlockchainSDK => {
     if (!client) return null;
 
     try {
-      // Format address according to documentation
-      const formattedAddress = address.startsWith('0x') ? address : `0x${address}`;
-      console.log(`Getting account details for: ${formattedAddress}`);
+      // Validate the address before proceeding
+      if (!address || typeof address !== 'string') {
+        console.error('Invalid address format:', address);
+        return null;
+      }
 
-      // Get account resources with updated parameter format
-      const resources = await client.getAccountResources({
-        address: formattedAddress
-      });
+      // Normalize the address
+      // First, remove 0x prefix if present
+      const cleanAddress = address.startsWith('0x') ? address.slice(2) : address;
+      // Pad address to 64 characters with leading zeros if needed
+      const paddedAddress = cleanAddress.padStart(64, '0');
+      // Add 0x prefix back
+      const formattedAddress = `0x${paddedAddress}`;
 
-      // Try to find the balance in the resources
-      const coinResource = resources.find((r: any) =>
-        r.type.includes('0x1::coin::CoinStore<') && r.type.includes('AptosCoin')
-      );
+      console.log(`Getting account details for: ${formattedAddress} (original: ${address})`);
 
-      // Extract balance or default to 0
-      const balance = coinResource ?
-        parseInt(coinResource.data.coin?.value || '0') : 0;
+      // Get account info first to see if account exists
+      let accountInfo;
+      try {
+        accountInfo = await client.getAccount({
+          address: formattedAddress
+        });
 
-      // Get account info with updated parameter format
-      const accountInfo = await client.getAccount({
-        address: formattedAddress
+        // If we don't have sequence_number, the account likely doesn't exist
+        if (!accountInfo || accountInfo.sequence_number === undefined) {
+          console.error(`Account not found: ${formattedAddress}`);
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching account info: ${formattedAddress}`, error);
+        return null;
+      }
+
+      // Get account resources with updated parameter format and better error handling
+      let resources = [];
+      try {
+        const resourcesResponse = await client.getAccountResources({
+          address: formattedAddress
+        });
+
+        resources = Array.isArray(resourcesResponse) ? resourcesResponse : [];
+      } catch (error) {
+        console.error(`Error fetching account resources: ${formattedAddress}`, error);
+        // Continue with empty resources rather than failing completely
+        resources = [];
+      }
+
+      // Try to find the balance in the resources with safe navigation
+      let balance = 0;
+      try {
+        // First look for LibraCoin
+        const coinResource = resources.find((r: any) =>
+          r && r.type &&
+          typeof r.type === 'string' &&
+          (r.type.includes('0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>') ||
+            r.type.includes('CoinStore<AptosCoin>'))
+        );
+
+        // Extract balance with safe navigation
+        if (coinResource && coinResource.data && coinResource.data.coin &&
+          typeof coinResource.data.coin.value === 'string') {
+          balance = parseInt(coinResource.data.coin.value);
+          if (isNaN(balance)) balance = 0;
+        }
+      } catch (error) {
+        console.error('Error parsing coin resource:', error);
+        // Continue with zero balance
+      }
+
+      // Process resources to make them more user-friendly
+      const processedResources = resources.map((resource: any) => {
+        try {
+          return {
+            type: resource && resource.type ? resource.type : '',
+            data: resource && resource.data ? resource.data : {}
+          };
+        } catch (err) {
+          console.error('Error processing resource:', err);
+          return {
+            type: 'Error processing resource',
+            data: {}
+          };
+        }
       });
 
       return {
         address: formattedAddress,
         balance,
-        sequence_number: parseInt(accountInfo.sequence_number) || 0,
-        resources: resources.map((resource: any) => ({
-          type: resource.type || '',
-          data: resource.data || {}
-        }))
+        sequence_number: parseInt(String(accountInfo.sequence_number)) || 0,
+        resources: processedResources
       };
     } catch (error) {
       console.error('Error fetching account:', error);
