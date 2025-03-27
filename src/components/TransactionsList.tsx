@@ -302,23 +302,25 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
       {renderTableHeader()}
 
-      <FlatList
-        data={transactionArray}
-        keyExtractor={(item) => item.hash}
-        renderItem={renderTransactionItem}
-        className="flex-1"
-        contentContainerStyle={{ flexGrow: 1 }}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center p-5">
-            <Text className="text-white text-base">No transactions found</Text>
-          </View>
-        }
-        ListFooterComponent={isLoading.get() ? (
-          <View className="p-4 flex-row justify-center">
-            <ActivityIndicator size="small" color="#E75A5C" />
-          </View>
-        ) : null}
-      />
+      {transactionArray.length > 0 ? (
+        <View className="flex-1">
+          {transactionArray.map(item => (
+            <View key={item.hash}>
+              {renderTransactionItem({ item })}
+            </View>
+          ))}
+
+          {isLoading.get() && (
+            <View className="p-4 flex-row justify-center">
+              <ActivityIndicator size="small" color="#E75A5C" />
+            </View>
+          )}
+        </View>
+      ) : (
+        <View className="flex-1 justify-center items-center p-5">
+          <Text className="text-white text-base">No transactions found</Text>
+        </View>
+      )}
     </View>
   );
 }; 

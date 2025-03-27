@@ -1,17 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
+import { useForceUpdate } from '../hooks/useForceUpdate';
 
 type BlockchainStatsProps = {
   testID?: string;
 };
 
 export const BlockchainStats: React.FC<BlockchainStatsProps> = ({ testID }) => {
+  // Use the useForceUpdate hook to ensure component updates
+  const updateCounter = useForceUpdate();
+
   // Use the observable store to get reactive state
   const stats = useObservable(blockchainStore.stats);
   const isLoading = useObservable(blockchainStore.isLoading);
   const { width } = useWindowDimensions();
+
+  // Debug logging to track component updates
+  useEffect(() => {
+    console.log('BlockchainStats updated', {
+      updateCounter,
+      blockHeight: stats.blockHeight.get(),
+      epoch: stats.epoch.get(),
+      chainId: stats.chainId.get(),
+      isLoading: isLoading.get()
+    });
+  }, [updateCounter, stats.blockHeight.get(), stats.epoch.get(), stats.chainId.get(), isLoading.get()]);
 
   // Determine if we should stack vertically (for mobile screens)
   const isStackedLayout = width < 768;

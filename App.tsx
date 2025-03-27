@@ -13,6 +13,7 @@ import { Footer } from './src/components/Footer';
 import { SdkProvider } from './src/context/SdkContext';
 import { SdkLoadingIndicator } from './src/components/SdkLoadingIndicator';
 import { setupPolyfills } from './src/utils/polyfills';
+import * as Linking from 'expo-linking';
 
 // Setup necessary polyfills
 setupPolyfills();
@@ -31,6 +32,18 @@ if (typeof window !== 'undefined' && !window.Buffer) {
 
 // Create the navigation stack
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Configure linking for web deep linking
+const linking = {
+  prefixes: [Linking.createURL('/')],
+  config: {
+    screens: {
+      Home: '',
+      TransactionDetails: 'tx/:hash',
+      AccountDetails: 'account/:address',
+    },
+  },
+};
 
 export default function App() {
   // Reference to the navigation container
@@ -64,23 +77,38 @@ export default function App() {
 
           <NavigationContainer
             ref={navigationRef}
+            linking={linking}
+            documentTitle={{
+              formatter: (options, route) => {
+                const routeName = route?.name || 'Home';
+                return `${routeName} | Open Libra Explorer`;
+              },
+            }}
             onReady={() => {
               // Ensure the app initializes properly with Home screen focused
               console.log('Navigation container is ready');
             }}
           >
             <StatusBar style="light" />
-            <Stack.Navigator
-              initialRouteName="Home"
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#0B1221' }
-              }}
-            >
-              <Stack.Screen name="Home" component={HomeScreen} />
-              <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
-              <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
-            </Stack.Navigator>
+            <View className="flex-1 mx-auto w-full max-w-screen-xl px-4">
+              <Stack.Navigator
+                initialRouteName="Home"
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: '#0B1221' }
+                }}
+              >
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen
+                  name="TransactionDetails"
+                  component={TransactionDetailsScreen}
+                />
+                <Stack.Screen
+                  name="AccountDetails"
+                  component={AccountDetailsScreen}
+                />
+              </Stack.Navigator>
+            </View>
           </NavigationContainer>
           <Footer />
         </View>

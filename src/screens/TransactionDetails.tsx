@@ -137,11 +137,15 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#E75A5C" />
-          <Text style={styles.loadingText}>Loading transaction details...</Text>
+        <View className="flex-1 justify-center items-center">
+          <View className="mx-auto w-full max-w-screen-xl px-4">
+            <View className="flex items-center justify-center p-8">
+              <ActivityIndicator size="large" color="#E75A5C" />
+              <Text className="mt-4 text-white text-lg">Loading transaction details...</Text>
+            </View>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -149,39 +153,43 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Error Loading Transaction</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              // Ensure we have a valid hash before retrying
-              console.log('Retry button clicked with hash:', hash);
+        <View className="flex-1 justify-center items-center">
+          <View className="mx-auto w-full max-w-screen-xl px-4">
+            <View className="flex items-center justify-center p-8">
+              <Text className="text-primary text-2xl font-bold mb-4">Error Loading Transaction</Text>
+              <Text className="text-white text-base text-center mb-6">{error}</Text>
+              <TouchableOpacity
+                className="bg-primary rounded-lg py-3 px-6 mb-4"
+                onPress={() => {
+                  // Ensure we have a valid hash before retrying
+                  console.log('Retry button clicked with hash:', hash);
 
-              // If hash is null, use a fallback mechanism or show error
-              if (!hash) {
-                console.error('Cannot retry: Invalid hash value');
-                setError('Cannot retry: transaction hash is missing or invalid');
-                return;
-              }
+                  // If hash is null, use a fallback mechanism or show error
+                  if (!hash) {
+                    console.error('Cannot retry: Invalid hash value');
+                    setError('Cannot retry: transaction hash is missing or invalid');
+                    return;
+                  }
 
-              fetchTransactionDetails();
-            }}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>← Back to Transactions</Text>
-          </TouchableOpacity>
+                  fetchTransactionDetails();
+                }}
+              >
+                <Text className="text-white font-bold text-base">Retry</Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="mt-2" onPress={handleBackPress}>
+                <Text className="text-primary text-base font-bold">← Back to Transactions</Text>
+              </TouchableOpacity>
 
-          {/* Debug info panel */}
-          <View style={{ marginTop: 20, padding: 10, backgroundColor: '#1E293B', borderRadius: 4 }}>
-            <Text style={{ color: '#ADBAC7', fontSize: 12, marginBottom: 4 }}>Debug Info:</Text>
-            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Original hash: {hashFromParams || 'undefined'}</Text>
-            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Normalized hash: {hash || 'null'}</Text>
-            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Type: {typeof hash}</Text>
+              {/* Debug info panel */}
+              <View className="mt-6 p-3 bg-secondary rounded-md w-full max-w-md">
+                <Text className="text-text-muted text-xs mb-1">Debug Info:</Text>
+                <Text className="text-text-muted text-xs">Original hash: {hashFromParams || 'undefined'}</Text>
+                <Text className="text-text-muted text-xs">Normalized hash: {hash || 'null'}</Text>
+                <Text className="text-text-muted text-xs">Type: {typeof hash}</Text>
+              </View>
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -190,175 +198,186 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
   if (!transaction) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Transaction Not Found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>← Back to Transactions</Text>
-          </TouchableOpacity>
+        <View className="flex-1 justify-center items-center">
+          <View className="mx-auto w-full max-w-screen-xl px-4">
+            <View className="flex items-center justify-center p-8">
+              <Text className="text-primary text-2xl font-bold mb-4">Transaction Not Found</Text>
+              <TouchableOpacity className="mt-2" onPress={handleBackPress}>
+                <Text className="text-primary text-base font-bold">← Back to Transactions</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-background">
       <Header testID="header" />
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>← Back to Transactions</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Transaction Details</Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.topRow}>
-            <Text style={styles.hashTitle}>Transaction Hash</Text>
-            {renderStatusBadge(transaction.status)}
-          </View>
-
-          {/* New format for hash display */}
-          <View style={styles.hashContainer}>
-            <Text style={styles.hash}>{formatHashForDisplay(transaction.hash, false)}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Block Height</Text>
-            <Text style={styles.infoValue}>{transaction.block_height}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>{transaction.version}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Timestamp</Text>
-            <Text style={styles.infoValue}>{formatTimestamp(transaction.timestamp)}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Sender</Text>
-            <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
-              <Text style={[styles.infoValue, styles.linkText]}>
-                {formatAddressForDisplay(transaction.sender)}
-              </Text>
+      <ScrollView className="flex-1">
+        <View className="mx-auto w-full max-w-screen-xl px-4">
+          <View className="flex-row items-center mb-5 flex-wrap">
+            <TouchableOpacity
+              className="mr-4 mb-2"
+              onPress={handleBackPress}
+            >
+              <Text className="text-primary text-base font-bold">← Back to Transactions</Text>
             </TouchableOpacity>
+            <Text className="text-white text-2xl font-bold flex-1 flex-wrap">Transaction Details</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Sequence Number</Text>
-            <Text style={styles.infoValue}>{transaction.sequence_number}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Transaction Type</Text>
-            <Text style={styles.infoValue}>{transaction.type}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Gas Used</Text>
-            <Text style={styles.infoValue}>{transaction.gas_used || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Gas Unit Price</Text>
-            <Text style={styles.infoValue}>{transaction.gas_unit_price || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>VM Status</Text>
-            <Text style={styles.infoValue}>{transaction.vm_status || 'N/A'}</Text>
-          </View>
-
-          {transaction.epoch && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Epoch</Text>
-              <Text style={styles.infoValue}>{transaction.epoch}</Text>
-            </View>
-          )}
-
-          {transaction.round && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Round</Text>
-              <Text style={styles.infoValue}>{transaction.round}</Text>
-            </View>
-          )}
-
-          {transaction.state_change_hash && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>State Change Hash</Text>
-              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
-                {formatHashForDisplay(transaction.state_change_hash)}
-              </Text>
-            </View>
-          )}
-
-          {transaction.event_root_hash && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Event Root Hash</Text>
-              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
-                {formatHashForDisplay(transaction.event_root_hash)}
-              </Text>
-            </View>
-          )}
-
-          {transaction.accumulator_root_hash && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Accumulator Root Hash</Text>
-              <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
-                {formatHashForDisplay(transaction.accumulator_root_hash)}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {transaction.events && transaction.events.length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Events ({transaction.events.length})</Text>
-            {transaction.events.map((event, index) => (
-              <View key={index} style={styles.eventItem}>
-                <Text style={styles.eventType}>{event.type}</Text>
-                <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
-                  <Text style={styles.eventData}>
-                    {JSON.stringify(event.data, null, 2)}
-                  </Text>
-                </ScrollView>
+          <View className="bg-secondary rounded-lg p-4 mb-4">
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
+              <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
+                <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
               </View>
-            ))}
-          </View>
-        )}
+            </View>
 
-        {transaction.changes && transaction.changes.length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>State Changes ({transaction.changes.length})</Text>
-            {transaction.changes.map((change, index) => (
-              <View key={index} style={styles.changeItem}>
-                <Text style={styles.changeType}>{change.type}</Text>
-                <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
-                  <Text style={[styles.changeAddress, styles.linkText]}>
-                    {formatAddressForDisplay(change.address)}
-                  </Text>
-                </TouchableOpacity>
-                <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
-                  <Text style={styles.changeData}>
-                    {JSON.stringify(change.data, null, 2)}
-                  </Text>
-                </ScrollView>
+            {/* Hash display */}
+            <View className="bg-background rounded px-3 py-2 mb-4">
+              <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Block Height</Text>
+              <Text style={styles.infoValue}>{transaction.block_height}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Version</Text>
+              <Text style={styles.infoValue}>{transaction.version}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Timestamp</Text>
+              <Text style={styles.infoValue}>{formatTimestamp(transaction.timestamp)}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Sender</Text>
+              <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
+                <Text style={[styles.infoValue, styles.linkText]}>
+                  {formatAddressForDisplay(transaction.sender)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Sequence Number</Text>
+              <Text style={styles.infoValue}>{transaction.sequence_number}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Transaction Type</Text>
+              <Text style={styles.infoValue}>{transaction.type}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Gas Used</Text>
+              <Text style={styles.infoValue}>{transaction.gas_used || 'N/A'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Gas Unit Price</Text>
+              <Text style={styles.infoValue}>{transaction.gas_unit_price || 'N/A'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>VM Status</Text>
+              <Text style={styles.infoValue}>{transaction.vm_status || 'N/A'}</Text>
+            </View>
+
+            {transaction.epoch && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Epoch</Text>
+                <Text style={styles.infoValue}>{transaction.epoch}</Text>
               </View>
-            ))}
-          </View>
-        )}
+            )}
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Payload</Text>
-          <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
-            <Text style={styles.payloadData}>
-              {JSON.stringify(transaction.payload, null, 2)}
-            </Text>
-          </ScrollView>
+            {transaction.round && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Round</Text>
+                <Text style={styles.infoValue}>{transaction.round}</Text>
+              </View>
+            )}
+
+            {transaction.state_change_hash && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>State Change Hash</Text>
+                <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                  {formatHashForDisplay(transaction.state_change_hash)}
+                </Text>
+              </View>
+            )}
+
+            {transaction.event_root_hash && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Event Root Hash</Text>
+                <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                  {formatHashForDisplay(transaction.event_root_hash)}
+                </Text>
+              </View>
+            )}
+
+            {transaction.accumulator_root_hash && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Accumulator Root Hash</Text>
+                <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="middle">
+                  {formatHashForDisplay(transaction.accumulator_root_hash)}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {transaction.events && transaction.events.length > 0 && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Events ({transaction.events.length})</Text>
+              {transaction.events.map((event, index) => (
+                <View key={index} style={styles.eventItem}>
+                  <Text style={styles.eventType}>{event.type}</Text>
+                  <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+                    <Text style={styles.eventData}>
+                      {JSON.stringify(event.data, null, 2)}
+                    </Text>
+                  </ScrollView>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {transaction.changes && transaction.changes.length > 0 && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>State Changes ({transaction.changes.length})</Text>
+              {transaction.changes.map((change, index) => (
+                <View key={index} style={styles.changeItem}>
+                  <Text style={styles.changeType}>{change.type}</Text>
+                  <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
+                    <Text style={[styles.changeAddress, styles.linkText]}>
+                      {formatAddressForDisplay(change.address)}
+                    </Text>
+                  </TouchableOpacity>
+                  <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+                    <Text style={styles.changeData}>
+                      {JSON.stringify(change.data, null, 2)}
+                    </Text>
+                  </ScrollView>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Payload</Text>
+            <ScrollView horizontal={isMobile} style={styles.codeScrollView}>
+              <Text style={styles.payloadData}>
+                {JSON.stringify(transaction.payload, null, 2)}
+              </Text>
+            </ScrollView>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

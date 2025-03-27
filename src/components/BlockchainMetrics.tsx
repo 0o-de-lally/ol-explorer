@@ -26,10 +26,25 @@ export const BlockchainMetrics: React.FC = () => {
     console.log('BlockchainMetrics updated', {
       updateCounter,
       blockHeight: stats.blockHeight.get(),
+      epoch: stats.epoch.get(),
+      chainId: stats.chainId.get(),
+      blockTimeMs: blockTimeMs.get(),
+      lastBlockHeight: lastBlockHeight.get(),
+      lastBlockTimestamp: lastBlockTimestamp.get(),
       isLoading: isLoading.get(),
       isInitialized
     });
-  }, [updateCounter, stats.blockHeight.get(), isLoading.get(), isInitialized]);
+  }, [
+    updateCounter,
+    stats.blockHeight.get(),
+    stats.epoch.get(),
+    stats.chainId.get(),
+    blockTimeMs.get(),
+    lastBlockHeight.get(),
+    lastBlockTimestamp.get(),
+    isLoading.get(),
+    isInitialized
+  ]);
 
   const formatBlockTime = (ms: number) => {
     return `${(ms / 1000).toFixed(2)}s`;

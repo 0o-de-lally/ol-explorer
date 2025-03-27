@@ -306,7 +306,7 @@ export const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Header testID="header" />
-      <View className="flex-1 p-4 bg-background">
+      <View className="flex-1 bg-background">
         {/* Show debug warning if using mock data */}
         {isUsingMockData && (
           <View className="bg-primary/20 p-2.5 rounded mb-4">
