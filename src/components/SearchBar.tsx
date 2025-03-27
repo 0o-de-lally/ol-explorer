@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated, Platform, Linking } from 'react-native';
 import { useSdk } from '../hooks/useSdk';
 import { normalizeAddress, isValidAddressFormat } from '../utils/addressUtils';
 
@@ -10,12 +7,48 @@ export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const sdk = useSdk();
+
+    // Animation state
+    const [buttonScale] = useState(new Animated.Value(1));
+
+    const animateButton = () => {
+        Animated.sequence([
+            Animated.timing(buttonScale, {
+                toValue: 0.95,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+            Animated.timing(buttonScale, {
+                toValue: 1,
+                duration: 100,
+                useNativeDriver: true,
+            })
+        ]).start();
+    };
+
+    // Navigate to specific routes based on search results
+    const navigateTo = (route: string, params: Record<string, string>) => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            // For web, construct the URL and navigate
+            let url = `/${route}`;
+            if (params) {
+                const paramKey = Object.keys(params)[0];
+                url += `/${params[paramKey]}`;
+            }
+            window.location.href = url;
+        } else {
+            // For native, use deep linking
+            const paramKey = Object.keys(params)[0];
+            const paramValue = params[paramKey];
+            Linking.openURL(`/${route}/${paramValue}`);
+        }
+    };
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
 
+        animateButton();
         setIsSearching(true);
         setError(null);
 
@@ -33,7 +66,7 @@ export const SearchBar: React.FC = () => {
 
                 if (accountData) {
                     console.log('Account found, navigating to account details');
-                    navigation.navigate('AccountDetails', { address: normalizedAddress });
+                    navigateTo('account', { address: normalizedAddress });
                     setSearchQuery('');
                     setIsSearching(false);
                     return;
@@ -46,7 +79,7 @@ export const SearchBar: React.FC = () => {
 
             if (txDetails) {
                 console.log('Transaction found, navigating to transaction details');
-                navigation.navigate('TransactionDetails', { hash: query });
+                navigateTo('tx', { hash: query });
                 setSearchQuery('');
                 setIsSearching(false);
                 return;
@@ -63,73 +96,37 @@ export const SearchBar: React.FC = () => {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
+        <View className="w-full">
+            <View className="flex flex-row overflow-hidden rounded w-full">
                 <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search by account or transaction hash..."
+                    className="h-9 bg-secondary border-0 px-3 text-white rounded-l text-sm flex-1"
+                    placeholder="Search by account or tx hash..."
                     placeholderTextColor="#8F9BB3"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     onSubmitEditing={handleSearch}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    testID="search-input"
                 />
-                <TouchableOpacity
-                    style={styles.searchButton}
-                    onPress={handleSearch}
-                    disabled={isSearching}
-                >
-                    {isSearching ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                        <Text style={styles.searchButtonText}>Search</Text>
-                    )}
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                    <TouchableOpacity
+                        className={`bg-primary h-9 px-3 justify-center items-center rounded-r ${isSearching ? 'opacity-80' : ''}`}
+                        onPress={handleSearch}
+                        disabled={isSearching}
+                        testID="search-button"
+                    >
+                        {isSearching ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                            <Text className="text-white font-bold text-sm">Search</Text>
+                        )}
+                    </TouchableOpacity>
+                </Animated.View>
             </View>
             {error && (
-                <Text style={styles.errorText}>{error}</Text>
+                <Text className="text-primary mt-1 text-xs absolute -bottom-5 left-0 right-0 text-center">{error}</Text>
             )}
         </View>
     );
-};
-
-const styles = StyleSheet.create({
-    container: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        width: '100%',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    searchInput: {
-        flex: 1,
-        height: 40,
-        backgroundColor: '#172234',
-        borderRadius: 4,
-        paddingHorizontal: 12,
-        color: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#1E2736',
-    },
-    searchButton: {
-        backgroundColor: '#E75A5C',
-        height: 40,
-        paddingHorizontal: 16,
-        borderRadius: 4,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    searchButtonText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
-    },
-    errorText: {
-        color: '#E75A5C',
-        marginTop: 8,
-        fontSize: 12,
-    }
-}); 
+}; 

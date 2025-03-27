@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,12 @@ import {
   ActivityIndicator,
   Platform,
   useWindowDimensions,
-  ScrollView
+  Linking
 } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { Transaction } from '../types/blockchain';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
-import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 import { useSdkContext } from '../context/SdkContext';
@@ -27,9 +23,6 @@ type TransactionsListProps = {
   onRefresh?: () => void;
 };
 
-// Navigation type for navigating to transaction details
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'TransactionDetails'>;
-
 export const TransactionsList: React.FC<TransactionsListProps> = ({
   testID,
   onRefresh
@@ -37,13 +30,37 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   // Use our force update hook to ensure component updates
   const updateCounter = useForceUpdate();
 
+  // State for refresh indicator
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const transactions = useObservable(blockchainStore.transactions);
   const isLoading = useObservable(blockchainStore.isLoading);
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
   const isCalculatingBlockTime = useObservable(blockTimeStore.isCalculating);
   const { isInitialized, isUsingMockData } = useSdkContext();
-  const navigation = useNavigation<NavigationProp>();
   const { width } = useWindowDimensions();
+
+  // Handle refresh button click
+  const handleRefresh = async () => {
+    if (onRefresh && !isRefreshing) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 800); // Ensure animation completes
+    }
+  };
+
+  // Watch for loading state changes
+  useEffect(() => {
+    if (isLoading.get() && !isRefreshing) {
+      setIsRefreshing(true);
+    } else if (!isLoading.get() && isRefreshing) {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 800); // Ensure animation completes
+    }
+  }, [isLoading.get()]);
 
   // Debug logging to track component updates
   useEffect(() => {
@@ -120,7 +137,13 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     }
 
     console.log('Navigating to transaction details with normalized hash:', normalizedHash);
-    navigation.navigate('TransactionDetails', { hash: normalizedHash });
+
+    // Direct navigation using URLs instead of navigation hooks
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.location.href = `/tx/${normalizedHash}`;
+    } else {
+      Linking.openURL(`/tx/${normalizedHash}`);
+    }
   };
 
   // Format the transaction hash for display
@@ -131,10 +154,6 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
   // Get display text for the sender, falling back to hash if sender is not available
   const getSenderDisplay = (item: Transaction) => {
-    if (item.sender && item.sender.trim() !== '') {
-      return formatHash(item.sender);
-    }
-    // Fall back to hash when sender is not available
     return formatHash(item.hash);
   };
 
@@ -170,11 +189,11 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
     return (
       <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[100px]">BLOCK HEIGHT</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px]">VERSION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px]">FROM</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px]">FUNCTION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px]">TIME</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[100px] font-sans">BLOCK HEIGHT</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px] font-sans">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px] font-sans">TIME</Text>
       </View>
     );
   };
@@ -201,18 +220,18 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
           </View>
 
           <View className="flex-row mb-1">
-            <Text className="text-text-muted text-xs mr-2">From:</Text>
-            <Text className="text-white text-xs">{getSenderDisplay(item)}</Text>
+            <Text className="text-text-muted text-xs mr-2">Tx Hash:</Text>
+            <Text className="text-white text-xs font-data">{getSenderDisplay(item)}</Text>
           </View>
 
           <View className="flex-row justify-between">
             <View className="flex-row">
               <Text className="text-text-muted text-xs mr-2">Block:</Text>
-              <Text className="text-white text-xs">{formatNumber(item.block_height)}</Text>
+              <Text className="text-white text-xs font-data">{formatNumber(item.block_height)}</Text>
             </View>
             <View className="flex-row">
               <Text className="text-text-muted text-xs mr-2">Version:</Text>
-              <Text className="text-white text-xs">{formatNumber(item.version)}</Text>
+              <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -226,9 +245,9 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
         onPress={() => handleTransactionPress(item.hash)}
         testID={`transaction-${item.hash}`}
       >
-        <Text className="text-white text-sm flex-1 min-w-[100px]">{formatNumber(item.block_height)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[120px]">{formatNumber(item.version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px]">{getSenderDisplay(item)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[100px] font-data">{formatNumber(item.block_height)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[120px] font-data">{formatNumber(item.version)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[160px] font-data">{getSenderDisplay(item)}</Text>
         <View className="flex-1 min-w-[120px]">
           <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
             item.type === 'module' ? 'bg-[#E6F7F5]' :
@@ -244,12 +263,25 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     );
   };
 
-  // Modified loading condition to better handle the initial loading state
+  // Initial loading state with no transactions
   if (isLoading.get() && transactionArray.length === 0) {
     return (
-      <View className="flex-1 justify-center items-center p-8 bg-secondary rounded-lg">
-        <ActivityIndicator size="large" color="#E75A5C" />
-        <Text className="mt-4 text-base text-white">Loading transactions...</Text>
+      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+        <View className="bg-secondary rounded-lg" testID={testID}>
+          <View className="h-1 bg-white/10" />
+          <View className="flex-row justify-between items-center p-4 border-b border-border">
+            <Text className="text-lg font-bold text-white">
+              Recent Transactions
+              <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
+            </Text>
+            {/* No refresh button during loading */}
+          </View>
+
+          <View className="justify-center items-center p-8">
+            <ActivityIndicator size="large" color="#E75A5C" />
+            <Text className="mt-4 text-base text-white">Loading transactions...</Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -257,25 +289,24 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   // Fixed condition for empty state when not loading
   if (transactionArray.length === 0 && !isLoading.get()) {
     return (
-      <View className="flex-1 bg-secondary rounded-lg overflow-hidden" testID={testID}>
-        <View className="flex-row justify-between items-center p-4 border-b border-border">
-          <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
-          <TouchableOpacity
-            className="p-2"
-            onPress={onRefresh}
-            disabled={isLoading.get()}
-          >
-            <Text className="text-white font-bold">↻ Refresh</Text>
-          </TouchableOpacity>
-        </View>
-        <View className="flex-1 justify-center items-center p-8">
-          <Text className="text-white text-base mb-4">No transactions found</Text>
-          <TouchableOpacity
-            className="bg-primary rounded-lg py-2 px-4"
-            onPress={onRefresh}
-          >
-            <Text className="text-white">Retry</Text>
-          </TouchableOpacity>
+      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+        <View className="bg-secondary rounded-lg" testID={testID}>
+          <View className="h-1 bg-white/10" />
+          <View className="flex-row justify-between items-center p-4 border-b border-border">
+            <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
+            {isRefreshing ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : null}
+          </View>
+          <View className="justify-center items-center p-8">
+            <Text className="text-white text-base mb-4">No transactions found</Text>
+            <TouchableOpacity
+              className="bg-primary rounded-lg py-2 px-4"
+              onPress={handleRefresh}
+            >
+              <Text className="text-white">Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -283,44 +314,34 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
   // Main render for populated list
   return (
-    <View className="flex-1 bg-secondary rounded-lg overflow-hidden" testID={testID}>
-      <View className="flex-row justify-between items-center p-4 border-b border-border">
-        <Text className="text-lg font-bold text-white">
-          Recent Transactions ({transactionArray.length})
-          {isLoading.get() && <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />}
-        </Text>
-        <TouchableOpacity
-          className="p-2"
-          onPress={onRefresh}
-          disabled={isLoading.get()}
-        >
-          <Text className={`text-white font-bold ${isLoading.get() ? 'opacity-50' : ''}`}>
-            ↻ Refresh
+    <View className="mx-auto w-full max-w-screen-lg px-4 mb-16">
+      <View className="bg-secondary rounded-lg overflow-hidden" testID={testID}>
+        <View className="h-1 bg-white/10" />
+        <View className="flex-row justify-between items-center p-4 border-b border-border">
+          <Text className="text-lg font-bold text-white">
+            Recent Transactions ({transactionArray.length})
           </Text>
-        </TouchableOpacity>
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#E75A5C" />
+          ) : null}
+        </View>
+
+        {renderTableHeader()}
+
+        {transactionArray.length > 0 ? (
+          <View className="w-full">
+            {transactionArray.map(item => (
+              <View key={item.hash}>
+                {renderTransactionItem({ item })}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View className="justify-center items-center p-5">
+            <Text className="text-white text-base">No transactions found</Text>
+          </View>
+        )}
       </View>
-
-      {renderTableHeader()}
-
-      {transactionArray.length > 0 ? (
-        <View className="flex-1">
-          {transactionArray.map(item => (
-            <View key={item.hash}>
-              {renderTransactionItem({ item })}
-            </View>
-          ))}
-
-          {isLoading.get() && (
-            <View className="p-4 flex-row justify-center">
-              <ActivityIndicator size="small" color="#E75A5C" />
-            </View>
-          )}
-        </View>
-      ) : (
-        <View className="flex-1 justify-center items-center p-5">
-          <Text className="text-white text-base">No transactions found</Text>
-        </View>
-      )}
     </View>
   );
 }; 

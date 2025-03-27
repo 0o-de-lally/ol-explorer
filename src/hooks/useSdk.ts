@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from 'react';
-import { BlockchainSDK } from '../types/blockchain';
+import { BlockchainSDK, CacheType } from '../types/blockchain';
 import { useSdkContext } from '../context/SdkContext';
 import { normalizeTransactionHash } from '../utils/addressUtils';
+import sdkConfig from '../config/sdkConfig';
 
 // Add a global tracker for initialization
 let globalInitializationState = false;
@@ -11,7 +12,7 @@ let globalInitializationState = false;
  * This is now a thin wrapper over the SDK context.
  */
 export const useSdk = (): BlockchainSDK => {
-  const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
+  const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData, clearCache } = useSdkContext();
 
   // Log SDK status on changes
   useEffect(() => {
@@ -51,6 +52,13 @@ export const useSdk = (): BlockchainSDK => {
     }
   }, [isInitialized, isInitializing, error, isUsingMockData]);
 
+  // Helper function to clear specific caches based on operation type
+  const clearRelatedCache = (cacheType: CacheType) => {
+    if (clearCache) {
+      clearCache(cacheType);
+    }
+  };
+
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
     return {
@@ -84,15 +92,20 @@ export const useSdk = (): BlockchainSDK => {
     };
   }
 
-  // Wrap the real SDK methods with additional validation and logging
+  // Wrap the real SDK methods with additional validation, logging, and cache control
   return {
     ...sdk,
-    getLatestBlockHeight: async () => {
-      console.log('useSdk.getLatestBlockHeight called');
+    getLatestBlockHeight: async (forceFresh = false) => {
+      console.log('useSdk.getLatestBlockHeight called' + (forceFresh ? ' (forced fresh)' : ''));
       try {
         if (!sdk.isInitialized) {
           console.warn('SDK not fully initialized when calling getLatestBlockHeight');
           return 0;
+        }
+
+        // Clear blockInfo cache if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('blockInfo');
         }
 
         const result = await sdk.getLatestBlockHeight();
@@ -103,12 +116,17 @@ export const useSdk = (): BlockchainSDK => {
         return 0;
       }
     },
-    getLatestEpoch: async () => {
-      console.log('useSdk.getLatestEpoch called');
+    getLatestEpoch: async (forceFresh = false) => {
+      console.log('useSdk.getLatestEpoch called' + (forceFresh ? ' (forced fresh)' : ''));
       try {
         if (!sdk.isInitialized) {
           console.warn('SDK not fully initialized when calling getLatestEpoch');
           return 0;
+        }
+
+        // Clear blockInfo cache if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('blockInfo');
         }
 
         const result = await sdk.getLatestEpoch();
@@ -119,12 +137,17 @@ export const useSdk = (): BlockchainSDK => {
         return 0;
       }
     },
-    getChainId: async () => {
-      console.log('useSdk.getChainId called');
+    getChainId: async (forceFresh = false) => {
+      console.log('useSdk.getChainId called' + (forceFresh ? ' (forced fresh)' : ''));
       try {
         if (!sdk.isInitialized) {
           console.warn('SDK not fully initialized when calling getChainId');
           return '0';
+        }
+
+        // Clear blockInfo cache if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('blockInfo');
         }
 
         const result = await sdk.getChainId();
@@ -135,12 +158,17 @@ export const useSdk = (): BlockchainSDK => {
         return '0';
       }
     },
-    getTransactions: async (limit = 20) => {
-      console.log(`useSdk.getTransactions called with limit: ${limit}`);
+    getTransactions: async (limit = 20, forceFresh = false) => {
+      console.log(`useSdk.getTransactions called with limit: ${limit}` + (forceFresh ? ' (forced fresh)' : ''));
       try {
         if (!sdk.isInitialized) {
           console.warn('SDK not fully initialized when calling getTransactions');
           return [];
+        }
+
+        // Clear transactions cache if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('transactions');
         }
 
         const result = await sdk.getTransactions(limit);
@@ -151,8 +179,8 @@ export const useSdk = (): BlockchainSDK => {
         return [];
       }
     },
-    getTransactionByHash: async (hash) => {
-      console.log('useSdk.getTransactionByHash called with hash:', hash);
+    getTransactionByHash: async (hash, forceFresh = false) => {
+      console.log('useSdk.getTransactionByHash called with hash:', hash + (forceFresh ? ' (forced fresh)' : ''));
 
       // Validate and normalize hash
       const normalizedHash = normalizeTransactionHash(hash);
@@ -164,12 +192,45 @@ export const useSdk = (): BlockchainSDK => {
       console.log('useSdk.getTransactionByHash - Normalized hash:', normalizedHash);
 
       try {
+        if (!sdk.isInitialized) {
+          console.warn('SDK not fully initialized when calling getTransactionByHash');
+          return null;
+        }
+
+        // Clear transaction details cache for this hash if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('transactionDetails');
+        }
+
         // Call the SDK method with the normalized hash
         return await sdk.getTransactionByHash(normalizedHash);
       } catch (error) {
         console.error(`Error in useSdk.getTransactionByHash for hash ${normalizedHash}:`, error);
         return null;
       }
+    },
+    getAccount: async (address, forceFresh = false) => {
+      console.log('useSdk.getAccount called with address:', address + (forceFresh ? ' (forced fresh)' : ''));
+
+      try {
+        if (!sdk.isInitialized) {
+          console.warn('SDK not fully initialized when calling getAccount');
+          return null;
+        }
+
+        // Clear account cache for this address if forceFresh is true
+        if (forceFresh) {
+          clearRelatedCache('accounts');
+        }
+
+        return await sdk.getAccount(address);
+      } catch (error) {
+        console.error(`Error in useSdk.getAccount for address ${address}:`, error);
+        return null;
+      }
+    },
+    clearCache: (type?: CacheType) => {
+      clearRelatedCache(type || 'blockInfo');
     },
     isInitialized,
     error,

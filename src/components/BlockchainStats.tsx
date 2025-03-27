@@ -37,38 +37,49 @@ export const BlockchainStats: React.FC<BlockchainStatsProps> = ({ testID }) => {
     : "flex-row justify-between w-full gap-5 mb-5";
 
   return (
-    <View className={containerClassName} testID={testID}>
-      <View className="flex-1 bg-secondary rounded-lg p-5">
-        <Text className="text-white text-base font-bold mb-2.5">Block Height</Text>
-        {isLoading.get() && stats.blockHeight.get() === null ? (
-          <ActivityIndicator size="small" color="#E75A5C" />
-        ) : (
-          <Text className="text-white text-2xl font-bold">
-            {stats.blockHeight.get()?.toLocaleString() || '0'}
-          </Text>
-        )}
-      </View>
+    <View className="mx-auto w-full max-w-screen-lg px-4 mb-5" testID={testID}>
+      <View className={containerClassName}>
+        <View className="flex-1 bg-secondary rounded-lg overflow-hidden">
+          <View className="h-1 bg-white/10" />
+          <View className="p-5">
+            <Text className="text-white text-base font-bold mb-2.5">Block Height</Text>
+            {isLoading.get() && stats.blockHeight.get() === null ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <Text className="text-white text-2xl font-bold font-data">
+                {stats.blockHeight.get()?.toLocaleString() || '0'}
+              </Text>
+            )}
+          </View>
+        </View>
 
-      <View className="flex-1 bg-secondary rounded-lg p-5">
-        <Text className="text-white text-base font-bold mb-2.5">Current Epoch</Text>
-        {isLoading.get() && stats.epoch.get() === null ? (
-          <ActivityIndicator size="small" color="#E75A5C" />
-        ) : (
-          <Text className="text-white text-2xl font-bold">
-            {stats.epoch.get()?.toLocaleString() || '0'}
-          </Text>
-        )}
-      </View>
+        <View className="flex-1 bg-secondary rounded-lg overflow-hidden">
+          <View className="h-1 bg-white/10" />
+          <View className="p-5">
+            <Text className="text-white text-base font-bold mb-2.5">Current Epoch</Text>
+            {isLoading.get() && stats.epoch.get() === null ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <Text className="text-white text-2xl font-bold font-data">
+                {stats.epoch.get()?.toLocaleString() || '0'}
+              </Text>
+            )}
+          </View>
+        </View>
 
-      <View className="flex-1 bg-secondary rounded-lg p-5">
-        <Text className="text-white text-base font-bold mb-2.5">Chain ID</Text>
-        {isLoading.get() && stats.chainId.get() === null ? (
-          <ActivityIndicator size="small" color="#E75A5C" />
-        ) : (
-          <Text className="text-white text-2xl font-bold">
-            {stats.chainId.get() || '0'}
-          </Text>
-        )}
+        <View className="flex-1 bg-secondary rounded-lg overflow-hidden">
+          <View className="h-1 bg-white/10" />
+          <View className="p-5">
+            <Text className="text-white text-base font-bold mb-2.5">Chain ID</Text>
+            {isLoading.get() && stats.chainId.get() === null ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <Text className="text-white text-2xl font-bold font-data">
+                {stats.chainId.get() || '0'}
+              </Text>
+            )}
+          </View>
+        </View>
       </View>
     </View>
   );

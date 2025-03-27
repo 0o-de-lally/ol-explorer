@@ -19,6 +19,32 @@ module.exports = {
           muted: '#8F9BB3'
         }
       },
+      fontFamily: {
+        sans: [
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+          '"Segoe UI Symbol"',
+          '"Noto Color Emoji"',
+        ],
+        mono: [
+          '"Geist Mono"',
+          '"Geist Mono Fallback"',
+          'ui-monospace',
+          'SFMono-Regular',
+          'monospace',
+        ],
+        // Add a specific class for data points
+        data: [
+          '"Geist Mono"',
+          '"Geist Mono Fallback"',
+          'ui-monospace',
+          'SFMono-Regular',
+          'monospace',
+        ],
+      },
     },
   },
   // Improve handling of special characters in class names
@@ -26,7 +52,9 @@ module.exports = {
   safelist: [
     // Add any critical classes that might be dynamically generated
     'bg-primary',
-    'text-white'
+    'text-white',
+    'font-mono',
+    'font-data'
   ],
   plugins: [],
 }

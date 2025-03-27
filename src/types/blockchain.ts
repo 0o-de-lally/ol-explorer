@@ -53,13 +53,16 @@ export interface StateChange {
   data: Record<string, any>;
 }
 
+export type CacheType = 'blockInfo' | 'transactions' | 'transactionDetails' | 'accounts';
+
 export interface BlockchainSDK {
-  getLatestBlockHeight: () => Promise<number>;
-  getLatestEpoch: () => Promise<number>;
-  getChainId: () => Promise<string>;
-  getTransactions: (limit: number) => Promise<Transaction[]>;
-  getTransactionByHash: (hash: string) => Promise<TransactionDetail | null>;
-  getAccount: (address: string) => Promise<Account | null>;
+  getLatestBlockHeight: (forceFresh?: boolean) => Promise<number>;
+  getLatestEpoch: (forceFresh?: boolean) => Promise<number>;
+  getChainId: (forceFresh?: boolean) => Promise<string>;
+  getTransactions: (limit: number, forceFresh?: boolean) => Promise<Transaction[]>;
+  getTransactionByHash: (hash: string, forceFresh?: boolean) => Promise<TransactionDetail | null>;
+  getAccount: (address: string, forceFresh?: boolean) => Promise<Account | null>;
+  clearCache?: (type?: CacheType) => void;
   isInitialized: boolean;
   error: Error | null;
   isUsingMockData?: boolean;

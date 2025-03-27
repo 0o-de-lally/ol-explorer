@@ -69,7 +69,8 @@ export const BlockchainMetrics: React.FC = () => {
   const loading = isLoading.get() || !isInitialized;
 
   return (
-    <View className="p-4 bg-secondary rounded-lg mx-4 mb-4">
+    <View className="p-4 bg-secondary rounded-lg mx-4 mb-4 overflow-hidden">
+      <View className="h-1 bg-white/10" />
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-lg font-bold text-white">Blockchain Metrics</Text>
         {loading && <ActivityIndicator size="small" color="#E75A5C" />}

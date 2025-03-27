@@ -14,6 +14,7 @@ import { SdkProvider } from './src/context/SdkContext';
 import { SdkLoadingIndicator } from './src/components/SdkLoadingIndicator';
 import { setupPolyfills } from './src/utils/polyfills';
 import * as Linking from 'expo-linking';
+import { Header } from './src/components/Header';
 
 // Setup necessary polyfills
 setupPolyfills();
@@ -71,26 +72,27 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SdkProvider>
-        <View className="flex-1 bg-background flex flex-col min-h-screen">
+        <View className="bg-background font-sans min-h-screen flex flex-col">
           {/* Show loading indicator when SDK is initializing */}
           <SdkLoadingIndicator />
 
-          <NavigationContainer
-            ref={navigationRef}
-            linking={linking}
-            documentTitle={{
-              formatter: (options, route) => {
-                const routeName = route?.name || 'Home';
-                return `${routeName} | Open Libra Explorer`;
-              },
-            }}
-            onReady={() => {
-              // Ensure the app initializes properly with Home screen focused
-              console.log('Navigation container is ready');
-            }}
-          >
-            <StatusBar style="light" />
-            <View className="flex-1 mx-auto w-full max-w-screen-xl px-4">
+          {/* Main content area that can scroll */}
+          <View className="flex-1 flex flex-col overflow-auto">
+            <NavigationContainer
+              ref={navigationRef}
+              linking={linking}
+              documentTitle={{
+                formatter: (options, route) => {
+                  const routeName = route?.name || 'Home';
+                  return `${routeName} | Open Libra Explorer`;
+                },
+              }}
+              onReady={() => {
+                console.log('Navigation container is ready');
+              }}
+            >
+              <StatusBar style="light" />
+              <Header testID="header" />
               <Stack.Navigator
                 initialRouteName="Home"
                 screenOptions={{
@@ -108,9 +110,9 @@ export default function App() {
                   component={AccountDetailsScreen}
                 />
               </Stack.Navigator>
-            </View>
-          </NavigationContainer>
-          <Footer />
+              <Footer />
+            </NavigationContainer>
+          </View>
         </View>
       </SdkProvider>
     </ErrorBoundary>

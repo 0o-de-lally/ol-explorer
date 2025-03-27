@@ -1,19 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, SafeAreaView, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { Header } from '../components/Header';
+import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { BlockchainStats } from '../components/BlockchainStats';
 import { TransactionsList } from '../components/TransactionsList';
 import { blockchainActions, blockchainStore } from '../store/blockchainStore';
 import { useSdk } from '../hooks/useSdk';
 import { useSdkContext } from '../context/SdkContext';
 import { Transaction } from '../types/blockchain';
+import { BlockchainMetrics } from '../components/BlockchainMetrics';
+import { SearchBar } from '../components/SearchBar';
+import sdkConfig from '../config/sdkConfig';
 
 // Debug flag - must match the one in SdkContext.tsx
 const DEBUG_MODE = false;
 
 export const HomeScreen: React.FC = () => {
   const sdk = useSdk();
-  const { isInitialized, isInitializing, error, isUsingMockData, reinitialize } = useSdkContext();
+  const { isInitialized, isInitializing, error, isUsingMockData, reinitialize, clearCache } = useSdkContext();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   // Keep track of whether we've attempted data fetch
   const dataFetchAttempted = useRef(false);
@@ -22,8 +24,8 @@ export const HomeScreen: React.FC = () => {
 
   // Set a timeout to prevent infinite loading
   useEffect(() => {
-    // Only set a timeout if we're in DEBUG_MODE
-    if (!DEBUG_MODE) return;
+    // Only set a timeout if we're in debug mode
+    if (!sdkConfig.debugMode) return;
 
     const timer = setTimeout(() => {
       if (blockchainStore.stats.blockHeight.get() === null && !sdk.error) {
@@ -31,7 +33,7 @@ export const HomeScreen: React.FC = () => {
         console.log('Loading timeout reached in debug mode');
 
         // Only use mock data in debug mode
-        if (DEBUG_MODE) {
+        if (sdkConfig.debugMode) {
           console.log('Debug mode enabled, using mock data');
           // Set mock stats and transactions
           blockchainActions.setStats({
@@ -116,7 +118,7 @@ export const HomeScreen: React.FC = () => {
       blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
 
       // Only use mock data in debug mode if there's an error
-      if (DEBUG_MODE) {
+      if (sdkConfig.debugMode) {
         console.log('Error fetching data, using debug mock data');
         blockchainActions.setStats({
           blockHeight: 500000,
@@ -186,14 +188,14 @@ export const HomeScreen: React.FC = () => {
     if (isInitialized && !isUsingMockData) {
       console.log('Setting up polling interval for blockchain data...');
 
-      // Set up polling for new data
+      // Set up polling for new data using the configured interval
       const pollInterval = setInterval(() => {
         // Only poll if we're not already loading
         if (!blockchainStore.isLoading.get()) {
           console.log('Polling for new blockchain data...');
           fetchData();
         }
-      }, 30000); // Poll every 30 seconds
+      }, sdkConfig.pollingIntervals.homeScreenRefresh);
 
       return () => {
         console.log('Clearing polling interval');
@@ -205,6 +207,9 @@ export const HomeScreen: React.FC = () => {
   // Handle manual refresh
   const handleRefresh = () => {
     console.log('Manual refresh triggered');
+    // Clear relevant caches before refresh
+    clearCache('blockInfo');
+    clearCache('transactions');
     fetchData();
   };
 
@@ -265,28 +270,26 @@ export const HomeScreen: React.FC = () => {
 
   if (shouldShowLoadingScreen) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <Header testID="header" />
-        <View className="flex-1 justify-center items-center bg-background p-5">
+      <View className="bg-background py-8">
+        <View className="justify-center items-center p-16">
           <ActivityIndicator size="large" color="#E75A5C" />
           <Text className="text-white text-lg mt-4 text-center">
             {isInitializing ? "Initializing blockchain connection..." : "Loading blockchain data..."}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Display error state if the SDK failed to initialize and we're not using mock data
-  if (error && !isInitialized && !isUsingMockData && !DEBUG_MODE) {
+  if (error && !isInitialized && !isUsingMockData && !sdkConfig.debugMode) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <Header testID="header" />
-        <View className="flex-1 justify-center items-center bg-background p-5">
+      <View className="bg-background py-8">
+        <View className="justify-center items-center p-16">
           <Text className="text-primary text-2xl font-bold mb-4">RPC Connection Error</Text>
           <Text className="text-white text-base text-center mb-2">{error.message}</Text>
           <Text className="text-white text-base text-center mb-4">
-            Connection to Open Libra RPC at {`https://rpc.openlibra.space:8080/v1`} failed
+            Connection to Open Libra RPC at {sdkConfig.rpcUrl} failed
           </Text>
           <Text className="text-text-muted text-sm text-center mb-6">
             Please check your internet connection or try again later.
@@ -298,33 +301,31 @@ export const HomeScreen: React.FC = () => {
             <Text className="text-white text-base font-bold">Retry Connection</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // If everything looks good, render the main content
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <Header testID="header" />
-      <View className="flex-1 bg-background">
-        {/* Show debug warning if using mock data */}
-        {isUsingMockData && (
-          <View className="bg-primary/20 p-2.5 rounded mb-4">
-            <Text className="text-white text-sm text-center">
-              DEBUG MODE: Using sample data - Unable to connect to Open Libra RPC
-            </Text>
-            <Text className="text-white text-xs text-center">
-              This is simulated data for development purposes only
-            </Text>
-          </View>
-        )}
+    <View className="bg-background flex-1">
+      <ScrollView>
+        <View className="mx-auto w-full max-w-screen-lg px-4 py-4">
+          {/* Show debug warning if using mock data */}
+          {isUsingMockData && (
+            <View className="bg-primary/20 p-2.5 rounded mb-4">
+              <Text className="text-white text-sm text-center">
+                DEBUG MODE: Using sample data - Unable to connect to Open Libra RPC
+              </Text>
+              <Text className="text-white text-xs text-center">
+                This is simulated data for development purposes only
+              </Text>
+            </View>
+          )}
 
-        {/* Show blockchain stats component */}
-        <BlockchainStats testID="blockchain-stats" />
-
-        {/* Show transactions list */}
-        <TransactionsList testID="transactions-table" onRefresh={handleRefresh} />
-      </View>
-    </SafeAreaView>
+          <BlockchainStats testID="blockchain-stats" />
+          <TransactionsList testID="transactions-list" onRefresh={handleRefresh} />
+        </View>
+      </ScrollView>
+    </View>
   );
 }; 
