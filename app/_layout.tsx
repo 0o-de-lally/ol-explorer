@@ -10,7 +10,6 @@ import '../global.css';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 import { Header } from '../src/components/Header';
 import { Footer } from '../src/components/Footer';
-import { BlockchainMetrics } from '../src/components/BlockchainMetrics';
 
 // Setup necessary polyfills
 setupPolyfills();
@@ -33,7 +32,6 @@ export default function RootLayout() {
                     <View className="flex-1 flex flex-col overflow-auto">
                         <StatusBar style="light" />
                         <Header testID="header" />
-                        <BlockchainMetrics />
 
                         <Stack
                             screenOptions={{

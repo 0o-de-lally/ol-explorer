@@ -48,6 +48,13 @@ export const BlockchainMetrics = observer(() => {
 
         <View className="flex-row justify-around flex-wrap p-4">
           <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Latest Version</Text>
+            <Text className="text-text-light text-base font-bold text-center" data-testid="latest-version">
+              {formatNumber(latestVersion)}
+            </Text>
+          </View>
+
+          <View className="items-center p-2 min-w-[120px]">
             <Text className="text-text-muted text-xs mb-1">Block Height</Text>
             <Text className="text-text-light text-base font-bold text-center" testID="block-height-value">
               {formatNumber(blockHeightValue)}
@@ -65,20 +72,6 @@ export const BlockchainMetrics = observer(() => {
             <Text className="text-text-muted text-xs mb-1">Chain ID</Text>
             <Text className="text-text-light text-base font-bold text-center">
               {chainIdValue}
-            </Text>
-          </View>
-
-          <View className="items-center p-2 min-w-[120px]">
-            <Text className="text-text-muted text-xs mb-1">Average Block Time</Text>
-            <Text className="text-text-light text-base font-bold text-center">
-              {!isNaN(blockTimeMsValue) && blockTimeMsValue > 0 ? formatBlockTime(blockTimeMsValue) : 'Calculating...'}
-            </Text>
-          </View>
-
-          <View className="items-center p-2 min-w-[120px]">
-            <Text className="text-text-muted text-xs mb-1">Latest Version</Text>
-            <Text className="text-text-light text-base font-bold text-center" data-testid="latest-version">
-              {formatNumber(latestVersion)}
             </Text>
           </View>
 

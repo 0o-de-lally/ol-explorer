@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -99,6 +99,28 @@ export const TransactionsList = observer(({
     }
   };
 
+  // Get color for function pill based on function type
+  const getFunctionPillColor = (type: string) => {
+    // Map function types to pastel colors
+    if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
+    if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
+    if (type === 'script') return 'bg-[#F3ECFF] text-[#6B46C1]';
+    if (type === 'module') return 'bg-[#E6F7F5] text-[#047857]';
+    if (type === 'entry_function') return 'bg-[#FFF7E6] text-[#B45309]';
+
+    // Generate a consistent color based on the first character of the type
+    const charCode = type.charCodeAt(0) % 5;
+    const colorOptions = [
+      'bg-[#E6F7FF] text-[#0072C6]', // blue
+      'bg-[#F3ECFF] text-[#6B46C1]', // purple
+      'bg-[#E6F7F5] text-[#047857]', // green
+      'bg-[#FFF7E6] text-[#B45309]', // orange
+      'bg-[#FFECEC] text-[#A73737]', // red
+    ];
+
+    return colorOptions[charCode];
+  };
+
   const renderTableHeader = () => {
     if (isMobile) {
       // On mobile, don't show the header - we'll include labels in the row items
@@ -107,16 +129,18 @@ export const TransactionsList = observer(({
 
     return (
       <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[100px] font-sans">BLOCK HEIGHT</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans">VERSION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px] font-sans">TX HASH</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans">FUNCTION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px] font-sans">TIME</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px] font-sans text-center">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px] font-sans text-center">TIME</Text>
       </View>
     );
   };
 
   const renderTransactionItem = (item: any) => {
+    const functionLabel = getFunctionLabel(item.type);
+    const functionPillColor = getFunctionPillColor(item.type);
+
     // Mobile view with stacked layout
     if (isMobile) {
       return (
@@ -127,13 +151,8 @@ export const TransactionsList = observer(({
           testID={`transaction-${item.hash}`}
         >
           <View className="flex-row justify-between items-center mb-2">
-            <View className={`px-2 py-0.5 rounded ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-              item.type === 'module' ? 'bg-[#E6F7F5]' :
-                item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
-                  item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
-                    'bg-[#F5F5F5]'
-              }`}>
-              <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
+            <View className={`px-3 py-1 rounded-full w-[110px] flex items-center justify-center ${functionPillColor}`}>
+              <Text className="text-xs font-medium">{functionLabel}</Text>
             </View>
             <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
           </View>
@@ -144,10 +163,6 @@ export const TransactionsList = observer(({
           </View>
 
           <View className="flex-row justify-between">
-            <View className="flex-row">
-              <Text className="text-text-muted text-xs mr-2">Block:</Text>
-              <Text className="text-white text-xs font-data">{formatNumber(item.block_height)}</Text>
-            </View>
             <View className="flex-row">
               <Text className="text-text-muted text-xs mr-2">Version:</Text>
               <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
@@ -165,20 +180,14 @@ export const TransactionsList = observer(({
         onPress={() => handleTransactionPress(item.hash)}
         testID={`transaction-${item.hash}`}
       >
-        <Text className="text-white text-sm flex-1 min-w-[100px] font-data">{formatNumber(item.block_height)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[120px] font-data">{formatNumber(item.version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px] font-data">{getSenderDisplay(item.hash)}</Text>
-        <View className="flex-1 min-w-[120px]">
-          <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-            item.type === 'module' ? 'bg-[#E6F7F5]' :
-              item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
-                item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
-                  'bg-[#F5F5F5]'
-            }`}>
-            <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(item.version)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(item.hash)}</Text>
+        <View className="flex-1 min-w-[120px] flex items-center justify-center">
+          <View className={`px-3 py-1 rounded-full w-[110px] flex items-center justify-center ${functionPillColor}`}>
+            <Text className="text-xs font-medium">{functionLabel}</Text>
           </View>
         </View>
-        <Text className="text-white text-sm flex-1 min-w-[180px]">{formatTimestamp(item.timestamp)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[180px] text-center">{formatTimestamp(item.timestamp)}</Text>
       </TouchableOpacity>
     );
   };

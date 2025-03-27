@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
-import { TransactionsList } from '../src/components/TransactionsList';
+import { HomeScreen } from '../src/screens/HomeScreen';
 import { useBlockchain } from '../src/hooks/useBlockchain';
 import { useForceUpdate } from '../src/hooks/useForceUpdate';
 import { blockchainActions } from '../src/store/blockchainStore';
@@ -32,7 +32,7 @@ export default function HomePage() {
         <RefreshControl refreshing={isLoading} onRefresh={refreshData} />
       }
     >
-      <TransactionsList testID="transactions-list" onRefresh={refreshData} />
+      <HomeScreen />
     </ScrollView>
   );
 } 

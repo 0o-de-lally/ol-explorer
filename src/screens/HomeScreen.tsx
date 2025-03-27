@@ -108,11 +108,24 @@ export const HomeScreen: React.FC = () => {
       const transactions = await sdk.getTransactions(20);
       console.log(`Fetched ${transactions.length} transactions`);
 
+      // Log the first transaction in detail to examine its structure
+      if (transactions.length > 0) {
+        console.log('First raw transaction from SDK:', JSON.stringify(transactions[0], null, 2));
+        console.log('Transaction block_height:', transactions[0].block_height);
+        console.log('Transaction version:', transactions[0].version);
+        console.log('Transaction type:', transactions[0].type);
+      }
+
       // Add block height to each transaction if needed
       const transactionsWithBlockHeight = transactions.map((tx, index) => ({
         ...tx,
         block_height: tx.block_height || blockHeight - index,
       }));
+
+      // Log the modified first transaction to see the changes
+      if (transactionsWithBlockHeight.length > 0) {
+        console.log('First transaction after modification:', JSON.stringify(transactionsWithBlockHeight[0], null, 2));
+      }
 
       // Set transactions and force update
       blockchainActions.setTransactions(transactionsWithBlockHeight);
@@ -319,7 +332,8 @@ export const HomeScreen: React.FC = () => {
             </View>
           )}
 
-          <BlockchainStats testID="blockchain-stats" />
+          {/* <BlockchainStats testID="blockchain-stats" /> */}
+          <BlockchainMetrics />
           <TransactionsList testID="transactions-list" onRefresh={handleRefresh} />
         </View>
       </ScrollView>

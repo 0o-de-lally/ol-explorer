@@ -16,6 +16,30 @@ const screenWidth = Dimensions.get('window').width;
 const isMobile = screenWidth < 768;
 
 /**
+ * Get color for function pill based on function type
+ */
+const getFunctionPillColor = (type: string) => {
+  // Map function types to pastel colors
+  if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
+  if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
+  if (type === 'script') return 'bg-[#F3ECFF] text-[#6B46C1]';
+  if (type === 'module') return 'bg-[#E6F7F5] text-[#047857]';
+  if (type === 'entry_function') return 'bg-[#FFF7E6] text-[#B45309]';
+
+  // Generate a consistent color based on the first character of the type
+  const charCode = type.charCodeAt(0) % 5;
+  const colorOptions = [
+    'bg-[#E6F7FF] text-[#0072C6]', // blue
+    'bg-[#F3ECFF] text-[#6B46C1]', // purple
+    'bg-[#E6F7F5] text-[#047857]', // green
+    'bg-[#FFF7E6] text-[#B45309]', // orange
+    'bg-[#FFECEC] text-[#A73737]', // red
+  ];
+
+  return colorOptions[charCode];
+};
+
+/**
  * Format a hash value for display
  * - For mobile: Shows abbreviated version with ellipsis
  * - For desktop: Shows full hash
@@ -260,11 +284,6 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             </View>
 
             <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Block Height</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.block_height}</Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Version</Text>
               <Text className="text-white text-sm w-2/3 text-right">{transaction.version}</Text>
             </View>
@@ -300,7 +319,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Transaction Type</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.type}</Text>
+              <View className="w-2/3 flex items-end justify-end">
+                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type)}`}>
+                  <Text className="text-xs font-medium">{transaction.type}</Text>
+                </View>
+              </View>
             </View>
 
             <View className="flex-row justify-between items-center py-2">
