@@ -4,10 +4,14 @@ import { TransactionsList } from '../src/components/TransactionsList';
 import { useBlockchain } from '../src/hooks/useBlockchain';
 import { useForceUpdate } from '../src/hooks/useForceUpdate';
 import { blockchainActions } from '../src/store/blockchainStore';
+import { useBlockTime } from '../src/hooks/useBlockTime';
 
 export default function HomePage() {
   const { refreshData, isLoading } = useBlockchain();
   const updateCounter = useForceUpdate();
+
+  // Use block time calculation hook
+  useBlockTime();
 
   // Debug logging to track component updates
   React.useEffect(() => {

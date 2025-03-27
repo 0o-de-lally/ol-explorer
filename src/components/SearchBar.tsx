@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated } from 'react-native';
-import { useSdkContext } from '../context/SdkContext';
+import { useSdk } from '../hooks/useSdk';
 import { isValidAddressFormat } from '../utils/addressUtils';
 import { router } from 'expo-router';
 
@@ -8,7 +8,7 @@ export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { sdk } = useSdkContext();
+    const sdk = useSdk();
 
     // Animation state
     const [buttonScale] = useState(new Animated.Value(1));
@@ -42,10 +42,6 @@ export const SearchBar: React.FC = () => {
             if (isValidAddressFormat(query)) {
                 console.log(`Searching for account: ${query}`);
 
-                if (!sdk) {
-                    throw new Error('SDK not initialized');
-                }
-
                 // Address validation and normalization happens in the SDK
                 const accountData = await sdk.getAccount(query);
 
@@ -60,11 +56,6 @@ export const SearchBar: React.FC = () => {
 
             // If account lookup fails or not an address format, try transaction hash lookup
             console.log('Trying transaction lookup for:', query);
-
-            if (!sdk) {
-                throw new Error('SDK not initialized');
-            }
-
             const txDetails = await sdk.getTransactionByHash(query);
 
             if (txDetails) {

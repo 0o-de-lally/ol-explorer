@@ -32,55 +32,62 @@ export const BlockchainMetrics = observer(() => {
   const isLoadingValue = blockchainStore.isLoading.get();
   const loading = isLoadingValue || !isInitialized;
 
+  // Get latest transaction version from transactions if available
+  const transactions = blockchainStore.transactions.get();
+  const latestVersion = transactions && transactions.length > 0 ?
+    Number(transactions[0].version) : null;
+
   return (
-    <View className="p-4 bg-secondary rounded-lg mx-4 mb-4 overflow-hidden">
-      <View className="h-1 bg-white/10" />
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-lg font-bold text-white">Blockchain Metrics</Text>
-        {loading && <ActivityIndicator size="small" color="#E75A5C" />}
-      </View>
-
-      <View className="flex-row justify-around flex-wrap">
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Block Height</Text>
-          <Text className="text-text-light text-base font-bold text-center" testID="block-height-value">
-            {formatNumber(blockHeightValue)}
-          </Text>
+    <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+      <View className="bg-secondary rounded-lg overflow-hidden">
+        <View className="h-1 bg-white/10" />
+        <View className="flex-row justify-between items-center p-4 border-b border-border">
+          <Text className="text-lg font-bold text-white">Blockchain Metrics</Text>
+          {loading && <ActivityIndicator size="small" color="#E75A5C" />}
         </View>
 
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Epoch</Text>
-          <Text className="text-text-light text-base font-bold text-center">
-            {formatNumber(epochValue)}
-          </Text>
-        </View>
+        <View className="flex-row justify-around flex-wrap p-4">
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Block Height</Text>
+            <Text className="text-text-light text-base font-bold text-center" testID="block-height-value">
+              {formatNumber(blockHeightValue)}
+            </Text>
+          </View>
 
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Chain ID</Text>
-          <Text className="text-text-light text-base font-bold text-center">
-            {chainIdValue}
-          </Text>
-        </View>
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Epoch</Text>
+            <Text className="text-text-light text-base font-bold text-center">
+              {formatNumber(epochValue)}
+            </Text>
+          </View>
 
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Average Block Time</Text>
-          <Text className="text-text-light text-base font-bold text-center">
-            {!isNaN(blockTimeMsValue) && blockTimeMsValue > 0 ? formatBlockTime(blockTimeMsValue) : 'Calculating...'}
-          </Text>
-        </View>
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Chain ID</Text>
+            <Text className="text-text-light text-base font-bold text-center">
+              {chainIdValue}
+            </Text>
+          </View>
 
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Latest Block</Text>
-          <Text className="text-text-light text-base font-bold text-center" data-testid="block-height">
-            {!isNaN(lastBlockHeightValue) && lastBlockHeightValue > 0 ? formatNumber(lastBlockHeightValue) : 'Loading...'}
-          </Text>
-        </View>
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Average Block Time</Text>
+            <Text className="text-text-light text-base font-bold text-center">
+              {!isNaN(blockTimeMsValue) && blockTimeMsValue > 0 ? formatBlockTime(blockTimeMsValue) : 'Calculating...'}
+            </Text>
+          </View>
 
-        <View className="items-center p-2 min-w-[120px]">
-          <Text className="text-text-muted text-xs mb-1">Ledger Time</Text>
-          <Text className="text-text-light text-base font-bold text-center">
-            {!isNaN(lastBlockTimestampValue) && lastBlockTimestampValue > 0 ? formatTimestamp(lastBlockTimestampValue) : 'Loading...'}
-          </Text>
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Latest Version</Text>
+            <Text className="text-text-light text-base font-bold text-center" data-testid="latest-version">
+              {formatNumber(latestVersion)}
+            </Text>
+          </View>
+
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Ledger Time</Text>
+            <Text className="text-text-light text-base font-bold text-center">
+              {!isNaN(lastBlockTimestampValue) && lastBlockTimestampValue > 0 ? formatTimestamp(lastBlockTimestampValue) : 'Loading...'}
+            </Text>
+          </View>
         </View>
       </View>
     </View>

@@ -105,7 +105,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         gas_used: parseInt(tx.gas_used as string) || 0,
                         gas_unit_price: parseInt(tx.gas_unit_price as string) || 0,
                         vm_status: tx.vm_status || '',
-                        block_height: parseInt(tx.block_height as string) || 0,
+                        // Use transaction version as block height if block_height is not available or zero
+                        block_height: parseInt(tx.block_height as string) || parseInt(tx.version as string) || 0,
                         function: tx.function || null
                     }));
                 },
@@ -142,7 +143,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             gas_used: parseInt(txAny.gas_used as string) || 0,
                             gas_unit_price: parseInt(txAny.gas_unit_price as string) || 0,
                             vm_status: txAny.vm_status || '',
-                            block_height: parseInt(txAny.block_height as string) || 0,
+                            // Use transaction version for block_height if not available
+                            block_height: parseInt(txAny.block_height as string) || parseInt(txAny.version as string) || 0,
                             function: txAny.function || null,
                             events: (txAny.events || []).map((event: any) => ({
                                 type: event.type || '',
@@ -173,24 +175,22 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     console.log(`Using normalized address: ${normalizedAddress} (original: ${address})`);
 
                     try {
-                        // Construct proper account parameters with normalized address
-                        const accountParams = {
-                            accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
-                        };
+                        // The SDK client doesn't have a getAccount method, so we need to use getAccountResources
+                        // and build the account data from the resources
 
-                        // Use direct account method with as any to avoid type issues
-                        const accountInfo = await (client as any).account(accountParams);
-
-                        // Get account resources with the correct parameter structure
+                        // Use type assertion for resources as well
                         const resourcesParams = {
                             accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
                         };
 
-                        // Use proper method name and type cast to avoid errors
+                        // Get resources first, as the SDK client doesn't have a direct getAccount method
                         const resources = await client.getAccountResources(resourcesParams);
 
                         // Find coin resource for balance - cast resource data to any to avoid errors
                         let balance = 0;
+                        let sequenceNumber = 0;
+
+                        // Find the coin resource to get the balance
                         const coinResource = resources.find((r: any) =>
                             r && r.type &&
                             typeof r.type === 'string' &&
@@ -208,11 +208,27 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             }
                         }
 
+                        // Try to get sequence number from account info
+                        try {
+                            // Since the SDK type definitions might not match actual implementation,
+                            // use type assertion as a workaround
+                            const sdkClient = client as any;
+                            if (sdkClient && typeof sdkClient.account === 'function') {
+                                const accountInfo = await sdkClient.account({
+                                    address: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
+                                });
+                                sequenceNumber = parseInt(accountInfo?.sequence_number as string) || 0;
+                            }
+                        } catch (seqErr) {
+                            console.warn('Could not get sequence number:', seqErr);
+                            // Default to 0 if we can't get it
+                        }
+
                         // Transform and create account object
                         return {
                             address: normalizedAddress,
                             balance,
-                            sequence_number: parseInt(accountInfo.sequence_number as string) || 0,
+                            sequence_number: sequenceNumber,
                             resources: resources.map((resource: any) => ({
                                 type: resource?.type || '',
                                 data: resource?.data || {}
@@ -225,7 +241,45 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                 },
                 isInitialized: true,
                 error: null,
-                isUsingMockData: false
+                isUsingMockData: false,
+
+                // Add ledger info method to get timestamps and current block height
+                getLedgerInfo: async (forceFresh?: boolean) => {
+                    try {
+                        // Use direct ledger info method with proper parameter structure
+                        const ledgerInfo = await client.getLedgerInfo();
+
+                        if (!ledgerInfo) {
+                            throw new Error('Failed to retrieve ledger info');
+                        }
+
+                        return {
+                            chain_id: ledgerInfo.chain_id?.toString() || '',
+                            epoch: ledgerInfo.epoch || '0',
+                            ledger_version: ledgerInfo.ledger_version || '0',
+                            oldest_ledger_version: ledgerInfo.oldest_ledger_version || '0',
+                            ledger_timestamp: ledgerInfo.ledger_timestamp || Date.now().toString(),
+                            node_role: ledgerInfo.node_role || 'unknown',
+                            oldest_block_height: ledgerInfo.oldest_block_height || '0',
+                            block_height: ledgerInfo.block_height || '0',
+                            git_hash: ledgerInfo.git_hash || ''
+                        };
+                    } catch (error) {
+                        console.error('Error fetching ledger info:', error);
+                        // Return mock data as fallback
+                        return {
+                            chain_id: '1',
+                            epoch: '0',
+                            ledger_version: '0',
+                            oldest_ledger_version: '0',
+                            ledger_timestamp: Date.now().toString(),
+                            node_role: 'unknown',
+                            oldest_block_height: '0',
+                            block_height: '0',
+                            git_hash: ''
+                        };
+                    }
+                }
             };
 
             console.log('SDK initialized successfully!');
@@ -250,7 +304,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             const transactions = await mockClient.getTransactions({ limit });
                             return transactions.map((tx: any) => ({
                                 hash: tx.hash || '',
-                                version: 0,
+                                version: typeof tx.version === 'string' ? parseInt(tx.version) : (tx.version || 0),
                                 sender: '',
                                 sequence_number: 0,
                                 timestamp: String(Date.now()),
@@ -259,7 +313,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 gas_used: 0,
                                 gas_unit_price: 0,
                                 vm_status: '',
-                                block_height: 0,
+                                // Use version number as block height
+                                block_height: typeof tx.version === 'string' ? parseInt(tx.version) : (tx.version || 0),
                                 function: ''
                             }));
                         },
@@ -270,7 +325,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                             return {
                                 hash: tx.hash || '',
-                                version: 0,
+                                version: typeof tx.version === 'string' ? parseInt(tx.version) : (tx.version || 0),
                                 sender: '',
                                 sequence_number: 0,
                                 timestamp: String(Date.now()),
@@ -279,7 +334,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 gas_used: 0,
                                 gas_unit_price: 0,
                                 vm_status: '',
-                                block_height: 0,
+                                // Use version number as block height
+                                block_height: typeof tx.version === 'string' ? parseInt(tx.version) : (tx.version || 0),
                                 function: '',
                                 events: [],
                                 changes: [],
@@ -295,19 +351,46 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                             try {
                                 // Use direct mock client methods with correct names
-                                const accountInfo = await mockClient.getAccount(normalizedAddress);
-                                const resources = await mockClient.getAccountResources(normalizedAddress);
+                                // For consistency with the real implementation
+                                const mockClientAny = mockClient as any;
+                                let resources = [];
+                                let sequenceNumber = 0;
+
+                                // Get resources using the mockClient
+                                if (mockClientAny && typeof mockClientAny.getAccountResources === 'function') {
+                                    resources = await mockClientAny.getAccountResources(normalizedAddress);
+                                }
+
+                                // Try to get sequence number if the method exists
+                                if (mockClientAny && typeof mockClientAny.getAccount === 'function') {
+                                    const accountInfo = await mockClientAny.getAccount(normalizedAddress);
+                                    sequenceNumber = parseInt(accountInfo?.sequence_number as string) || 0;
+                                }
 
                                 return {
                                     address: normalizedAddress,
                                     balance: 1000000,
-                                    sequence_number: 0,
+                                    sequence_number: sequenceNumber,
                                     resources: resources || []
                                 };
                             } catch (err: any) {
                                 console.error(`Error in mock getAccount: ${err.message}`);
                                 return null;
                             }
+                        },
+                        getLedgerInfo: async () => {
+                            // Mock ledger info
+                            return {
+                                chain_id: 'mock-chain-1',
+                                epoch: '20',
+                                ledger_version: '1000000',
+                                oldest_ledger_version: '1',
+                                ledger_timestamp: Date.now().toString(),
+                                node_role: 'full_node',
+                                oldest_block_height: '1',
+                                block_height: '500000',
+                                git_hash: 'mock-git-hash'
+                            };
                         },
                         isInitialized: true,
                         error: new Error('Using mock data in debug mode'),

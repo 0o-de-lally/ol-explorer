@@ -1,27 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import { Account, AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { isValidAddressFormat } from '../utils/addressUtils';
 import { useSdkContext } from '../context/SdkContext';
 import { navigate } from '../navigation/navigationUtils';
+import { useLocalSearchParams, router } from 'expo-router';
 
 type AccountDetailsScreenProps = {
-  route?: { params: { address: string } };
+  route?: { params: { address: string; resource?: string } };
   address?: string;
 };
 
 // Coin resource type for LibraCoin
 const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
+const LIBRA_DECIMALS = 8;
 
 export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ route, address: propAddress }) => {
-  const addressFromParams = route?.params?.address || propAddress;
+  const params = useLocalSearchParams();
+  const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
+  const resourceFromParams = (route?.params?.resource || params?.resource) as string | undefined;
+
   const { sdk } = useSdkContext();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
+
+  // Get unique resource types from account resources
+  const resourceTypes = useMemo(() => {
+    if (!account?.resources) return [];
+    const types = new Set<string>();
+    account.resources.forEach(resource => {
+      // Extract the main type (last two parts of the resource type)
+      const parts = resource.type.split('::');
+      if (parts.length >= 2) {
+        const mainType = `${parts[parts.length - 2]}::${parts[parts.length - 1]}`;
+        types.add(mainType);
+      }
+    });
+    return Array.from(types);
+  }, [account?.resources]);
+
+  // Filter resources based on the active resource type
+  const activeResources = useMemo(() => {
+    if (!account?.resources || !activeResourceType) return [];
+    return account.resources.filter(resource => resource.type.includes(activeResourceType));
+  }, [account?.resources, activeResourceType]);
 
   const fetchAccountDetails = async () => {
     try {
@@ -73,6 +100,30 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
     }
   };
 
+  // Set active resource type when resourceTypes changes or from URL params
+  useEffect(() => {
+    if (resourceTypes.length > 0) {
+      // First check if we have a resource from params
+      if (resourceFromParams) {
+        const matchingType = resourceTypes.find(
+          type => type.toLowerCase() === resourceFromParams.toLowerCase()
+        );
+        if (matchingType) {
+          setActiveResourceType(matchingType);
+          return;
+        }
+      }
+
+      // If no matching resource or no resource param, default to first type and redirect
+      setActiveResourceType(resourceTypes[0]);
+
+      // Only redirect if we're on the base account page (no resource in URL)
+      if (!resourceFromParams && addressFromParams) {
+        router.replace(`/account/${addressFromParams}/${resourceTypes[0].toLowerCase()}`);
+      }
+    }
+  }, [resourceTypes, resourceFromParams, addressFromParams]);
+
   // Fetch account details when the component mounts or when address changes
   useEffect(() => {
     if (sdk) {
@@ -84,12 +135,28 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
     navigate('Home');
   };
 
-  const formatBalance = (balance: number) => {
-    // Format with commas for thousands and include 8 decimal places
-    return (balance / 100000000).toLocaleString(undefined, {
-      minimumFractionDigits: 8,
-      maximumFractionDigits: 8
-    });
+  const formatBalance = (rawBalance: number): string => {
+    // Calculate whole and fractional parts based on LIBRA_DECIMALS
+    const balance = Number(rawBalance);
+    const divisor = Math.pow(10, LIBRA_DECIMALS);
+    const wholePart = Math.floor(balance / divisor);
+    const fractionalPart = balance % divisor;
+
+    // Format with proper decimal places
+    const wholePartFormatted = wholePart.toLocaleString();
+
+    // Convert fractional part to string with proper padding
+    const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
+
+    // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
+    const trimmedFractional = fractionalPart > 0
+      ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
+      : '00';
+
+    // Only show decimal part if it's non-zero
+    return trimmedFractional === '00'
+      ? wholePartFormatted
+      : `${wholePartFormatted}.${trimmedFractional}`;
   };
 
   const toggleResourceExpansion = (index: number) => {
@@ -106,12 +173,20 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
 
   const copyToClipboard = (text: string) => {
     try {
-      Clipboard.setString(text);
+      // Remove 0x prefix if present for consistency with the example
+      const addressToCopy = text.startsWith('0x') ? text.substring(2) : text;
+      Clipboard.setString(addressToCopy);
       setCopySuccess('Address copied!');
       setTimeout(() => setCopySuccess(null), 2000);
     } catch (err) {
       console.error('Clipboard operation failed:', err);
     }
+  };
+
+  const handleResourceTypeChange = (resourceType: string) => {
+    setActiveResourceType(resourceType);
+    // Update the URL to reflect the active resource type
+    router.replace(`/account/${addressFromParams}/${resourceType.toLowerCase()}`);
   };
 
   if (loading) {
@@ -191,7 +266,7 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
 
             <View className="flex-row justify-between items-center py-2 border-b border-border">
               <Text className="text-text-muted text-sm w-1/3">Balance</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{formatBalance(account.balance)} OL</Text>
+              <Text className="text-white text-sm w-2/3 text-right">{formatBalance(account.balance)} LIBRA</Text>
             </View>
 
             <View className="flex-row justify-between items-center py-2">
@@ -204,45 +279,68 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
             <View className="bg-secondary rounded-lg p-4 mb-4">
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-text-light text-lg font-bold">Resources ({account.resources.length})</Text>
-                <TouchableOpacity onPress={() => setExpandedResources(expandedResources.size === 0
-                  ? new Set(account.resources.map((_, i) => i))
-                  : new Set()
-                )}>
-                  <Text className="text-primary text-sm">
-                    {expandedResources.size === 0 ? 'Expand All' : 'Collapse All'}
-                  </Text>
-                </TouchableOpacity>
+                <Text className="text-gray-500 text-sm">{activeResources.length} resources of this type</Text>
               </View>
 
-              {account.resources.map((resource, index) => {
-                const isExpanded = expandedResources.has(index);
-                const typeDisplay = resource.type.split('::').slice(-2).join('::');
-                const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
-                const borderColor = isCoinResource ? 'border-green-600' : 'border-blue-600';
-
-                return (
-                  <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                    <TouchableOpacity
-                      className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
-                      onPress={() => toggleResourceExpansion(index)}
-                    >
-                      <Text className="text-white font-bold text-sm flex-1">{typeDisplay}</Text>
-                      <Text className="text-primary ml-2">{isExpanded ? '▼' : '▶'}</Text>
-                    </TouchableOpacity>
-
-                    {isExpanded && (
-                      <View className="p-3 border-t border-border">
-                        <Text className="text-text-muted text-xs font-mono mb-2">{resource.type}</Text>
-                        <View className="overflow-auto">
-                          <Text className="text-text-light font-mono text-xs whitespace-pre">
-                            {JSON.stringify(resource.data, null, 2)}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
+              {/* Resource Type Navigation */}
+              {resourceTypes.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                  <View className="flex-row space-x-2 py-2">
+                    {resourceTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        onPress={() => handleResourceTypeChange(type)}
+                        className={`px-3 py-1.5 rounded-md ${type === activeResourceType
+                          ? 'bg-primary'
+                          : 'bg-gray-700'
+                          }`}
+                      >
+                        <Text className={`text-sm font-medium ${type === activeResourceType
+                          ? 'text-white'
+                          : 'text-gray-300'
+                          }`}>
+                          {type}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                );
-              })}
+                </ScrollView>
+              )}
+
+              {/* Active Resources */}
+              {activeResources.length > 0 ? (
+                activeResources.map((resource, index) => {
+                  const isExpanded = expandedResources.has(index);
+                  const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
+                  const borderColor = isCoinResource ? 'border-green-600' : 'border-blue-600';
+
+                  return (
+                    <View key={index} className="bg-background rounded mb-2 overflow-hidden">
+                      <TouchableOpacity
+                        className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
+                        onPress={() => toggleResourceExpansion(index)}
+                      >
+                        <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
+                        <Text className="text-primary ml-2">{isExpanded ? '▼' : '▶'}</Text>
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View className="p-3 border-t border-border">
+                          <View className="overflow-auto">
+                            <Text className="text-text-light font-mono text-xs whitespace-pre">
+                              {JSON.stringify(resource.data, null, 2)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              ) : (
+                <View className="py-6 bg-background rounded-lg items-center justify-center">
+                  <Text className="text-white text-base">No resources found for this type</Text>
+                </View>
+              )}
             </View>
           )}
         </View>

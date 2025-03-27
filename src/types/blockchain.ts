@@ -53,6 +53,18 @@ export interface StateChange {
   data: Record<string, any>;
 }
 
+export interface LedgerInfo {
+  chain_id: string;
+  epoch: string;
+  ledger_version: string;
+  oldest_ledger_version: string;
+  ledger_timestamp: string;
+  node_role: string;
+  oldest_block_height: string;
+  block_height: string;
+  git_hash?: string;
+}
+
 export type NetworkType = 'mainnet' | 'testnet' | 'devnet';
 
 export interface BlockchainSDK {
@@ -62,6 +74,7 @@ export interface BlockchainSDK {
   getTransactions: (limit: number, forceFresh?: boolean) => Promise<Transaction[]>;
   getTransactionByHash: (hash: string, forceFresh?: boolean) => Promise<TransactionDetail | null>;
   getAccount: (address: string, forceFresh?: boolean) => Promise<Account | null>;
+  getLedgerInfo: (forceFresh?: boolean) => Promise<LedgerInfo>;
   isInitialized: boolean;
   error: Error | null;
   isUsingMockData?: boolean;
