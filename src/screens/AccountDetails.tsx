@@ -6,11 +6,15 @@ import { RootStackParamList } from '../navigation/types';
 import { useSdk } from '../hooks/useSdk';
 import { Account, AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { isValidAddressFormat } from '../utils/addressUtils';
 
 type AccountDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'AccountDetails'>;
   navigation: NativeStackNavigationProp<RootStackParamList, 'AccountDetails'>;
 };
+
+// Coin resource type for LibraCoin
+const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
 
 export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ route, navigation }) => {
   const { address } = route.params;
@@ -31,25 +35,37 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
         throw new Error('Invalid account address format');
       }
 
+      // Validate address format
+      if (!isValidAddressFormat(address)) {
+        throw new Error(`Invalid address format: ${address}`);
+      }
+
       // Check SDK initialization
       if (!sdk.isInitialized || sdk.error) {
         throw new Error(sdk.error?.message || 'SDK is not initialized');
       }
 
       console.log(`Fetching account details for: ${address}`);
-      const accountData = await sdk.getAccount(address);
 
-      if (!accountData) {
-        throw new Error(`Account with address ${address} not found`);
+      // Use the SDK to fetch account data - address normalization happens in the SDK
+      try {
+        const accountData = await sdk.getAccount(address);
+
+        if (!accountData) {
+          throw new Error(`Account with address ${address} not found`);
+        }
+
+        // Validate the returned account data
+        if (!accountData.address) {
+          throw new Error('Received invalid account data from API');
+        }
+
+        console.log('Account data received:', JSON.stringify(accountData, null, 2));
+        setAccount(accountData);
+      } catch (resourceError) {
+        console.error('Error fetching account resources:', resourceError);
+        throw new Error(`Failed to fetch account: ${resourceError instanceof Error ? resourceError.message : 'Unknown error'}`);
       }
-
-      // Validate the returned account data
-      if (!accountData.address) {
-        throw new Error('Received invalid account data from API');
-      }
-
-      console.log('Account data received:', JSON.stringify(accountData, null, 2));
-      setAccount(accountData);
     } catch (err) {
       console.error('Error fetching account details:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -59,8 +75,11 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
     }
   };
 
+  // Fetch account details when the component mounts or when address changes
   useEffect(() => {
-    fetchAccountDetails();
+    if (sdk.isInitialized) {
+      fetchAccountDetails();
+    }
   }, [address, sdk.isInitialized]);
 
   const handleBackPress = () => {

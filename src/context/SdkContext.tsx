@@ -1,15 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { BlockchainSDK, CacheType } from '../types/blockchain';
+import { BlockchainSDK } from '../types/blockchain';
 import { createMockLibraClient } from '../services/mockSdk';
-import { normalizeTransactionHash } from '../utils/addressUtils';
-import { blockchainActions } from '../store/blockchainStore';
+import { normalizeAddress, normalizeTransactionHash } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
-import * as sdkCache from '../services/sdkCache';
 
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
-// Set to false for production, true only for development
-const DEBUG_MODE = false;
 
 // Create a context for the SDK
 interface SdkContextType {
@@ -19,7 +15,6 @@ interface SdkContextType {
     error: Error | null;
     reinitialize: () => Promise<void>;
     isUsingMockData: boolean;
-    clearCache: (type?: CacheType) => void;
 }
 
 const SdkContext = createContext<SdkContextType>({
@@ -28,8 +23,7 @@ const SdkContext = createContext<SdkContextType>({
     isInitializing: false,
     error: null,
     reinitialize: async () => { },
-    isUsingMockData: false,
-    clearCache: () => { }
+    isUsingMockData: false
 });
 
 // Hook to use the SDK context
@@ -39,25 +33,13 @@ interface SdkProviderProps {
     children: ReactNode;
 }
 
-// Add a global event dispatcher for SDK initialization
-const dispatchSdkInitializedEvent = () => {
-    console.log('Dispatching SDK initialized event');
-    if (typeof window !== 'undefined') {
-        // Create and dispatch a custom event that components can listen for
-        const event = new CustomEvent('sdkinitialized', { detail: { timestamp: Date.now() } });
-        window.dispatchEvent(event);
-
-        // Also trigger a forceUpdate on blockchainStore to ensure components update
-        blockchainActions.forceUpdate();
-    }
-};
-
 export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
     const [sdk, setSdk] = useState<BlockchainSDK | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [isInitializing, setIsInitializing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const [isUsingMockData, setIsUsingMockData] = useState(false);
+    const [sdkClient, setSdkClient] = useState<any>(null);
 
     // Initialize SDK function
     const initializeSdk = async () => {
@@ -76,101 +58,40 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
             // Create client with proper network settings using config
             const client = new LibraSDK.LibraClient(
                 sdkConfig.network === 'mainnet' ? LibraSDK.Network.MAINNET :
-                    sdkConfig.network === 'testnet' ? LibraSDK.Network.TESTNET : LibraSDK.Network.DEVNET,
+                    sdkConfig.network === 'testnet' ? LibraSDK.Network.TESTNET :
+                        LibraSDK.Network.DEVNET,
                 sdkConfig.rpcUrl
             );
+
+            // Store the SDK client for direct access
+            setSdkClient(client);
 
             // Test connection with a simple call
             await client.getLedgerInfo();
 
-            // Create SDK interface with cache integration
+            // Create SDK interface that directly uses the client
             const newSdk: BlockchainSDK = {
                 getLatestBlockHeight: async () => {
-                    // Check cache first
-                    const cachedBlockHeight = sdkCache.getCachedBlockHeight();
-                    if (cachedBlockHeight !== null) {
-                        console.log('Using cached block height:', cachedBlockHeight);
-                        return cachedBlockHeight;
-                    }
-
-                    // If not in cache or not fresh, fetch from the blockchain
                     console.log('Fetching latest block height from blockchain');
                     const info = await client.getLedgerInfo();
-                    const blockHeight = parseInt(info.block_height, 10);
-
-                    // Cache the result along with other ledger info
-                    if (info.epoch && info.chain_id) {
-                        sdkCache.cacheBlockInfo(
-                            blockHeight,
-                            parseInt(info.epoch, 10),
-                            info.chain_id
-                        );
-                    }
-
-                    return blockHeight;
+                    return parseInt(info.block_height, 10);
                 },
                 getLatestEpoch: async () => {
-                    // Check cache first
-                    const cachedEpoch = sdkCache.getCachedEpoch();
-                    if (cachedEpoch !== null) {
-                        console.log('Using cached epoch:', cachedEpoch);
-                        return cachedEpoch;
-                    }
-
-                    // If not in cache or not fresh, fetch from the blockchain
                     console.log('Fetching latest epoch from blockchain');
                     const info = await client.getLedgerInfo();
-                    const epoch = parseInt(info.epoch, 10);
-
-                    // Cache the result along with other ledger info if not already cached
-                    if (!sdkCache.getCachedBlockHeight() && info.block_height && info.chain_id) {
-                        sdkCache.cacheBlockInfo(
-                            parseInt(info.block_height, 10),
-                            epoch,
-                            info.chain_id
-                        );
-                    }
-
-                    return epoch;
+                    return parseInt(info.epoch, 10);
                 },
                 getChainId: async () => {
-                    // Check cache first
-                    const cachedChainId = sdkCache.getCachedChainId();
-                    if (cachedChainId !== null) {
-                        console.log('Using cached chain ID:', cachedChainId);
-                        return cachedChainId;
-                    }
-
-                    // If not in cache or not fresh, fetch from the blockchain
                     console.log('Fetching chain ID from blockchain');
                     const info = await client.getLedgerInfo();
-                    const chainId = info.chain_id;
-
-                    // Cache the result along with other ledger info if not already cached
-                    if (!sdkCache.getCachedBlockHeight() && info.block_height && info.epoch) {
-                        sdkCache.cacheBlockInfo(
-                            parseInt(info.block_height, 10),
-                            parseInt(info.epoch, 10),
-                            chainId
-                        );
-                    }
-
-                    return chainId;
+                    return info.chain_id;
                 },
                 getTransactions: async (limit) => {
-                    // Check cache for transactions list
-                    const cachedTransactions = sdkCache.getCachedTransactions();
-                    if (cachedTransactions !== null) {
-                        console.log(`Using ${cachedTransactions.length} cached transactions`);
-                        return cachedTransactions;
-                    }
-
-                    // If not in cache or not fresh, fetch from the blockchain
                     console.log(`Fetching up to ${limit} transactions from blockchain`);
                     const txs = await client.getTransactions({ limit });
 
-                    // Transform and cache the results
-                    const transactions = txs.map((tx: any) => ({
+                    // Transform the results
+                    return txs.map((tx: any) => ({
                         hash: tx.hash,
                         version: parseInt(tx.version) || 0,
                         sender: tx.sender || '',
@@ -184,11 +105,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         block_height: parseInt(tx.block_height) || 0,
                         function: tx.function || null
                     }));
-
-                    // Cache the transformed transactions
-                    sdkCache.cacheTransactions(transactions);
-
-                    return transactions;
                 },
                 getTransactionByHash: async (hash) => {
                     // Use the normalizeTransactionHash utility for consistent handling
@@ -200,14 +116,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         return null;
                     }
 
-                    // Check cache for transaction details
-                    const cachedTransaction = sdkCache.getCachedTransactionDetail(normalizedHash);
-                    if (cachedTransaction !== null) {
-                        console.log(`Using cached transaction details for hash: ${normalizedHash}`);
-                        return cachedTransaction;
-                    }
-
-                    // If not in cache or not fresh, fetch from the blockchain
                     console.log('Fetching transaction details for hash:', normalizedHash);
 
                     try {
@@ -218,7 +126,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         if (!tx) return null;
 
                         // Transform the transaction data
-                        const transaction = {
+                        return {
                             hash: tx.hash,
                             version: parseInt(tx.version) || 0,
                             sender: tx.sender || '',
@@ -243,34 +151,35 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             })),
                             payload: tx.payload || {}
                         };
-
-                        // Cache the transaction details
-                        sdkCache.cacheTransactionDetail(normalizedHash, transaction);
-
-                        return transaction;
                     } catch (error) {
                         console.error(`Error fetching transaction ${normalizedHash}:`, error);
                         return null;
                     }
                 },
                 getAccount: async (address) => {
-                    // Check cache for account info
-                    const cachedAccount = sdkCache.getCachedAccount(address);
-                    if (cachedAccount !== null) {
-                        console.log(`Using cached account info for address: ${address}`);
-                        return cachedAccount;
+                    // Validate and normalize the address first
+                    if (!address || typeof address !== 'string') {
+                        console.error('Invalid address provided to getAccount:', address);
+                        return null;
                     }
 
-                    // If not in cache or not fresh, fetch from the blockchain
-                    console.log(`Fetching account info for address: ${address}`);
+                    // Normalize the address to ensure proper format
+                    const normalizedAddress = normalizeAddress(address);
+                    console.log(`Using normalized address: ${normalizedAddress} (original: ${address})`);
 
                     try {
-                        // Construct proper account parameters
-                        const accountParams = { address };
+                        // Construct proper account parameters with normalized address
+                        const accountParams = {
+                            address: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
+                        };
+
+                        // Get account info 
                         const accountInfo = await client.account(accountParams);
 
-                        // Construct proper resources parameters
-                        const resourcesParams = { accountAddress: address };
+                        // Get account resources
+                        const resourcesParams = {
+                            accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
+                        };
                         const resources = await client.accountResources(resourcesParams);
 
                         // Find coin resource for balance
@@ -290,8 +199,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         }
 
                         // Transform and create account object
-                        const account = {
-                            address,
+                        return {
+                            address: normalizedAddress,
                             balance,
                             sequence_number: parseInt(accountInfo.sequence_number) || 0,
                             resources: resources.map((resource: any) => ({
@@ -299,13 +208,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 data: resource?.data || {}
                             }))
                         };
-
-                        // Cache the account info
-                        sdkCache.cacheAccount(address, account);
-
-                        return account;
                     } catch (err) {
-                        console.error('Error fetching account:', err);
+                        console.error(`Error fetching account ${normalizedAddress}:`, err);
                         return null;
                     }
                 },
@@ -317,11 +221,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
             console.log('SDK initialized successfully!');
             setSdk(newSdk);
             setIsInitialized(true);
-
-            // Dispatch event after a small delay to ensure state has updated
-            setTimeout(() => {
-                dispatchSdkInitializedEvent();
-            }, 50);
         } catch (err) {
             console.error('Failed to initialize SDK:', err);
 
@@ -330,6 +229,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                 try {
                     console.log('Falling back to mock SDK due to debug mode...');
                     const mockClient = createMockLibraClient();
+                    setSdkClient(mockClient);
 
                     // Create a mock SDK with the same interface
                     const mockSdk: BlockchainSDK = {
@@ -343,14 +243,26 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         },
                         getAccount: async (address) => {
                             if (!address) return null;
-                            const accountInfo = await mockClient.getAccount(address);
-                            const resources = await mockClient.getAccountResources(address);
-                            return {
-                                address,
-                                balance: 1000000,
-                                sequence_number: 0,
-                                resources: resources
-                            };
+
+                            // Normalize address for consistency in mock data as well
+                            const normalizedAddress = normalizeAddress(address);
+                            console.log(`Using normalized address in mock SDK: ${normalizedAddress}`);
+
+                            try {
+                                // Use direct mock client methods
+                                const accountInfo = await mockClient.getAccount(normalizedAddress);
+                                const resources = await mockClient.getResources(normalizedAddress);
+
+                                return {
+                                    address: normalizedAddress,
+                                    balance: 1000000,
+                                    sequence_number: 0,
+                                    resources: resources
+                                };
+                            } catch (err: any) {
+                                console.error(`Error in mock getAccount: ${err.message}`);
+                                return null;
+                            }
                         },
                         isInitialized: true,
                         error: new Error('Using mock data in debug mode'),
@@ -361,11 +273,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     setIsInitialized(true);
                     setIsUsingMockData(true);
                     setError(err instanceof Error ? err : new Error('Using mock data in debug mode'));
-
-                    // Dispatch event for mock data as well after a small delay
-                    setTimeout(() => {
-                        dispatchSdkInitializedEvent();
-                    }, 50);
                 } catch (mockErr) {
                     console.error('Failed to create mock SDK:', mockErr);
                     setError(mockErr instanceof Error ? mockErr : new Error('Failed to create mock SDK'));
@@ -377,11 +284,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
         } finally {
             setIsInitializing(false);
         }
-    };
-
-    // Function to clear cache
-    const handleClearCache = (type?: CacheType) => {
-        sdkCache.clearCache(type);
     };
 
     // Initialize on mount
@@ -422,8 +324,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
     const reinitialize = async () => {
         setIsInitialized(false);
         setSdk(null);
-        // Clear caches on reinitialization
-        sdkCache.clearCache();
         await initializeSdk();
     };
 
@@ -433,8 +333,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
         isInitializing,
         error,
         reinitialize,
-        isUsingMockData,
-        clearCache: handleClearCache
+        isUsingMockData
     };
 
     return (

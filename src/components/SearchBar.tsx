@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated, Platform, Linking } from 'react-native';
 import { useSdk } from '../hooks/useSdk';
-import { normalizeAddress, isValidAddressFormat } from '../utils/addressUtils';
+import { isValidAddressFormat } from '../utils/addressUtils';
 
 export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -55,18 +55,16 @@ export const SearchBar: React.FC = () => {
         try {
             const query = searchQuery.trim();
 
-            // Check if query looks like an address
+            // Check if query looks like an address 
             if (isValidAddressFormat(query)) {
-                // Normalize address for account lookup
-                const normalizedAddress = normalizeAddress(query);
-                console.log(`Searching for account: ${normalizedAddress} (original: ${query})`);
+                console.log(`Searching for account: ${query}`);
 
-                // Try account lookup with normalized address
-                const accountData = await sdk.getAccount(normalizedAddress);
+                // Address validation and normalization happens in the SDK
+                const accountData = await sdk.getAccount(query);
 
                 if (accountData) {
                     console.log('Account found, navigating to account details');
-                    navigateTo('account', { address: normalizedAddress });
+                    navigateTo('account', { address: query });
                     setSearchQuery('');
                     setIsSearching(false);
                     return;
