@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Header } from '../components/Header';
 import { useSdk } from '../hooks/useSdk';
+import { normalizeTransactionHash, normalizeAddress } from '../utils/addressUtils';
 
 type SearchScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Search'>;
@@ -40,19 +41,30 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     Keyboard.dismiss();
 
     try {
-      // Try to get transaction by hash first
-      const transaction = await sdk.getTransactionByHash(searchQuery);
+      // Normalize search query
+      const query = searchQuery.trim();
 
-      if (transaction) {
-        navigation.navigate('TransactionDetails', { hash: searchQuery });
-        return;
+      // Try to normalize it as a transaction hash first
+      const normalizedHash = normalizeTransactionHash(query);
+
+      // If it looks like a valid hash, check if the transaction exists
+      if (normalizedHash) {
+        console.log('Searching for transaction with normalized hash:', normalizedHash);
+        const transaction = await sdk.getTransactionByHash(normalizedHash);
+
+        if (transaction) {
+          navigation.navigate('TransactionDetails', { hash: normalizedHash });
+          return;
+        }
       }
 
       // If not a transaction, try to get account
-      const account = await sdk.getAccount(searchQuery);
+      const normalizedAddress = normalizeAddress(searchQuery);
+      console.log('Searching for account with normalized address:', normalizedAddress);
+      const account = await sdk.getAccount(normalizedAddress);
 
       if (account) {
-        navigation.navigate('AccountDetails', { address: searchQuery });
+        navigation.navigate('AccountDetails', { address: normalizedAddress });
         return;
       }
 

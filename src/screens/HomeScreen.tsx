@@ -1,17 +1,55 @@
-import React, { useEffect, useState } from 'react';
-import { View, SafeAreaView, Text, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, SafeAreaView, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Header } from '../components/Header';
 import { BlockchainStats } from '../components/BlockchainStats';
 import { TransactionsList } from '../components/TransactionsList';
 import { blockchainActions, blockchainStore } from '../store/blockchainStore';
 import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
 import { Transaction } from '../types/blockchain';
+
+// Debug flag - must match the one in SdkContext.tsx
+const DEBUG_MODE = false;
 
 export const HomeScreen: React.FC = () => {
   const sdk = useSdk();
+  const { isInitialized, isInitializing, error, isUsingMockData, reinitialize } = useSdkContext();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  // Keep track of whether we've attempted data fetch
+  const dataFetchAttempted = useRef(false);
+  // Track manual retry attempts
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Create mock transactions with correct typing
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
+    // Only set a timeout if we're in DEBUG_MODE
+    if (!DEBUG_MODE) return;
+
+    const timer = setTimeout(() => {
+      if (blockchainStore.stats.blockHeight.get() === null && !sdk.error) {
+        setLoadingTimeout(true);
+        console.log('Loading timeout reached in debug mode');
+
+        // Only use mock data in debug mode
+        if (DEBUG_MODE) {
+          console.log('Debug mode enabled, using mock data');
+          // Set mock stats and transactions
+          blockchainActions.setStats({
+            blockHeight: 500000,
+            epoch: 20,
+            chainId: 'testnet'
+          });
+          blockchainActions.setTransactions(createMockTransactions(20));
+        }
+
+        blockchainActions.setLoading(false);
+      }
+    }, 5000); // 5 seconds timeout
+
+    return () => clearTimeout(timer);
+  }, [sdk]);
+
+  // Create mock transactions with correct typing (only used in debug mode)
   const createMockTransactions = (count: number): Transaction[] => {
     return Array.from({ length: count }).map((_, index) => ({
       hash: `0x${Math.random().toString(16).substring(2, 42)}`,
@@ -28,59 +66,12 @@ export const HomeScreen: React.FC = () => {
     }));
   };
 
-  // Set a timeout to prevent infinite loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (blockchainStore.stats.blockHeight.get() === null && !sdk.error) {
-        setLoadingTimeout(true);
-        console.log('Loading timeout reached, forcing mock data');
-
-        // Force some mock data
-        blockchainActions.setStats({
-          blockHeight: 500000,
-          epoch: 20,
-          chainId: 'testnet'
-        });
-
-        // Generate mock transactions
-        blockchainActions.setTransactions(createMockTransactions(20));
-        blockchainActions.setLoading(false);
-      }
-    }, 1000); // Reduced to 1 second for faster fallback
-
-    return () => clearTimeout(timer);
-  }, [sdk]);
-
-  // Force immediate data load on component mount
-  useEffect(() => {
-    // If we already have data, don't reload
-    if (blockchainStore.stats.blockHeight.get() !== null) {
-      return;
-    }
-
-    // Try to load data immediately
-    console.log('Initial data load');
-
-    // Start with a loading state
-    blockchainActions.setLoading(true);
-
-    // Use mock data if we don't have a real SDK connection
-    if (!sdk.isInitialized || sdk.error) {
-      console.log('SDK not initialized or has error, using mock data');
-      blockchainActions.setStats({
-        blockHeight: 500000,
-        epoch: 20,
-        chainId: 'testnet'
-      });
-      blockchainActions.setTransactions(createMockTransactions(20));
-      blockchainActions.setLoading(false);
-      setLoadingTimeout(true);
-    }
-  }, []);
-
   const fetchData = async () => {
     try {
+      console.log('Fetching blockchain data...');
+      dataFetchAttempted.current = true;
       blockchainActions.setLoading(true);
+      blockchainActions.setError(null);
 
       // Fetch blockchain stats
       const [blockHeight, epoch, chainId] = await Promise.all([
@@ -89,143 +80,223 @@ export const HomeScreen: React.FC = () => {
         sdk.getChainId()
       ]);
 
+      console.log('Blockchain data fetched:', { blockHeight, epoch, chainId });
+
+      // Explicitly update each stat individually to ensure UI updates
       blockchainActions.setStats({
         blockHeight,
         epoch,
         chainId
       });
 
-      // Fetch recent transactions
-      const transactions = await sdk.getTransactions(20);
-
-      // Add block height to each transaction (in a real app, this would come from the API)
-      const transactionsWithBlockHeight = transactions.map((tx, index) => ({
-        ...tx,
-        block_height: blockHeight - index, // This is a simplification for our demo
-      }));
-
-      blockchainActions.setTransactions(transactionsWithBlockHeight);
-      blockchainActions.setLoading(false);
-    } catch (error) {
-      blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
-      blockchainActions.setLoading(false);
-
-      // If there's an error, use mock data
-      setLoadingTimeout(true);
-      console.log('Error fetching data, using mock data instead');
-
-      blockchainActions.setStats({
-        blockHeight: 500000,
-        epoch: 20,
-        chainId: 'testnet'
+      // Force update to store values in case the reactive system isn't updating
+      console.log('After setting stats:', {
+        height: blockchainStore.stats.blockHeight.get(),
+        epoch: blockchainStore.stats.epoch.get(),
+        chainId: blockchainStore.stats.chainId.get()
       });
 
-      // Generate sample transactions on error
-      blockchainActions.setTransactions(createMockTransactions(20));
-    }
-  };
+      // Fetch recent transactions
+      const transactions = await sdk.getTransactions(20);
+      console.log(`Fetched ${transactions.length} transactions`);
 
-  useEffect(() => {
-    // Only fetch data if the SDK is initialized
-    if (sdk.isInitialized) {
-      // If there was an error initializing the SDK, update the store
-      if (sdk.error) {
-        blockchainActions.setError(`SDK Error: ${sdk.error.message}`);
-        blockchainActions.setLoading(false);
+      // Add block height to each transaction if needed
+      const transactionsWithBlockHeight = transactions.map((tx, index) => ({
+        ...tx,
+        block_height: tx.block_height || blockHeight - index,
+      }));
 
-        // If SDK initialization failed, use mock data immediately
-        setLoadingTimeout(true);
+      // Set transactions and force update
+      blockchainActions.setTransactions(transactionsWithBlockHeight);
+      console.log('After setting transactions:', {
+        count: blockchainStore.transactions.get().length
+      });
+    } catch (error) {
+      console.error('Error fetching blockchain data:', error);
+      blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
+
+      // Only use mock data in debug mode if there's an error
+      if (DEBUG_MODE) {
+        console.log('Error fetching data, using debug mock data');
         blockchainActions.setStats({
           blockHeight: 500000,
           epoch: 20,
           chainId: 'testnet'
         });
-
         blockchainActions.setTransactions(createMockTransactions(20));
-        return;
+      }
+    } finally {
+      // Ensure loading state is cleared
+      blockchainActions.setLoading(false);
+      console.log('Finished loading data, loading state:', blockchainStore.isLoading.get());
+    }
+  };
+
+  // Initialize data as soon as SDK becomes initialized or when retryCount changes
+  useEffect(() => {
+    if (isInitialized) {
+      console.log('SDK initialized, fetching initial data...');
+
+      // Reset the data fetch flag if we're retrying
+      if (retryCount > 0) {
+        dataFetchAttempted.current = false;
       }
 
-      fetchData();
+      // Force immediate state update to clear any stale state
+      // Using undefined instead of null to avoid type errors
+      blockchainActions.setStats({
+        blockHeight: undefined,
+        epoch: undefined,
+        chainId: undefined
+      });
+      blockchainActions.setTransactions([]);
+
+      // Force a state update to ensure UI refreshes
+      blockchainActions.forceUpdate();
+
+      // Fetch data only if not already attempted
+      if (!dataFetchAttempted.current) {
+        setTimeout(() => {
+          fetchData();
+        }, 100);  // Short delay to ensure the state reset has propagated
+      }
+    }
+  }, [isInitialized, retryCount]);
+
+  // Add another effect to enforce data refresh if we have initialized but no data
+  useEffect(() => {
+    const blockHeight = blockchainStore.stats.blockHeight.get();
+    const hasTransactions = blockchainStore.transactions.get().length > 0;
+
+    if (isInitialized && !isInitializing && !blockchainStore.isLoading.get() &&
+      ((blockHeight === null || blockHeight === undefined) || !hasTransactions)) {
+      console.log('Detected initialized SDK but missing data, forcing refresh...');
+
+      if (!dataFetchAttempted.current) {
+        fetchData();
+      } else {
+        console.log('Data fetch already attempted, not retrying automatically');
+      }
+    }
+  }, [isInitialized, isInitializing, blockchainStore.stats.blockHeight.get(),
+    blockchainStore.transactions.get().length]);
+
+  // Set up polling for data updates
+  useEffect(() => {
+    if (isInitialized && !isUsingMockData) {
+      console.log('Setting up polling interval for blockchain data...');
 
       // Set up polling for new data
-      const pollInterval = setInterval(async () => {
-        try {
-          // Only update block height and transactions for polling
-          const [blockHeight, transactions] = await Promise.all([
-            sdk.getLatestBlockHeight(),
-            sdk.getTransactions(5) // Get only the 5 most recent transactions
-          ]);
-
-          blockchainActions.setStats({ blockHeight });
-
-          // Add block height to the new transactions
-          const transactionsWithBlockHeight = transactions.map((tx, index) => ({
-            ...tx,
-            block_height: blockHeight - index,
-          }));
-
-          // Add only new transactions that aren't already in the store
-          const currentTransactions = transactionsWithBlockHeight.filter((tx: Transaction) =>
-            !blockchainStore.transactions.peek().some((existingTx: Transaction) =>
-              existingTx.hash === tx.hash
-            )
-          );
-
-          // Add each new transaction individually
-          currentTransactions.forEach((tx: Transaction) => {
-            blockchainActions.addTransaction(tx);
-          });
-        } catch (error) {
-          console.error('Polling error:', error);
+      const pollInterval = setInterval(() => {
+        // Only poll if we're not already loading
+        if (!blockchainStore.isLoading.get()) {
+          console.log('Polling for new blockchain data...');
+          fetchData();
         }
-      }, 10000); // Poll every 10 seconds
+      }, 30000); // Poll every 30 seconds
 
       return () => {
+        console.log('Clearing polling interval');
         clearInterval(pollInterval);
       };
     }
-  }, [sdk.isInitialized, sdk.error, sdk]);
+  }, [isInitialized, isUsingMockData]);
 
+  // Handle manual refresh
   const handleRefresh = () => {
+    console.log('Manual refresh triggered');
     fetchData();
   };
 
-  // Display loading state while the SDK is initializing
-  if (!sdk.isInitialized) {
+  // Handle retry when SDK fails to initialize
+  const handleRetryInitialization = () => {
+    console.log('Manual SDK reinitialization triggered');
+    setRetryCount(prev => prev + 1);
+    reinitialize();
+  };
+
+  // Handle the SDK initialized event
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleSdkInitialized = () => {
+        console.log('SDK initialized event received, forcing refresh');
+        // Reset the data fetch flag to force a new fetch
+        dataFetchAttempted.current = false;
+        // Increment retry count to trigger a refresh
+        setRetryCount(prev => prev + 1);
+      };
+
+      window.addEventListener('sdkinitialized', handleSdkInitialized);
+
+      return () => {
+        window.removeEventListener('sdkinitialized', handleSdkInitialized);
+      };
+    }
+  }, []);
+
+  // Display loading state if we're still waiting for data
+  const isDataLoading = blockchainStore.isLoading.get() &&
+    !dataFetchAttempted.current &&
+    !blockchainStore.stats.blockHeight.get();
+
+  // This will check if we should show the loading screen or actual content
+  const shouldShowLoadingScreen =
+    // Show loading screen during SDK initialization
+    isInitializing ||
+    // Or during initial data load, but only if we don't have any blockchain data yet
+    (isDataLoading &&
+      !blockchainStore.stats.blockHeight.get() &&
+      blockchainStore.transactions.get().length === 0 &&
+      !dataFetchAttempted.current);
+
+  // Add a fallback in case the loading gets stuck
+  useEffect(() => {
+    // If we're in loading state for too long, force exit it
+    if (shouldShowLoadingScreen) {
+      const timer = setTimeout(() => {
+        dataFetchAttempted.current = true;
+        blockchainActions.setLoading(false);
+        console.log('Forced exit from loading state due to timeout');
+      }, 10000); // 10 second timeout
+
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowLoadingScreen]);
+
+  if (shouldShowLoadingScreen) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
         <View className="flex-1 justify-center items-center bg-background p-5">
           <ActivityIndicator size="large" color="#E75A5C" />
-          <Text className="text-white text-lg mt-4 text-center">Initializing blockchain SDK...</Text>
+          <Text className="text-white text-lg mt-4 text-center">
+            {isInitializing ? "Initializing blockchain connection..." : "Loading blockchain data..."}
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Display error state if the SDK failed to initialize
-  if (sdk.error && !loadingTimeout) {
+  // Display error state if the SDK failed to initialize and we're not using mock data
+  if (error && !isInitialized && !isUsingMockData && !DEBUG_MODE) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Header testID="header" />
         <View className="flex-1 justify-center items-center bg-background p-5">
           <Text className="text-primary text-2xl font-bold mb-4">RPC Connection Error</Text>
-          <Text className="text-white text-base text-center mb-2">{sdk.error.message}</Text>
-          <Text className="text-white text-base text-center mb-2">
-            Direct connection to Open Libra RPC at {`https://rpc.openlibra.space:8080/v1`} failed
+          <Text className="text-white text-base text-center mb-2">{error.message}</Text>
+          <Text className="text-white text-base text-center mb-4">
+            Connection to Open Libra RPC at {`https://rpc.openlibra.space:8080/v1`} failed
           </Text>
-          {sdk.error.message.includes('CORS') && (
-            <Text className="text-text-muted text-sm text-center">
-              This is a CORS policy restriction in the browser environment.
-              The RPC server is not allowing cross-origin requests from your domain.
-            </Text>
-          )}
-          {sdk.error.message.includes('Failed to fetch') && (
-            <Text className="text-text-muted text-sm text-center">
-              Network request failed. Check your internet connection or if the RPC endpoint is accessible.
-            </Text>
-          )}
-          <Text className="text-text-muted text-sm text-center">Using mock data instead...</Text>
+          <Text className="text-text-muted text-sm text-center mb-6">
+            Please check your internet connection or try again later.
+          </Text>
+          <TouchableOpacity
+            className="bg-primary rounded-lg p-3 justify-center items-center"
+            onPress={handleRetryInitialization}
+          >
+            <Text className="text-white text-base font-bold">Retry Connection</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -236,18 +307,22 @@ export const HomeScreen: React.FC = () => {
     <SafeAreaView className="flex-1 bg-background">
       <Header testID="header" />
       <View className="flex-1 p-4 bg-background">
-        {loadingTimeout && (
+        {/* Show debug warning if using mock data */}
+        {isUsingMockData && (
           <View className="bg-primary/20 p-2.5 rounded mb-4">
             <Text className="text-white text-sm text-center">
-              Using sample data - Unable to connect to Open Libra RPC. This is simulated data.
+              DEBUG MODE: Using sample data - Unable to connect to Open Libra RPC
             </Text>
             <Text className="text-white text-xs text-center">
-              Connection to {`https://rpc.openlibra.space:8080/v1`} failed.
-              Using standard SDK initialization without modifications.
+              This is simulated data for development purposes only
             </Text>
           </View>
         )}
+
+        {/* Show blockchain stats component */}
         <BlockchainStats testID="blockchain-stats" />
+
+        {/* Show transactions list */}
         <TransactionsList testID="transactions-table" onRefresh={handleRefresh} />
       </View>
     </SafeAreaView>

@@ -51,4 +51,39 @@ export function formatAddressForDisplay(address: string, startChars = 6, endChar
         address.slice(address.length - endChars);
 
     return `${prefix}${start}...${end}`;
+}
+
+/**
+ * Normalizes a transaction hash for consistency
+ * - Validates that it's a non-empty string
+ * - Adds 0x prefix if missing
+ * - Doesn't pad transaction hashes (unlike account addresses)
+ * 
+ * @param hash The transaction hash to normalize
+ * @returns Normalized hash with 0x prefix or null if invalid
+ */
+export function normalizeTransactionHash(hash: string | undefined | null): string | null {
+    // Handle null/undefined cases
+    if (!hash) {
+        console.error('Null or undefined hash provided to normalizeTransactionHash');
+        return null;
+    }
+
+    // Handle empty strings
+    if (hash.trim() === '' || hash === 'undefined') {
+        console.error('Empty or "undefined" string provided to normalizeTransactionHash');
+        return null;
+    }
+
+    // Remove 0x prefix if present, then add it back
+    const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+
+    // Validate it's a hex string
+    if (!/^[a-fA-F0-9]+$/.test(cleanHash)) {
+        console.error('Invalid hash format (non-hex characters):', hash);
+        return null;
+    }
+
+    // Return with 0x prefix
+    return '0x' + cleanHash;
 } 

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,59 +18,124 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
-import { formatAddressForDisplay } from '../utils/addressUtils';
+import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
+import { useSdkContext } from '../context/SdkContext';
+import { useForceUpdate } from '../hooks/useForceUpdate';
 
 type TransactionsListProps = {
   testID?: string;
   onRefresh?: () => void;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+// Navigation type for navigating to transaction details
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'TransactionDetails'>;
 
 export const TransactionsList: React.FC<TransactionsListProps> = ({
   testID,
   onRefresh
 }) => {
+  // Use our force update hook to ensure component updates
+  const updateCounter = useForceUpdate();
+
   const transactions = useObservable(blockchainStore.transactions);
   const isLoading = useObservable(blockchainStore.isLoading);
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
   const isCalculatingBlockTime = useObservable(blockTimeStore.isCalculating);
+  const { isInitialized, isUsingMockData } = useSdkContext();
   const navigation = useNavigation<NavigationProp>();
   const { width } = useWindowDimensions();
+
+  // Debug logging to track component updates
+  useEffect(() => {
+    console.log('TransactionsList updated', {
+      updateCounter,
+      transactionCount: transactions.get().length,
+      isLoading: isLoading.get(),
+      isInitialized
+    });
+  }, [updateCounter, transactions.get().length, isLoading.get(), isInitialized]);
 
   // Check if we should use mobile layout
   const isMobile = width < 768;
 
-  // Transform the observable data to regular array
+  // Transform the observable data to regular array with explicit primitive values
   const transactionArray = useMemo(() => {
-    return transactions.get().map(tx => ({
-      hash: tx.hash.get(),
-      version: tx.version.get(),
-      sender: tx.sender.get(),
-      sequence_number: tx.sequence_number.get(),
-      timestamp: tx.timestamp.get(),
-      type: tx.type.get(),
-      status: tx.status.get(),
-      gas_used: tx.gas_used?.get(),
-      gas_unit_price: tx.gas_unit_price?.get(),
-      vm_status: tx.vm_status?.get(),
-      block_height: tx.block_height?.get() || tx.version.get() - 1000, // Use version - 1000 as fallback
-      epoch: tx.epoch?.get(),
-      round: tx.round?.get(),
-      state_change_hash: tx.state_change_hash?.get(),
-      event_root_hash: tx.event_root_hash?.get(),
-      accumulator_root_hash: tx.accumulator_root_hash?.get()
-    }));
-  }, [transactions]);
+    console.log('TransactionsList - rebuilding transaction array with', transactions.get().length, 'items');
+    const txList = transactions.get();
+
+    if (!txList || txList.length === 0) {
+      return [];
+    }
+
+    // Map to a new array of regular objects (not observables) with primitive values
+    return txList.map(tx => {
+      // Get primitive values from observable objects
+      const hash = typeof tx.hash === 'object' ? tx.hash.get() : tx.hash || '';
+      const version = typeof tx.version === 'object' ? Number(tx.version.get()) : Number(tx.version) || 0;
+      const sender = typeof tx.sender === 'object' ? tx.sender.get() : tx.sender || '';
+      const sequence_number = typeof tx.sequence_number === 'object' ? Number(tx.sequence_number.get()) : Number(tx.sequence_number) || 0;
+      const timestamp = typeof tx.timestamp === 'object' ? tx.timestamp.get() : tx.timestamp || Date.now();
+      const type = typeof tx.type === 'object' ? tx.type.get() : tx.type || 'unknown';
+      const status = typeof tx.status === 'object' ? tx.status.get() : tx.status || 'pending';
+      const gas_used = typeof tx.gas_used === 'object' ? Number(tx.gas_used.get()) : Number(tx.gas_used) || 0;
+      const gas_unit_price = typeof tx.gas_unit_price === 'object' ? Number(tx.gas_unit_price.get()) : Number(tx.gas_unit_price) || 0;
+      const vm_status = typeof tx.vm_status === 'object' ? tx.vm_status.get() : tx.vm_status || '';
+      const block_height = typeof tx.block_height === 'object' ? Number(tx.block_height.get()) : Number(tx.block_height) || version - 1000;
+      const epoch = typeof tx.epoch === 'object' ? tx.epoch.get() : tx.epoch || '';
+      const round = typeof tx.round === 'object' ? tx.round.get() : tx.round || '';
+      const state_change_hash = typeof tx.state_change_hash === 'object' ? tx.state_change_hash.get() : tx.state_change_hash || '';
+      const event_root_hash = typeof tx.event_root_hash === 'object' ? tx.event_root_hash.get() : tx.event_root_hash || '';
+      const accumulator_root_hash = typeof tx.accumulator_root_hash === 'object' ? tx.accumulator_root_hash.get() : tx.accumulator_root_hash || '';
+
+      // Return a regular JavaScript object with primitive values
+      return {
+        hash,
+        version,
+        sender,
+        sequence_number,
+        timestamp,
+        type,
+        status,
+        gas_used,
+        gas_unit_price,
+        vm_status,
+        block_height,
+        epoch,
+        round,
+        state_change_hash,
+        event_root_hash,
+        accumulator_root_hash
+      };
+    });
+  }, [transactions, updateCounter]); // Also depend on updateCounter
 
   const handleTransactionPress = (hash: string) => {
-    navigation.navigate('TransactionDetails', { hash });
+    // Normalize the hash using our utility function
+    const normalizedHash = normalizeTransactionHash(hash);
+
+    // Validate hash before navigation
+    if (!normalizedHash) {
+      console.error('Invalid transaction hash:', hash);
+      return;
+    }
+
+    console.log('Navigating to transaction details with normalized hash:', normalizedHash);
+    navigation.navigate('TransactionDetails', { hash: normalizedHash });
   };
 
   // Format the transaction hash for display
   const formatHash = (hash: string) => {
     if (hash.length <= 12) return hash;
     return formatAddressForDisplay(hash, 4, 4);
+  };
+
+  // Get display text for the sender, falling back to hash if sender is not available
+  const getSenderDisplay = (item: Transaction) => {
+    if (item.sender && item.sender.trim() !== '') {
+      return formatHash(item.sender);
+    }
+    // Fall back to hash when sender is not available
+    return formatHash(item.hash);
   };
 
   const formatNumber = (num: number | string | undefined) => {
@@ -124,11 +189,11 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
           testID={`transaction-${item.hash}`}
         >
           <View className="flex-row justify-between items-center mb-2">
-            <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-                item.type === 'module' ? 'bg-[#E6F7F5]' :
-                  item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
-                    item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
-                      'bg-[#F5F5F5]'
+            <View className={`px-2 py-0.5 rounded ${item.type === 'script' ? 'bg-[#F3ECFF]' :
+              item.type === 'module' ? 'bg-[#E6F7F5]' :
+                item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
+                  item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
+                    'bg-[#F5F5F5]'
               }`}>
               <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
             </View>
@@ -137,7 +202,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
           <View className="flex-row mb-1">
             <Text className="text-text-muted text-xs mr-2">From:</Text>
-            <Text className="text-white text-xs">{formatHash(item.sender)}</Text>
+            <Text className="text-white text-xs">{getSenderDisplay(item)}</Text>
           </View>
 
           <View className="flex-row justify-between">
@@ -163,13 +228,13 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       >
         <Text className="text-white text-sm flex-1 min-w-[100px]">{formatNumber(item.block_height)}</Text>
         <Text className="text-white text-sm flex-1 min-w-[120px]">{formatNumber(item.version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px]">{formatHash(item.sender)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[160px]">{getSenderDisplay(item)}</Text>
         <View className="flex-1 min-w-[120px]">
           <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-              item.type === 'module' ? 'bg-[#E6F7F5]' :
-                item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
-                  item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
-                    'bg-[#F5F5F5]'
+            item.type === 'module' ? 'bg-[#E6F7F5]' :
+              item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
+                item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
+                  'bg-[#F5F5F5]'
             }`}>
             <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
           </View>
@@ -179,6 +244,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     );
   };
 
+  // Modified loading condition to better handle the initial loading state
   if (isLoading.get() && transactionArray.length === 0) {
     return (
       <View className="flex-1 justify-center items-center p-8 bg-secondary rounded-lg">
@@ -188,12 +254,49 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     );
   }
 
+  // Fixed condition for empty state when not loading
+  if (transactionArray.length === 0 && !isLoading.get()) {
+    return (
+      <View className="flex-1 bg-secondary rounded-lg overflow-hidden" testID={testID}>
+        <View className="flex-row justify-between items-center p-4 border-b border-border">
+          <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
+          <TouchableOpacity
+            className="p-2"
+            onPress={onRefresh}
+            disabled={isLoading.get()}
+          >
+            <Text className="text-white font-bold">↻ Refresh</Text>
+          </TouchableOpacity>
+        </View>
+        <View className="flex-1 justify-center items-center p-8">
+          <Text className="text-white text-base mb-4">No transactions found</Text>
+          <TouchableOpacity
+            className="bg-primary rounded-lg py-2 px-4"
+            onPress={onRefresh}
+          >
+            <Text className="text-white">Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Main render for populated list
   return (
     <View className="flex-1 bg-secondary rounded-lg overflow-hidden" testID={testID}>
       <View className="flex-row justify-between items-center p-4 border-b border-border">
-        <Text className="text-lg font-bold text-white">Recent Transactions ({transactionArray.length})</Text>
-        <TouchableOpacity className="p-2" onPress={onRefresh}>
-          <Text className="text-white font-bold">↻ Refresh</Text>
+        <Text className="text-lg font-bold text-white">
+          Recent Transactions ({transactionArray.length})
+          {isLoading.get() && <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />}
+        </Text>
+        <TouchableOpacity
+          className="p-2"
+          onPress={onRefresh}
+          disabled={isLoading.get()}
+        >
+          <Text className={`text-white font-bold ${isLoading.get() ? 'opacity-50' : ''}`}>
+            ↻ Refresh
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -205,7 +308,16 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
         renderItem={renderTransactionItem}
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={Platform.OS !== 'web'}
+        ListEmptyComponent={
+          <View className="flex-1 justify-center items-center p-5">
+            <Text className="text-white text-base">No transactions found</Text>
+          </View>
+        }
+        ListFooterComponent={isLoading.get() ? (
+          <View className="p-4 flex-row justify-center">
+            <ActivityIndicator size="small" color="#E75A5C" />
+          </View>
+        ) : null}
       />
     </View>
   );

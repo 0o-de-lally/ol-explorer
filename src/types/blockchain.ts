@@ -62,4 +62,5 @@ export interface BlockchainSDK {
   getAccount: (address: string) => Promise<Account | null>;
   isInitialized: boolean;
   error: Error | null;
+  isUsingMockData?: boolean;
 } 

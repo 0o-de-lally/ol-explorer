@@ -10,7 +10,7 @@ import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
-import { normalizeAddress, formatAddressForDisplay } from '../utils/addressUtils';
+import { normalizeAddress, formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 
 // Get screen width to adjust formatting for mobile
 const screenWidth = Dimensions.get('window').width;
@@ -38,7 +38,10 @@ type TransactionDetailsScreenProps = {
 };
 
 export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> = ({ route, navigation }) => {
-  const { hash } = route.params;
+  // Get hash from route params and store it in state to preserve it
+  const hashFromParams = route.params.hash;
+  const normalizedHash = normalizeTransactionHash(hashFromParams);
+  const [hash, setHash] = useState<string | null>(normalizedHash);
   const sdk = useSdk();
   const [transaction, setTransaction] = useState<TransactionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,18 +49,37 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
   const isCalculatingBlockTime = useObservable(blockTimeStore.isCalculating);
 
+  // Update hash in state if route params change
+  useEffect(() => {
+    const newNormalizedHash = normalizeTransactionHash(hashFromParams);
+    if (newNormalizedHash && newNormalizedHash !== hash) {
+      console.log('Updating hash from route params:', hashFromParams);
+      console.log('Normalized hash:', newNormalizedHash);
+      setHash(newNormalizedHash);
+    }
+  }, [hashFromParams]);
+
   const fetchTransactionDetails = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // DEBUG: Log the hash values
+      console.log('Transaction hash from route.params:', hashFromParams);
+      console.log('Normalized hash:', normalizedHash);
+      console.log('Transaction hash from state:', hash);
+      console.log('Type of hash:', typeof hash);
 
       if (!sdk.isInitialized || sdk.error) {
         throw new Error(sdk.error?.message || 'SDK is not initialized');
       }
 
       if (!hash) {
-        throw new Error('Transaction hash is required');
+        throw new Error('Invalid transaction hash: the hash is missing or invalid');
       }
+
+      // DEBUG: Log the hash about to be sent to SDK
+      console.log('Hash being sent to SDK:', hash);
 
       const txDetails = await sdk.getTransactionByHash(hash);
 
@@ -80,7 +102,9 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   };
 
   useEffect(() => {
-    fetchTransactionDetails();
+    if (hash) {
+      fetchTransactionDetails();
+    }
   }, [hash, sdk.isInitialized]);
 
   const handleBackPress = () => {
@@ -130,12 +154,35 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Error Loading Transaction</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchTransactionDetails}>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              // Ensure we have a valid hash before retrying
+              console.log('Retry button clicked with hash:', hash);
+
+              // If hash is null, use a fallback mechanism or show error
+              if (!hash) {
+                console.error('Cannot retry: Invalid hash value');
+                setError('Cannot retry: transaction hash is missing or invalid');
+                return;
+              }
+
+              fetchTransactionDetails();
+            }}
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Text style={styles.backButtonText}>← Back to Transactions</Text>
           </TouchableOpacity>
+
+          {/* Debug info panel */}
+          <View style={{ marginTop: 20, padding: 10, backgroundColor: '#1E293B', borderRadius: 4 }}>
+            <Text style={{ color: '#ADBAC7', fontSize: 12, marginBottom: 4 }}>Debug Info:</Text>
+            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Original hash: {hashFromParams || 'undefined'}</Text>
+            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Normalized hash: {hash || 'null'}</Text>
+            <Text style={{ color: '#ADBAC7', fontSize: 12 }}>Type: {typeof hash}</Text>
+          </View>
         </View>
       </SafeAreaView>
     );

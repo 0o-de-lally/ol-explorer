@@ -8,17 +8,36 @@ export const useBlockchain = () => {
   const sdk = useSdk();
   const { isInitialized, isInitializing } = useSdkContext();
 
+  // Use this flag to avoid duplicate fetches
+  const [fetchRequested, setFetchRequested] = useState(false);
+
   const refreshData = useCallback(async () => {
     if (!isInitialized) {
       console.log('SDK not initialized yet, waiting before refreshing data');
       return;
     }
 
+    // Avoid duplicate fetch requests
+    if (isLoading || fetchRequested) {
+      console.log('Data refresh already in progress, skipping duplicate request');
+      return;
+    }
+
     setIsLoading(true);
+    setFetchRequested(true);
+
+    // Use blockchain store's loading state as well to ensure components know we're loading
+    blockchainActions.setLoading(true);
+
     try {
+      console.log('Refreshing blockchain data...');
+
       // Fetch latest transactions
       const transactions = await sdk.getTransactions(25);
-      blockchainStore.transactions.set(transactions);
+      console.log(`Fetched ${transactions.length} transactions`);
+
+      // Update transaction list in store
+      blockchainActions.setTransactions(transactions);
 
       // Update blockchain info
       const [blockHeight, epoch, chainId] = await Promise.all([
@@ -27,19 +46,26 @@ export const useBlockchain = () => {
         sdk.getChainId()
       ]);
 
+      console.log('Fetched blockchain stats:', { blockHeight, epoch, chainId });
+
       // Use the blockchainActions to update store values
       blockchainActions.setStats({
         blockHeight,
         epoch,
         chainId
       });
+
+      // Force an update to ensure state changes propagate
+      blockchainActions.forceUpdate();
     } catch (error) {
       console.error('Error refreshing blockchain data:', error);
       blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setIsLoading(false);
+      setFetchRequested(false);
+      blockchainActions.setLoading(false);
     }
-  }, [sdk, isInitialized]);
+  }, [sdk, isInitialized, isLoading, fetchRequested]);
 
   // Auto-refresh when SDK becomes initialized
   useEffect(() => {
@@ -48,6 +74,20 @@ export const useBlockchain = () => {
       refreshData();
     }
   }, [isInitialized, isInitializing]);
+
+  // Set up periodic refresh
+  useEffect(() => {
+    if (isInitialized) {
+      console.log('Setting up periodic refresh for blockchain data');
+      const refreshInterval = setInterval(() => {
+        refreshData();
+      }, 30000); // Refresh every 30 seconds
+
+      return () => {
+        clearInterval(refreshInterval);
+      };
+    }
+  }, [isInitialized]);
 
   return {
     refreshData,
