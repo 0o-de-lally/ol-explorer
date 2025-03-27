@@ -44,7 +44,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   // Use our custom hook to get account data
   const { account: accountData, isLoading, error, refresh: refreshAccount, isStale } = useAccount(addressFromParams);
 
-  const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -246,18 +245,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       : `${wholePartFormatted}.${trimmedFractional}`;
   };
 
-  const toggleResourceExpansion = (index: number) => {
-    setExpandedResources(prevState => {
-      const newState = new Set(prevState);
-      if (newState.has(index)) {
-        newState.delete(index);
-      } else {
-        newState.add(index);
-      }
-      return newState;
-    });
-  };
-
   const copyToClipboard = (text: string) => {
     try {
       // Remove 0x prefix if present for consistency with the example
@@ -279,6 +266,65 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const handleRefresh = () => {
     // Force a refresh of the data
     refreshAccount();
+  };
+
+  // Update the categorization with specific mappings
+  const categorizeResourceTypes = (types) => {
+    // Create a mapping of types to their categories
+    const categoryMapping = new Map();
+
+    // Assign each type to exactly one category using specific mappings and fallbacks
+    types.forEach(type => {
+      const lowerType = type.toLowerCase();
+
+      // Specific mappings based on exact matches (case insensitive)
+      if (lowerType.includes('receipts') ||
+        lowerType.includes('fee_maker') ||
+        (lowerType.includes('account') && !lowerType.includes('pledge_accounts'))) {
+        categoryMapping.set(type, 'Account');
+      } else if (lowerType.includes('coin') || lowerType.includes('wallet')) {
+        categoryMapping.set(type, 'Assets');
+      } else if (lowerType.includes('stake') ||
+        lowerType.includes('validator') ||
+        lowerType.includes('jail') ||
+        lowerType.includes('proof_of_fee')) {
+        categoryMapping.set(type, 'Validating');
+      } else if (lowerType.includes('pledge') ||
+        lowerType.includes('vouch') ||
+        lowerType.includes('ancestry')) {
+        categoryMapping.set(type, 'Social');
+      } else {
+        categoryMapping.set(type, 'Other');
+      }
+    });
+
+    // Group types by category
+    const categories = {};
+    categoryMapping.forEach((category, type) => {
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push(type);
+    });
+
+    // Sort types within each category
+    Object.keys(categories).forEach(category => {
+      categories[category].sort();
+    });
+
+    // Remove the "Other" category if it's empty
+    if (categories.Other && categories.Other.length === 0) {
+      delete categories.Other;
+    }
+
+    // Ensure "Other" is always at the end if it exists
+    if (categories.Other && Object.keys(categories).length > 1) {
+      const otherTypes = categories.Other;
+      delete categories.Other;
+      categories.Other = otherTypes;
+    }
+
+    return categories;
   };
 
   if (isLoading && !accountData) {
@@ -337,7 +383,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               <Text className="text-primary text-base font-bold">← Back</Text>
             </TouchableOpacity>
             <Text className="text-white text-2xl font-bold flex-1 flex-wrap">Account Details</Text>
-            {isLoading && (
+            {isLoading && !accountData && ( /* Only show when initially loading */
               <ActivityIndicator size="small" color="#E75A5C" className="ml-2" />
             )}
           </View>
@@ -440,7 +486,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               }
             });
 
-            const typesList = Array.from(types);
+            const typesList = Array.from(types).sort();
 
             // Make sure we have an active type
             const currentActiveType = activeResourceType || (typesList.length > 0 ? typesList[0] : null);
@@ -465,56 +511,77 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                 </View>
 
                 {/* Resource Type Navigation */}
-                {typesList.length > 0 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-                    <View className="flex-row space-x-2 py-2">
-                      {typesList.map((type) => (
-                        <TouchableOpacity
-                          key={type}
-                          onPress={() => setActiveResourceType(type)}
-                          className={`px-3 py-1.5 rounded-md ${type === currentActiveType
-                            ? 'bg-primary'
-                            : 'bg-gray-700'
-                            }`}
-                        >
-                          <Text className={`text-sm font-medium ${type === currentActiveType
-                            ? 'text-white'
-                            : 'text-gray-300'
-                            }`}>
-                            {type}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                <View className="mb-4">
+                  {Object.entries(categorizeResourceTypes(typesList)).map(([category, categoryTypes]) => (
+                    <View key={category} className="mb-3">
+                      <Text className="text-gray-400 text-xs font-bold uppercase mb-1 ml-1">{category}</Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {categoryTypes.map((type) => {
+                          // Extract a shorter display name for mobile
+                          const shortName = type.split('::').pop() || type;
+
+                          return (
+                            <TouchableOpacity
+                              key={type}
+                              onPress={() => setActiveResourceType(type)}
+                              className={`px-3 py-2 rounded-md mb-1 ${type === currentActiveType
+                                  ? 'bg-primary'
+                                  : category === 'Assets' ? 'bg-green-800' :
+                                    category === 'Validating' ? 'bg-blue-800' :
+                                      category === 'Social' ? 'bg-purple-800' :
+                                        category === 'Account' ? 'bg-yellow-800' :
+                                          'bg-gray-700'
+                                }`}
+                            >
+                              <Text
+                                className={`text-sm font-medium ${type === currentActiveType ? 'text-white' : 'text-gray-300'
+                                  }`}
+                                numberOfLines={1}
+                              >
+                                {shortName}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  </ScrollView>
-                )}
+                  ))}
+                </View>
 
                 {/* Active Resources */}
                 {filteredResources.length > 0 ? (
                   filteredResources.map((resource, index) => {
-                    const isExpanded = expandedResources.has(index);
-                    const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
-                    const borderColor = isCoinResource ? 'border-green-600' : 'border-blue-600';
+                    // Determine the appropriate border color based on the resource category
+                    let borderColor = 'border-gray-600'; // Default
+                    const typeStr = resource.type.toLowerCase();
+
+                    if (typeStr.includes('coin') || typeStr.includes('wallet')) {
+                      borderColor = 'border-green-600'; // Assets
+                    } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
+                      typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
+                      borderColor = 'border-blue-600'; // Validating
+                    } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
+                      typeStr.includes('ancestry')) {
+                      borderColor = 'border-purple-600'; // Social
+                    } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
+                      (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
+                      borderColor = 'border-yellow-600'; // Account
+                    }
 
                     return (
                       <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                        <TouchableOpacity
+                        <View
                           className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
-                          onPress={() => toggleResourceExpansion(index)}
                         >
                           <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
-                          <Text className="text-primary ml-2">{isExpanded ? '▼' : '▶'}</Text>
-                        </TouchableOpacity>
-
-                        {isExpanded && (
-                          <View className="p-3 border-t border-border">
-                            <View className="overflow-auto">
-                              <Text className="text-text-light font-mono text-xs whitespace-pre">
-                                {JSON.stringify(resource.data, null, 2)}
-                              </Text>
-                            </View>
+                        </View>
+                        <View className="p-3 border-t border-border">
+                          <View className="overflow-auto">
+                            <Text className="text-text-light font-mono text-xs whitespace-pre">
+                              {JSON.stringify(resource.data, null, 2)}
+                            </Text>
                           </View>
-                        )}
+                        </View>
                       </View>
                     );
                   })
