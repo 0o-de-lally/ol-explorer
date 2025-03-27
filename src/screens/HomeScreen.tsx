@@ -15,7 +15,7 @@ const DEBUG_MODE = false;
 
 export const HomeScreen: React.FC = () => {
   const sdk = useSdk();
-  const { isInitialized, isInitializing, error, isUsingMockData, reinitialize, clearCache } = useSdkContext();
+  const { isInitialized, isInitializing, error, isUsingMockData, reinitialize } = useSdkContext();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   // Keep track of whether we've attempted data fetch
   const dataFetchAttempted = useRef(false);
@@ -66,6 +66,12 @@ export const HomeScreen: React.FC = () => {
       vm_status: 'Executed successfully',
       block_height: 500000 - index,
     }));
+  };
+
+  // Handle manual refresh - just fetch data directly
+  const handleRefresh = () => {
+    console.log('Manual refresh triggered');
+    fetchData();
   };
 
   const fetchData = async () => {
@@ -203,15 +209,6 @@ export const HomeScreen: React.FC = () => {
       };
     }
   }, [isInitialized, isUsingMockData]);
-
-  // Handle manual refresh
-  const handleRefresh = () => {
-    console.log('Manual refresh triggered');
-    // Clear relevant caches before refresh
-    clearCache('blockInfo');
-    clearCache('transactions');
-    fetchData();
-  };
 
   // Handle retry when SDK fails to initialize
   const handleRetryInitialization = () => {

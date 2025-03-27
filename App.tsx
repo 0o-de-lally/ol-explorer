@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import './global.css';
+// Import Buffer polyfill early to ensure it's available for the SDK
+import './src/utils/bufferPolyfill';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,14 +24,7 @@ setupPolyfills();
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
 
-// Ensure Buffer is available in the browser environment
-if (typeof window !== 'undefined' && !window.Buffer) {
-  try {
-    window.Buffer = require('buffer/').Buffer;
-  } catch (error) {
-    console.warn('Failed to polyfill Buffer:', error);
-  }
-}
+// Buffer polyfill is now imported at the top of the file and properly set up
 
 // Create the navigation stack
 const Stack = createNativeStackNavigator<RootStackParamList>();

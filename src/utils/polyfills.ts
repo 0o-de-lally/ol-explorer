@@ -2,12 +2,15 @@
  * Polyfills for browser compatibility
  */
 
+// Import Buffer polyfill to ensure it's available
+import './bufferPolyfill';
+
 /**
  * Type definition for crypto
  */
 declare global {
-    interface Crypto {
-        randomUUID?: () => string;
+    interface Window {
+        crypto: Crypto;
     }
 }
 
@@ -59,36 +62,32 @@ export function generateUUID(): string {
  * Set up necessary polyfills
  */
 export function setupPolyfills(): void {
-    // Set up Buffer polyfill if needed
-    if (typeof window !== 'undefined') {
-        // Add buffer
-        if (!(window as any).Buffer) {
-            try {
-                (window as any).Buffer = require('buffer/').Buffer;
-                console.log('Added Buffer polyfill');
-            } catch (error) {
-                console.warn('Failed to polyfill Buffer:', error);
-            }
-        }
+    // Buffer polyfill is imported at the top of the file
 
-        // Patch any missing crypto functions
-        if ((window as any).crypto) {
-            try {
-                const originalGetRandomValues = (window as any).crypto.getRandomValues;
+    // Set up crypto polyfills
+    setupCryptoPolyfill();
+}
 
-                // Add a getRandomValues fallback if needed
-                if (!originalGetRandomValues) {
-                    console.log('Adding fallback for crypto.getRandomValues');
-                    (window as any).crypto.getRandomValues = function (buffer: Uint8Array) {
-                        for (let i = 0; i < buffer.length; i++) {
-                            buffer[i] = Math.floor(Math.random() * 256);
-                        }
-                        return buffer;
-                    };
-                }
-            } catch (error) {
-                console.warn('Failed to patch crypto methods:', error);
+/**
+ * Set up crypto polyfills
+ */
+function setupCryptoPolyfill(): void {
+    if (typeof window !== 'undefined' && (window as any).crypto) {
+        try {
+            const originalGetRandomValues = (window as any).crypto.getRandomValues;
+
+            // Add a getRandomValues fallback if needed
+            if (!originalGetRandomValues) {
+                console.log('Adding fallback for crypto.getRandomValues');
+                (window as any).crypto.getRandomValues = function (buffer: Uint8Array) {
+                    for (let i = 0; i < buffer.length; i++) {
+                        buffer[i] = Math.floor(Math.random() * 256);
+                    }
+                    return buffer;
+                };
             }
+        } catch (error) {
+            console.warn('Failed to patch crypto methods:', error);
         }
     }
 }

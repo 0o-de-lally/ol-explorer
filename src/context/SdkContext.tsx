@@ -3,6 +3,10 @@ import { BlockchainSDK } from '../types/blockchain';
 import { createMockLibraClient } from '../services/mockSdk';
 import { normalizeAddress, normalizeTransactionHash } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
+// Import Buffer polyfill to ensure it's available
+import '../utils/bufferPolyfill';
+// Import the SDK directly to avoid dynamic imports
+import * as LibraSDK from 'open-libra-sdk';
 
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
@@ -52,9 +56,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
         try {
             console.log('Initializing OpenLibra SDK...');
 
-            // Dynamically import the SDK to handle browser/server compatibility issues
-            const LibraSDK = await import('open-libra-sdk');
-
             // Create client with proper network settings using config
             const client = new LibraSDK.LibraClient(
                 sdkConfig.network === 'mainnet' ? LibraSDK.Network.MAINNET :
@@ -84,25 +85,27 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                 getChainId: async () => {
                     console.log('Fetching chain ID from blockchain');
                     const info = await client.getLedgerInfo();
-                    return info.chain_id;
+                    // Convert chain_id to string to match interface
+                    return String(info.chain_id);
                 },
                 getTransactions: async (limit) => {
                     console.log(`Fetching up to ${limit} transactions from blockchain`);
-                    const txs = await client.getTransactions({ limit });
+                    // Use the correct parameter format
+                    const txs = await client.getTransactions({ options: { limit } });
 
-                    // Transform the results
+                    // Transform the results - using any type to avoid type mismatches
                     return txs.map((tx: any) => ({
-                        hash: tx.hash,
-                        version: parseInt(tx.version) || 0,
+                        hash: tx.hash || '',
+                        version: parseInt(tx.version as string) || 0,
                         sender: tx.sender || '',
-                        sequence_number: parseInt(tx.sequence_number) || 0,
+                        sequence_number: parseInt(tx.sequence_number as string) || 0,
                         timestamp: typeof tx.timestamp === 'string' ? tx.timestamp : String(tx.timestamp || Date.now()),
                         type: tx.type || 'unknown',
-                        status: tx.success ? 'success' : 'failure',
-                        gas_used: parseInt(tx.gas_used) || 0,
-                        gas_unit_price: parseInt(tx.gas_unit_price) || 0,
+                        status: (tx.success ? 'success' : 'failure') as 'success' | 'failure',
+                        gas_used: parseInt(tx.gas_used as string) || 0,
+                        gas_unit_price: parseInt(tx.gas_unit_price as string) || 0,
                         vm_status: tx.vm_status || '',
-                        block_height: parseInt(tx.block_height) || 0,
+                        block_height: parseInt(tx.block_height as string) || 0,
                         function: tx.function || null
                     }));
                 },
@@ -125,31 +128,33 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                         if (!tx) return null;
 
-                        // Transform the transaction data
+                        // Transform the transaction data - using type assertion to handle property access
+                        const txAny = tx as any;
+
                         return {
-                            hash: tx.hash,
-                            version: parseInt(tx.version) || 0,
-                            sender: tx.sender || '',
-                            sequence_number: parseInt(tx.sequence_number) || 0,
-                            timestamp: typeof tx.timestamp === 'string' ? tx.timestamp : String(tx.timestamp || Date.now()),
-                            type: tx.type || 'unknown',
-                            status: tx.success ? 'success' : 'failure',
-                            gas_used: parseInt(tx.gas_used) || 0,
-                            gas_unit_price: parseInt(tx.gas_unit_price) || 0,
-                            vm_status: tx.vm_status || '',
-                            block_height: parseInt(tx.block_height) || 0,
-                            function: tx.function || null,
-                            events: (tx.events || []).map((event: any) => ({
+                            hash: txAny.hash || '',
+                            version: parseInt(txAny.version as string) || 0,
+                            sender: txAny.sender || '',
+                            sequence_number: parseInt(txAny.sequence_number as string) || 0,
+                            timestamp: typeof txAny.timestamp === 'string' ? txAny.timestamp : String(txAny.timestamp || Date.now()),
+                            type: txAny.type || 'unknown',
+                            status: (txAny.success ? 'success' : 'failure') as 'success' | 'failure' | 'pending',
+                            gas_used: parseInt(txAny.gas_used as string) || 0,
+                            gas_unit_price: parseInt(txAny.gas_unit_price as string) || 0,
+                            vm_status: txAny.vm_status || '',
+                            block_height: parseInt(txAny.block_height as string) || 0,
+                            function: txAny.function || null,
+                            events: (txAny.events || []).map((event: any) => ({
                                 type: event.type || '',
                                 data: event.data || {}
                             })),
-                            changes: (tx.changes || []).map((change: any) => ({
+                            changes: (txAny.changes || []).map((change: any) => ({
                                 type: change.type || '',
                                 address: change.address || '',
                                 path: change.path || '',
                                 data: change.data || {}
                             })),
-                            payload: tx.payload || {}
+                            payload: txAny.payload || {}
                         };
                     } catch (error) {
                         console.error(`Error fetching transaction ${normalizedHash}:`, error);
@@ -170,19 +175,22 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     try {
                         // Construct proper account parameters with normalized address
                         const accountParams = {
-                            address: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
+                            accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
                         };
 
-                        // Get account info 
-                        const accountInfo = await client.account(accountParams);
+                        // Use direct account method with as any to avoid type issues
+                        const accountInfo = await (client as any).account(accountParams);
 
-                        // Get account resources
+                        // Get account resources with the correct parameter structure
                         const resourcesParams = {
                             accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
                         };
-                        const resources = await client.accountResources(resourcesParams);
 
-                        // Find coin resource for balance
+                        // Use proper method name and type cast to avoid errors
+                        const resources = await client.getAccountResources(resourcesParams);
+
+                        // Find coin resource for balance - cast resource data to any to avoid errors
+                        let balance = 0;
                         const coinResource = resources.find((r: any) =>
                             r && r.type &&
                             typeof r.type === 'string' &&
@@ -190,19 +198,21 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 r.type.includes('CoinStore<AptosCoin>'))
                         );
 
-                        // Extract balance with safe navigation
-                        let balance = 0;
-                        if (coinResource && coinResource.data && coinResource.data.coin &&
-                            typeof coinResource.data.coin.value === 'string') {
-                            balance = parseInt(coinResource.data.coin.value);
-                            if (isNaN(balance)) balance = 0;
+                        // Extract balance with safe navigation - using as any to avoid property access errors
+                        if (coinResource) {
+                            const resourceData = coinResource.data as any;
+                            if (resourceData && resourceData.coin &&
+                                typeof resourceData.coin.value === 'string') {
+                                balance = parseInt(resourceData.coin.value);
+                                if (isNaN(balance)) balance = 0;
+                            }
                         }
 
                         // Transform and create account object
                         return {
                             address: normalizedAddress,
                             balance,
-                            sequence_number: parseInt(accountInfo.sequence_number) || 0,
+                            sequence_number: parseInt(accountInfo.sequence_number as string) || 0,
                             resources: resources.map((resource: any) => ({
                                 type: resource?.type || '',
                                 data: resource?.data || {}
@@ -236,10 +246,45 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         getLatestBlockHeight: async () => 500000,
                         getLatestEpoch: async () => 20,
                         getChainId: async () => 'mock-chain-1',
-                        getTransactions: async (limit = 10) => mockClient.getTransactions({ limit }),
+                        getTransactions: async (limit = 10) => {
+                            const transactions = await mockClient.getTransactions({ limit });
+                            return transactions.map((tx: any) => ({
+                                hash: tx.hash || '',
+                                version: 0,
+                                sender: '',
+                                sequence_number: 0,
+                                timestamp: String(Date.now()),
+                                type: 'unknown',
+                                status: 'success' as 'success',
+                                gas_used: 0,
+                                gas_unit_price: 0,
+                                vm_status: '',
+                                block_height: 0,
+                                function: ''
+                            }));
+                        },
                         getTransactionByHash: async (hash) => {
                             if (!hash) return null;
-                            return mockClient.getTransactionByHash(hash);
+                            const tx = await mockClient.getTransactionByHash(hash);
+                            if (!tx) return null;
+
+                            return {
+                                hash: tx.hash || '',
+                                version: 0,
+                                sender: '',
+                                sequence_number: 0,
+                                timestamp: String(Date.now()),
+                                type: 'unknown',
+                                status: 'success' as 'success',
+                                gas_used: 0,
+                                gas_unit_price: 0,
+                                vm_status: '',
+                                block_height: 0,
+                                function: '',
+                                events: [],
+                                changes: [],
+                                payload: {}
+                            };
                         },
                         getAccount: async (address) => {
                             if (!address) return null;
@@ -249,15 +294,15 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             console.log(`Using normalized address in mock SDK: ${normalizedAddress}`);
 
                             try {
-                                // Use direct mock client methods
+                                // Use direct mock client methods with correct names
                                 const accountInfo = await mockClient.getAccount(normalizedAddress);
-                                const resources = await mockClient.getResources(normalizedAddress);
+                                const resources = await mockClient.getAccountResources(normalizedAddress);
 
                                 return {
                                     address: normalizedAddress,
                                     balance: 1000000,
                                     sequence_number: 0,
-                                    resources: resources
+                                    resources: resources || []
                                 };
                             } catch (err: any) {
                                 console.error(`Error in mock getAccount: ${err.message}`);

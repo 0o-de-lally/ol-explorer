@@ -10,7 +10,7 @@ export interface Transaction {
   gas_unit_price?: number;
   vm_status?: string;
   block_height?: number;
-  function?: string;
+  function?: string | null;
   epoch?: string;
   round?: string;
   state_change_hash?: string;
@@ -53,7 +53,7 @@ export interface StateChange {
   data: Record<string, any>;
 }
 
-export type CacheType = 'blockInfo' | 'transactions' | 'transactionDetails' | 'accounts';
+export type NetworkType = 'mainnet' | 'testnet' | 'devnet';
 
 export interface BlockchainSDK {
   getLatestBlockHeight: (forceFresh?: boolean) => Promise<number>;
@@ -62,7 +62,6 @@ export interface BlockchainSDK {
   getTransactions: (limit: number, forceFresh?: boolean) => Promise<Transaction[]>;
   getTransactionByHash: (hash: string, forceFresh?: boolean) => Promise<TransactionDetail | null>;
   getAccount: (address: string, forceFresh?: boolean) => Promise<Account | null>;
-  clearCache?: (type?: CacheType) => void;
   isInitialized: boolean;
   error: Error | null;
   isUsingMockData?: boolean;
