@@ -5,7 +5,9 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Platform
+  Platform,
+  useWindowDimensions,
+  ScrollView
 } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { blockchainStore } from '../store/blockchainStore';
@@ -16,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { getRelativeTimeString } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
+import { formatAddressForDisplay } from '../utils/addressUtils';
 
 type TransactionsListProps = {
   testID?: string;
@@ -33,6 +36,10 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
   const isCalculatingBlockTime = useObservable(blockTimeStore.isCalculating);
   const navigation = useNavigation<NavigationProp>();
+  const { width } = useWindowDimensions();
+
+  // Check if we should use mobile layout
+  const isMobile = width < 768;
 
   // Transform the observable data to regular array
   const transactionArray = useMemo(() => {
@@ -63,7 +70,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   // Format the transaction hash for display
   const formatHash = (hash: string) => {
     if (hash.length <= 12) return hash;
-    return `${hash.substring(0, 4)}...${hash.substring(hash.length - 4)}`;
+    return formatAddressForDisplay(hash, 4, 4);
   };
 
   const formatNumber = (num: number | string | undefined) => {
@@ -73,6 +80,11 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
   // Determine function label based on transaction type
   const getFunctionLabel = (type: string) => {
+    // Remove "_transaction" suffix if present
+    if (type.endsWith('_transaction')) {
+      return type.replace('_transaction', '');
+    }
+
     switch (type) {
       case 'module':
         return 'module';
@@ -86,6 +98,11 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   };
 
   const renderTableHeader = () => {
+    if (isMobile) {
+      // On mobile, don't show the header - we'll include labels in the row items
+      return null;
+    }
+
     return (
       <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
         <Text className="font-bold text-text-muted text-sm flex-1 min-w-[100px]">BLOCK HEIGHT</Text>
@@ -97,25 +114,70 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     );
   };
 
-  const renderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TouchableOpacity
-      className="flex-row py-3 px-4 border-b border-border"
-      onPress={() => handleTransactionPress(item.hash)}
-      testID={`transaction-${item.hash}`}
-    >
-      <Text className="text-white text-sm flex-1 min-w-[100px]">{formatNumber(item.block_height)}</Text>
-      <Text className="text-white text-sm flex-1 min-w-[120px]">{formatNumber(item.version)}</Text>
-      <Text className="text-white text-sm flex-1 min-w-[160px]">{formatHash(item.sender)}</Text>
-      <View className="flex-1 min-w-[120px]">
-        <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
-          item.type === 'module' ? 'bg-[#E6F7F5]' : 'bg-[#F5F5F5]'
-          }`}>
-          <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
+  const renderTransactionItem = ({ item }: { item: Transaction }) => {
+    // Mobile view with stacked layout
+    if (isMobile) {
+      return (
+        <TouchableOpacity
+          className="py-3 px-4 border-b border-border"
+          onPress={() => handleTransactionPress(item.hash)}
+          testID={`transaction-${item.hash}`}
+        >
+          <View className="flex-row justify-between items-center mb-2">
+            <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
+                item.type === 'module' ? 'bg-[#E6F7F5]' :
+                  item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
+                    item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
+                      'bg-[#F5F5F5]'
+              }`}>
+              <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
+            </View>
+            <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
+          </View>
+
+          <View className="flex-row mb-1">
+            <Text className="text-text-muted text-xs mr-2">From:</Text>
+            <Text className="text-white text-xs">{formatHash(item.sender)}</Text>
+          </View>
+
+          <View className="flex-row justify-between">
+            <View className="flex-row">
+              <Text className="text-text-muted text-xs mr-2">Block:</Text>
+              <Text className="text-white text-xs">{formatNumber(item.block_height)}</Text>
+            </View>
+            <View className="flex-row">
+              <Text className="text-text-muted text-xs mr-2">Version:</Text>
+              <Text className="text-white text-xs">{formatNumber(item.version)}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // Desktop view with row layout
+    return (
+      <TouchableOpacity
+        className="flex-row py-3 px-4 border-b border-border"
+        onPress={() => handleTransactionPress(item.hash)}
+        testID={`transaction-${item.hash}`}
+      >
+        <Text className="text-white text-sm flex-1 min-w-[100px]">{formatNumber(item.block_height)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[120px]">{formatNumber(item.version)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[160px]">{formatHash(item.sender)}</Text>
+        <View className="flex-1 min-w-[120px]">
+          <View className={`px-2 py-0.5 rounded self-start ${item.type === 'script' ? 'bg-[#F3ECFF]' :
+              item.type === 'module' ? 'bg-[#E6F7F5]' :
+                item.type.includes('block_metadata') ? 'bg-[#E6F7FF]' :
+                  item.type.includes('state_checkpoint') ? 'bg-[#FFECEC]' :
+                    'bg-[#F5F5F5]'
+            }`}>
+            <Text className="text-xs text-[#333]">{getFunctionLabel(item.type)}</Text>
+          </View>
         </View>
-      </View>
-      <Text className="text-white text-sm flex-1 min-w-[180px]">{formatTimestamp(item.timestamp)}</Text>
-    </TouchableOpacity>
-  );
+        <Text className="text-white text-sm flex-1 min-w-[180px]">{formatTimestamp(item.timestamp)}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (isLoading.get() && transactionArray.length === 0) {
     return (

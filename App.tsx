@@ -12,6 +12,10 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import { Footer } from './src/components/Footer';
 import { SdkProvider } from './src/context/SdkContext';
 import { SdkLoadingIndicator } from './src/components/SdkLoadingIndicator';
+import { setupPolyfills } from './src/utils/polyfills';
+
+// Setup necessary polyfills
+setupPolyfills();
 
 // Constants
 const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
