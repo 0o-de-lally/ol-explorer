@@ -1,24 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
-import { useSdk } from '../hooks/useSdk';
 import { Account, AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { isValidAddressFormat } from '../utils/addressUtils';
+import { useSdkContext } from '../context/SdkContext';
+import { navigate } from '../navigation/navigationUtils';
 
 type AccountDetailsScreenProps = {
-  route: RouteProp<RootStackParamList, 'AccountDetails'>;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'AccountDetails'>;
+  route?: { params: { address: string } };
+  address?: string;
 };
 
 // Coin resource type for LibraCoin
 const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
 
-export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ route, navigation }) => {
-  const { address } = route.params;
-  const sdk = useSdk();
+export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ route, address: propAddress }) => {
+  const addressFromParams = route?.params?.address || propAddress;
+  const { sdk } = useSdkContext();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,28 +29,28 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
       setError(null);
 
       // Validate the address first
-      if (!address || typeof address !== 'string') {
+      if (!addressFromParams || typeof addressFromParams !== 'string') {
         throw new Error('Invalid account address format');
       }
 
       // Validate address format
-      if (!isValidAddressFormat(address)) {
-        throw new Error(`Invalid address format: ${address}`);
+      if (!isValidAddressFormat(addressFromParams)) {
+        throw new Error(`Invalid address format: ${addressFromParams}`);
       }
 
       // Check SDK initialization
-      if (!sdk.isInitialized || sdk.error) {
-        throw new Error(sdk.error?.message || 'SDK is not initialized');
+      if (!sdk) {
+        throw new Error('SDK is not initialized');
       }
 
-      console.log(`Fetching account details for: ${address}`);
+      console.log(`Fetching account details for: ${addressFromParams}`);
 
       // Use the SDK to fetch account data - address normalization happens in the SDK
       try {
-        const accountData = await sdk.getAccount(address);
+        const accountData = await sdk.getAccount(addressFromParams);
 
         if (!accountData) {
-          throw new Error(`Account with address ${address} not found`);
+          throw new Error(`Account with address ${addressFromParams} not found`);
         }
 
         // Validate the returned account data
@@ -77,13 +75,13 @@ export const AccountDetailsScreen: React.FC<AccountDetailsScreenProps> = ({ rout
 
   // Fetch account details when the component mounts or when address changes
   useEffect(() => {
-    if (sdk.isInitialized) {
+    if (sdk) {
       fetchAccountDetails();
     }
-  }, [address, sdk.isInitialized]);
+  }, [addressFromParams, sdk]);
 
   const handleBackPress = () => {
-    navigation.goBack();
+    navigate('Home');
   };
 
   const formatBalance = (balance: number) => {

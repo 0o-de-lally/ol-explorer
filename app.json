@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "userInterfaceStyle": "automatic",
     "orientation": "portrait",
+    "scheme": "ol-explorer",
     "web": {
       "bundler": "metro"
     }

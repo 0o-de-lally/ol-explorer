@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated, Platform, Linking } from 'react-native';
-import { useSdk } from '../hooks/useSdk';
+import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated } from 'react-native';
+import { useSdkContext } from '../context/SdkContext';
 import { isValidAddressFormat } from '../utils/addressUtils';
+import { router } from 'expo-router';
 
 export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const sdk = useSdk();
+    const { sdk } = useSdkContext();
 
     // Animation state
     const [buttonScale] = useState(new Animated.Value(1));
@@ -27,24 +28,6 @@ export const SearchBar: React.FC = () => {
         ]).start();
     };
 
-    // Navigate to specific routes based on search results
-    const navigateTo = (route: string, params: Record<string, string>) => {
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            // For web, construct the URL and navigate
-            let url = `/${route}`;
-            if (params) {
-                const paramKey = Object.keys(params)[0];
-                url += `/${params[paramKey]}`;
-            }
-            window.location.href = url;
-        } else {
-            // For native, use deep linking
-            const paramKey = Object.keys(params)[0];
-            const paramValue = params[paramKey];
-            Linking.openURL(`/${route}/${paramValue}`);
-        }
-    };
-
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
 
@@ -59,12 +42,16 @@ export const SearchBar: React.FC = () => {
             if (isValidAddressFormat(query)) {
                 console.log(`Searching for account: ${query}`);
 
+                if (!sdk) {
+                    throw new Error('SDK not initialized');
+                }
+
                 // Address validation and normalization happens in the SDK
                 const accountData = await sdk.getAccount(query);
 
                 if (accountData) {
                     console.log('Account found, navigating to account details');
-                    navigateTo('account', { address: query });
+                    router.push(`/account/${query}`);
                     setSearchQuery('');
                     setIsSearching(false);
                     return;
@@ -73,11 +60,16 @@ export const SearchBar: React.FC = () => {
 
             // If account lookup fails or not an address format, try transaction hash lookup
             console.log('Trying transaction lookup for:', query);
+
+            if (!sdk) {
+                throw new Error('SDK not initialized');
+            }
+
             const txDetails = await sdk.getTransactionByHash(query);
 
             if (txDetails) {
                 console.log('Transaction found, navigating to transaction details');
-                navigateTo('tx', { hash: query });
+                router.push(`/tx/${query}`);
                 setSearchQuery('');
                 setIsSearching(false);
                 return;

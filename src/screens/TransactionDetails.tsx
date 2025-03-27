@@ -1,9 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, Dimensions, Platform, ScrollView, Alert } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
-import { useSdk } from '../hooks/useSdk';
 import { TransactionDetail } from '../types/blockchain';
 import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
@@ -12,6 +8,8 @@ import { normalizeAddress, formatAddressForDisplay, normalizeTransactionHash } f
 import { useSdkContext } from '../context/SdkContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { useWindowDimensions } from 'react-native';
+import { navigate } from '../navigation/navigationUtils';
 
 // Get screen width to adjust formatting for mobile
 const screenWidth = Dimensions.get('window').width;
@@ -34,16 +32,16 @@ const formatHashForDisplay = (hash: string, mobile = isMobile): string => {
 };
 
 type TransactionDetailsScreenProps = {
-  route: RouteProp<RootStackParamList, 'TransactionDetails'>;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'TransactionDetails'>;
+  route?: { params: { hash: string } };
+  hash?: string;
 };
 
-export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> = ({ route, navigation }) => {
-  // Get hash from route params and store it in state to preserve it
-  const hashFromParams = route.params.hash;
+export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> = ({ route, hash: propHash }) => {
+  // Get hash from route params or props and store it in state to preserve it
+  const hashFromParams = route?.params?.hash || propHash;
   const normalizedHash = normalizeTransactionHash(hashFromParams);
   const [hash, setHash] = useState<string | null>(normalizedHash);
-  const sdk = useSdk();
+  const { sdk } = useSdkContext();
   const { isInitialized, isInitializing } = useSdkContext();
   const [transaction, setTransaction] = useState<TransactionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +60,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   }, [hashFromParams]);
 
   const fetchTransactionDetails = async () => {
-    if (!isInitialized) {
+    if (!isInitialized || !sdk) {
       console.log('SDK not initialized yet, waiting...');
       return;
     }
@@ -120,11 +118,8 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   }, [hash]);
 
   const handleBackPress = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.location.href = '/';
-    } else {
-      navigation.goBack();
-    }
+    // Use the navigation utility for consistent navigation
+    navigate('Home');
   };
 
   const handleAddressPress = (address: string) => {
@@ -138,11 +133,8 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
     const formattedAddress = normalizeAddress(address);
     console.log(`Navigating to account details for: ${formattedAddress} (original: ${address})`);
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.location.href = `/account/${formattedAddress}`;
-    } else {
-      navigation.navigate('AccountDetails', { address: formattedAddress });
-    }
+    // Use the navigation utility for consistent navigation
+    navigate('AccountDetails', { address: formattedAddress });
   };
 
   // Function to copy text to clipboard

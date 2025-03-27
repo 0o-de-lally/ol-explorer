@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform, Linking, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { SearchBar } from './SearchBar';
 import { Logo } from './Logo';
+import { router } from 'expo-router';
 
 type HeaderProps = {
   testID?: string;
@@ -12,13 +13,8 @@ export const Header: React.FC<HeaderProps> = ({ testID }) => {
   const isMobile = width < 768;
 
   const handleHomePress = () => {
-    // For web, use window.location.href to navigate to home
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.location.href = '/';
-    } else {
-      // For native, you could use Linking
-      Linking.openURL('/');
-    }
+    // Use Expo Router directly
+    router.push('/');
   };
 
   return (
