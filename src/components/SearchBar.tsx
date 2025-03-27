@@ -39,13 +39,15 @@ export const SearchBar: React.FC = () => {
             const query = searchQuery.trim();
 
             // Check if query looks like an address 
+            // console.log(`BEFORE: Searching for: ${query}`);
             if (isValidAddressFormat(query)) {
-                console.log(`Searching for account: ${query}`);
+                // console.log(`WITHIN: Searching for account: ${query}`);
 
                 // Address validation and normalization happens in the SDK
                 const accountData = await sdk.getAccount(query);
 
                 if (accountData) {
+                    //console.log(JSON.stringify(accountData, null, 2));
                     console.log('Account found, navigating to account details');
                     router.push(`/account/${query}`);
                     setSearchQuery('');

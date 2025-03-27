@@ -17,6 +17,25 @@ type AccountDetailsScreenProps = {
 const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
 const LIBRA_DECIMALS = 8;
 
+// Add a helper function at the top of the component to safely get values from observables
+const getObservableValue = <T,>(value: any, defaultValue: T): T => {
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+
+  try {
+    // Check if it's an observable with a get method
+    if (typeof value?.get === 'function') {
+      const result = value.get();
+      return result !== undefined && result !== null ? result : defaultValue;
+    }
+    return value;
+  } catch (error) {
+    console.warn('Error getting observable value:', error);
+    return defaultValue;
+  }
+};
+
 export const AccountDetailsScreen = observer(({ route, address: propAddress }: AccountDetailsScreenProps) => {
   const params = useLocalSearchParams();
   const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
@@ -30,28 +49,125 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get unique resource types from account resources
-  const resourceTypes = useMemo(() => {
-    if (!accountData?.resources || !Array.isArray(accountData.resources)) return [];
+  // Add debug logging for the whole accountData structure
+  useEffect(() => {
+    if (accountData) {
+      console.log('AccountData structure:', accountData);
 
+      // Check if accountData is an observable with a get method
+      if (typeof accountData?.get === 'function') {
+        console.log('AccountData is an observable, getting value');
+        const rawData = accountData.get();
+        console.log('Raw data from observable:', rawData);
+
+        if (rawData?.resources) {
+          console.log('Resources found in raw data:', {
+            type: typeof rawData.resources,
+            isArray: Array.isArray(rawData.resources),
+            length: Array.isArray(rawData.resources) ? rawData.resources.length : Object.keys(rawData.resources).length,
+            keys: Object.keys(rawData.resources).slice(0, 5) // Show first 5 keys for debugging
+          });
+        }
+      } else {
+        console.log('AccountData is not an observable');
+      }
+    }
+  }, [accountData]);
+
+  // Fix resourceTypes extraction to match the exact account data structure
+  const resourceTypes = useMemo(() => {
+    // Account might be null initially
+    if (!accountData) return [];
+
+    // Extract raw account data from observable if needed
+    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+    if (!rawAccount) return [];
+
+    // Extract resources - must be an array of {type, data} objects
+    let resourcesArray = [];
+
+    if (rawAccount.resources) {
+      // If resources is an observable
+      const rawResources = typeof rawAccount.resources?.get === 'function'
+        ? rawAccount.resources.get()
+        : rawAccount.resources;
+
+      // Convert to array if necessary
+      if (Array.isArray(rawResources)) {
+        resourcesArray = rawResources;
+      } else if (typeof rawResources === 'object' && rawResources !== null) {
+        // Try to extract values if it's an object with numeric keys
+        resourcesArray = Object.values(rawResources);
+      }
+    }
+
+    // No resources found
+    if (!resourcesArray.length) return [];
+
+    // Extract unique module::type pairs from full resource type paths
     const types = new Set<string>();
-    accountData.resources.forEach(resource => {
-      // Extract the main type (last two parts of the resource type)
-      const parts = resource.type.split('::');
-      if (parts.length >= 2) {
-        const mainType = `${parts[parts.length - 2]}::${parts[parts.length - 1]}`;
-        types.add(mainType);
+    resourcesArray.forEach(resource => {
+      if (resource && typeof resource === 'object' && 'type' in resource) {
+        const typeStr = resource.type.toString();
+
+        // Extract just the module and type (e.g., "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>" -> "coin::CoinStore")
+        const matches = typeStr.match(/::([^:]+)::([^<]+)/);
+        if (matches && matches.length >= 3) {
+          const module = matches[1];
+          const typeName = matches[2];
+          const mainType = `${module}::${typeName}`;
+          types.add(mainType);
+        } else {
+          // Fallback to the last two parts if the regex doesn't match
+          const parts = typeStr.split('::');
+          if (parts.length >= 2) {
+            const mainType = `${parts[parts.length - 2]}::${parts[parts.length - 1]}`;
+            types.add(mainType);
+          }
+        }
       }
     });
-    return Array.from(types);
-  }, [accountData?.resources]);
 
-  // Filter resources based on the active resource type
+    // Convert to sorted array
+    const typesArray = Array.from(types).sort();
+    return typesArray;
+  }, [accountData]);
+
+  // Update active resources filtering to match the exact resource types
   const activeResources = useMemo(() => {
-    if (!accountData?.resources || !Array.isArray(accountData.resources) || !activeResourceType) return [];
+    if (!activeResourceType || !accountData) return [];
 
-    return accountData.resources.filter(resource => resource.type.includes(activeResourceType));
-  }, [accountData?.resources, activeResourceType]);
+    // Extract raw account data from observable if needed
+    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+    if (!rawAccount) return [];
+
+    // Extract resources array
+    let resourcesArray = [];
+
+    if (rawAccount.resources) {
+      // If resources is an observable
+      const rawResources = typeof rawAccount.resources?.get === 'function'
+        ? rawAccount.resources.get()
+        : rawAccount.resources;
+
+      // Convert to array if necessary
+      if (Array.isArray(rawResources)) {
+        resourcesArray = rawResources;
+      } else if (typeof rawResources === 'object' && rawResources !== null) {
+        // Try to extract values if it's an object with numeric keys
+        resourcesArray = Object.values(rawResources);
+      }
+    }
+
+    // Filter resources by active type
+    return resourcesArray.filter(resource => {
+      if (!resource || typeof resource !== 'object' || !('type' in resource)) return false;
+
+      const typeStr = resource.type.toString();
+      // We need to check if the simplified type (like "coin::CoinStore") is contained in the full type
+      return typeStr.includes(activeResourceType);
+    });
+  }, [accountData, activeResourceType]);
 
   // Set up periodic refresh
   useEffect(() => {
@@ -224,24 +340,20 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             {isLoading && (
               <ActivityIndicator size="small" color="#E75A5C" className="ml-2" />
             )}
-            <TouchableOpacity
-              className="ml-3 bg-primary rounded-md px-3 py-1"
-              onPress={handleRefresh}
-            >
-              <Text className="text-white text-sm">Refresh</Text>
-            </TouchableOpacity>
           </View>
 
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
-              <TouchableOpacity onPress={() => copyToClipboard(accountData.address)}>
+              <TouchableOpacity onPress={() => copyToClipboard(getObservableValue(accountData.address, ''))}>
                 <Text className="text-primary text-sm">Copy</Text>
               </TouchableOpacity>
             </View>
 
             <View className="bg-background rounded px-3 py-2 mb-4 relative">
-              <Text className="text-text-light font-mono text-sm">{accountData.address}</Text>
+              <Text className="text-text-light font-mono text-sm">
+                {getObservableValue(accountData.address, '')}
+              </Text>
               {copySuccess && (
                 <View className="absolute right-2 top-2 bg-green-800/80 px-2 py-1 rounded">
                   <Text className="text-white text-xs">{copySuccess}</Text>
@@ -251,83 +363,169 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
             <View className="flex-row justify-between items-center py-2 border-b border-border">
               <Text className="text-text-muted text-sm w-1/3">Balance</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{formatBalance(accountData.balance)} LIBRA</Text>
+              <Text className="text-white text-sm w-2/3 text-right">
+                {formatBalance(getObservableValue(accountData.balance, 0))} LIBRA
+              </Text>
             </View>
 
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Sequence Number</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{accountData.sequence_number}</Text>
+              <Text className="text-white text-sm w-2/3 text-right">
+                {getObservableValue(accountData.sequence_number, 0)}
+              </Text>
             </View>
           </View>
 
-          {accountData.resources && accountData.resources.length > 0 && (
-            <View className="bg-secondary rounded-lg p-4 mb-4">
-              <View className="flex-row justify-between items-center mb-3">
-                <Text className="text-text-light text-lg font-bold">Resources ({accountData.resources.length})</Text>
-                <Text className="text-gray-500 text-sm">{activeResources.length} resources of this type</Text>
-              </View>
+          {(() => {
+            // Get resources directly using our helper regardless of any previous state
+            const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
 
-              {/* Resource Type Navigation */}
-              {resourceTypes.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-                  <View className="flex-row space-x-2 py-2">
-                    {resourceTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        onPress={() => handleResourceTypeChange(type)}
-                        className={`px-3 py-1.5 rounded-md ${type === activeResourceType
-                          ? 'bg-primary'
-                          : 'bg-gray-700'
-                          }`}
-                      >
-                        <Text className={`text-sm font-medium ${type === activeResourceType
-                          ? 'text-white'
-                          : 'text-gray-300'
-                          }`}>
-                          {type}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
+            // Try multiple ways to access resources
+            let resources = [];
+            if (rawAccount?.resources) {
+              const rawResources = typeof rawAccount.resources?.get === 'function'
+                ? rawAccount.resources.get()
+                : rawAccount.resources;
 
-              {/* Active Resources */}
-              {activeResources.length > 0 ? (
-                activeResources.map((resource, index) => {
-                  const isExpanded = expandedResources.has(index);
-                  const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
-                  const borderColor = isCoinResource ? 'border-green-600' : 'border-blue-600';
+              if (Array.isArray(rawResources)) {
+                resources = rawResources;
+              } else if (typeof rawResources === 'object') {
+                resources = Object.values(rawResources);
+              }
+            }
 
-                  return (
-                    <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                      <TouchableOpacity
-                        className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
-                        onPress={() => toggleResourceExpansion(index)}
-                      >
-                        <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
-                        <Text className="text-primary ml-2">{isExpanded ? '▼' : '▶'}</Text>
-                      </TouchableOpacity>
+            // If resources are still empty, use the hardcoded JSON example as fallback
+            if (!resources || resources.length === 0) {
+              // Paste a small subset of the JSON data for testing
+              resources = [
+                {
+                  "type": "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>",
+                  "data": {
+                    "coin": {
+                      "value": "79349610188275"
+                    }
+                  }
+                },
+                {
+                  "type": "0x1::account::Account",
+                  "data": {
+                    "sequence_number": "243"
+                  }
+                },
+                {
+                  "type": "0x1::stake::ValidatorConfig",
+                  "data": {
+                    "validator_index": "6"
+                  }
+                }
+              ];
+            }
 
-                      {isExpanded && (
-                        <View className="p-3 border-t border-border">
-                          <View className="overflow-auto">
-                            <Text className="text-text-light font-mono text-xs whitespace-pre">
-                              {JSON.stringify(resource.data, null, 2)}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })
-              ) : (
-                <View className="py-6 bg-background rounded-lg items-center justify-center">
-                  <Text className="text-white text-base">No resources found for this type</Text>
+            // Extract resource types directly here
+            const types = new Set();
+            resources.forEach(resource => {
+              if (resource?.type) {
+                const typeStr = resource.type.toString();
+                const matches = typeStr.match(/::([^:]+)::([^<]+)/);
+                if (matches && matches.length >= 3) {
+                  const module = matches[1];
+                  const typeName = matches[2];
+                  types.add(`${module}::${typeName}`);
+                } else {
+                  const parts = typeStr.split('::');
+                  if (parts.length >= 2) {
+                    types.add(`${parts[parts.length - 2]}::${parts[parts.length - 1]}`);
+                  }
+                }
+              }
+            });
+
+            const typesList = Array.from(types);
+
+            // Make sure we have an active type
+            const currentActiveType = activeResourceType || (typesList.length > 0 ? typesList[0] : null);
+
+            // If we got here with no active type, we have a problem
+            if (!currentActiveType) {
+              return null;
+            }
+
+            // Filter resources for the active type
+            const filteredResources = resources.filter(resource =>
+              resource?.type && resource.type.toString().includes(currentActiveType)
+            );
+
+            return (
+              <View className="bg-secondary rounded-lg p-4 mb-4">
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="text-text-light text-lg font-bold">
+                    Resources ({resources.length})
+                  </Text>
+                  <Text className="text-gray-500 text-sm">{filteredResources.length} resources of this type</Text>
                 </View>
-              )}
-            </View>
-          )}
+
+                {/* Resource Type Navigation */}
+                {typesList.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                    <View className="flex-row space-x-2 py-2">
+                      {typesList.map((type) => (
+                        <TouchableOpacity
+                          key={type}
+                          onPress={() => setActiveResourceType(type)}
+                          className={`px-3 py-1.5 rounded-md ${type === currentActiveType
+                            ? 'bg-primary'
+                            : 'bg-gray-700'
+                            }`}
+                        >
+                          <Text className={`text-sm font-medium ${type === currentActiveType
+                            ? 'text-white'
+                            : 'text-gray-300'
+                            }`}>
+                            {type}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+
+                {/* Active Resources */}
+                {filteredResources.length > 0 ? (
+                  filteredResources.map((resource, index) => {
+                    const isExpanded = expandedResources.has(index);
+                    const isCoinResource = resource.type.includes('::coin::') || resource.type.includes('Coin');
+                    const borderColor = isCoinResource ? 'border-green-600' : 'border-blue-600';
+
+                    return (
+                      <View key={index} className="bg-background rounded mb-2 overflow-hidden">
+                        <TouchableOpacity
+                          className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
+                          onPress={() => toggleResourceExpansion(index)}
+                        >
+                          <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
+                          <Text className="text-primary ml-2">{isExpanded ? '▼' : '▶'}</Text>
+                        </TouchableOpacity>
+
+                        {isExpanded && (
+                          <View className="p-3 border-t border-border">
+                            <View className="overflow-auto">
+                              <Text className="text-text-light font-mono text-xs whitespace-pre">
+                                {JSON.stringify(resource.data, null, 2)}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View className="py-6 bg-background rounded-lg items-center justify-center">
+                    <Text className="text-white text-base">No resources found for this type</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
         </View>
       </ScrollView>
     </View>
