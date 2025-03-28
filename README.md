@@ -17,7 +17,7 @@ A modern, responsive blockchain explorer for the Open Libra blockchain, built wi
 
 ## Live Demo
 
-Visit the live explorer at [https://explorer.openlibra.org](https://explorer.openlibra.org)
+Visit the live explorer at [https://explorer.openlibra.space](https://explorer.openlibra.space)
 
 ## Getting Started
 
@@ -31,7 +31,7 @@ Visit the live explorer at [https://explorer.openlibra.org](https://explorer.ope
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ol-explorer.git
+   git clone https://github.com/sirouk/ol-explorer.git
    cd ol-explorer
    ```
 
@@ -265,7 +265,7 @@ ol-explorer/
    ```nginx
    server {
        listen 80;
-       server_name explorer.openlibra.org;
+       server_name explorer.openlibra.space;
        
        root /var/www/ol-explorer;
        index index.html;
@@ -278,7 +278,7 @@ ol-explorer/
 
 4. Set up SSL with Certbot:
    ```bash
-   sudo certbot --nginx -d explorer.openlibra.org
+   sudo certbot --nginx -d explorer.openlibra.space
    ```
 
 ### Static Hosting (GitHub Pages, Cloudflare Pages)
@@ -316,7 +316,7 @@ Configure the Open Libra SDK in `src/config/sdkConfig.ts`:
 
 ```typescript
 export default {
-  rpcUrl: 'https://rpc.openlibra.org',
+  rpcUrl: 'https://rpc.openlibra.space:8080/v1',
   // ... other SDK configuration options
 };
 ```
@@ -326,7 +326,7 @@ export default {
 For local development, create a `.env.local` file:
 
 ```
-EXPO_PUBLIC_RPC_URL=https://rpc.openlibra.org
+EXPO_PUBLIC_RPC_URL=https://rpc.openlibra.space:8080/v1
 ```
 
 ## Troubleshooting

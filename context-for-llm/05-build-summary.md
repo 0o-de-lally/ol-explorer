@@ -156,7 +156,7 @@ For server deployment with Nginx:
    ```nginx
    server {
        listen 80;
-       server_name explorer.openlibra.org;
+       server_name explorer.openlibra.space;
        
        root /var/www/ol-explorer;
        index index.html;
@@ -178,7 +178,7 @@ For server deployment with Nginx:
 
 4. Set up SSL with Certbot:
    ```bash
-   sudo certbot --nginx -d explorer.openlibra.org
+   sudo certbot --nginx -d explorer.openlibra.space
    ```
 
 ### 3. Cloudflare Pages Deployment
