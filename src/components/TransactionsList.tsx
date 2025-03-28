@@ -151,7 +151,7 @@ export const TransactionsList = observer(({
           testID={`transaction-${item.hash}`}
         >
           <View className="flex-row justify-between items-center mb-2">
-            <View className={`px-3 py-1 rounded-full w-[110px] flex items-center justify-center ${functionPillColor}`}>
+            <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
               <Text className="text-xs font-medium">{functionLabel}</Text>
             </View>
             <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
@@ -183,7 +183,7 @@ export const TransactionsList = observer(({
         <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(item.version)}</Text>
         <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(item.hash)}</Text>
         <View className="flex-1 min-w-[120px] flex items-center justify-center">
-          <View className={`px-3 py-1 rounded-full w-[110px] flex items-center justify-center ${functionPillColor}`}>
+          <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
             <Text className="text-xs font-medium">{functionLabel}</Text>
           </View>
         </View>
