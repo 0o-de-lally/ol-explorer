@@ -321,7 +321,25 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               <Text className="text-text-muted text-sm w-1/3">Transaction Type</Text>
               <View className="w-2/3 flex items-end justify-end">
                 <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type)}`}>
-                  <Text className="text-xs font-medium">{transaction.type}</Text>
+                  <Text className="text-xs font-medium">
+                    {(() => {
+                      // Extract specific function name from payload if available
+                      if (transaction.payload?.function) {
+                        const functionPath = transaction.payload.function;
+                        const parts = functionPath.split('::');
+                        if (parts.length >= 3) {
+                          // Return the last part (e.g., "vouch_for" from "0x1::vouch::vouch_for")
+                          return parts[parts.length - 1];
+                        }
+                      }
+                      
+                      // Fall back to transaction type
+                      if (transaction.type.endsWith('_transaction')) {
+                        return transaction.type.replace('_transaction', '');
+                      }
+                      return transaction.type;
+                    })()}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -394,6 +412,26 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             </View>
           </View>
 
+          {/* Move Payload section up, right after the main transaction details */}
+          <View className="bg-secondary rounded-lg p-6 mb-6">
+            <Text className="text-text-light text-lg font-bold mb-3">Payload</Text>
+            <View className="bg-background rounded p-3 overflow-auto">
+              <Text className="text-white font-mono text-xs whitespace-pre">
+                {JSON.stringify(transaction.payload, null, 2)}
+              </Text>
+            </View>
+            {/* Add copy button at bottom right */}
+            <View className="flex-row justify-end mt-4">
+              <TouchableOpacity
+                onPress={() => copyToClipboard(JSON.stringify(transaction.payload, null, 2))}
+                className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
+              >
+                <MaterialIcons name="content-copy" size={14} color="white" />
+                <Text className="text-white text-xs ml-1.5">Payload</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {transaction.events && transaction.events.length > 0 && (
             <View className="bg-secondary rounded-lg p-6 mb-6">
               <Text className="text-text-light text-lg font-bold mb-3">Events ({transaction.events.length})</Text>
@@ -450,25 +488,6 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               </View>
             </View>
           )}
-
-          <View className="bg-secondary rounded-lg p-6 mb-6">
-            <Text className="text-text-light text-lg font-bold mb-3">Payload</Text>
-            <View className="bg-background rounded p-3 overflow-auto">
-              <Text className="text-white font-mono text-xs whitespace-pre">
-                {JSON.stringify(transaction.payload, null, 2)}
-              </Text>
-            </View>
-            {/* Add copy button at bottom right */}
-            <View className="flex-row justify-end mt-4">
-              <TouchableOpacity
-                onPress={() => copyToClipboard(JSON.stringify(transaction.payload, null, 2))}
-                className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
-              >
-                <MaterialIcons name="content-copy" size={14} color="white" />
-                <Text className="text-white text-xs ml-1.5">Payload</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
       </ScrollView>
     </View>

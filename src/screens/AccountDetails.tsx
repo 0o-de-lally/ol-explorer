@@ -8,6 +8,7 @@ import { observer } from '@legendapp/state/react';
 import { useAccount } from '../hooks/useAccount';
 import { ACCOUNT_DATA_CONFIG } from '../store/accountStore';
 import { MaterialIcons } from '@expo/vector-icons';
+import { AccountTransactionsList } from '../components/AccountTransactionsList';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -806,6 +807,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               </View>
             );
           })()}
+          
+          {/* Account Transactions Section - Add this at the end */}
+          {accountData && getObservableValue(accountData.address, '') && (
+            <AccountTransactionsList 
+              accountAddress={getObservableValue(accountData.address, '')}
+              limit={25}
+              onRefresh={handleRefresh}
+            />
+          )}
         </View>
       </ScrollView>
     </View>

@@ -7,56 +7,71 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
-import { blockchainStore } from '../store/blockchainStore';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
-import { useSdkContext } from '../context/SdkContext';
-import { useForceUpdate } from '../hooks/useForceUpdate';
+import { useSdk } from '../hooks/useSdk';
 import { router } from 'expo-router';
 
-type TransactionsListProps = {
+type AccountTransactionsListProps = {
+  accountAddress: string;
+  limit?: number;
   testID?: string;
   onRefresh?: () => void;
 };
 
 // Use observer pattern to correctly handle observables
-export const TransactionsList = observer(({
+export const AccountTransactionsList = observer(({
+  accountAddress,
+  limit = 25,
   testID,
   onRefresh
-}: TransactionsListProps) => {
-  // State for refresh indicator
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { isInitialized } = useSdkContext();
+}: AccountTransactionsListProps) => {
+  // State for transactions and loading
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const { width } = useWindowDimensions();
-  const updateCounter = useForceUpdate();
-
-  // Handle refresh button click
-  const handleRefresh = async () => {
-    if (onRefresh && !isRefreshing) {
-      setIsRefreshing(true);
-      await onRefresh();
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 800); // Ensure animation completes
-    }
-  };
+  const sdk = useSdk();
 
   // Check if we should use mobile layout
   const isMobile = width < 768;
 
-  // Get values from observables
-  const transactions = blockchainStore.transactions.get();
-  const isLoading = blockchainStore.isLoading.get();
-
-  // Sort transactions by version (descending) and then by timestamp (most recent first)
-  const sortedTransactions = [...transactions].sort((a, b) => {
-    // First sort by version (block number) in descending order
-    if (Number(b.version) !== Number(a.version)) {
-      return Number(b.version) - Number(a.version);
+  // Load transactions on component mount
+  useEffect(() => {
+    if (accountAddress) {
+      fetchTransactions();
     }
-    // If versions are equal, sort by timestamp in descending order
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-  });
+  }, [accountAddress, limit]);
+
+  // Function to fetch transactions
+  const fetchTransactions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log(`Fetching transactions for account: ${accountAddress}`);
+      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, limit);
+      
+      setTransactions(accountTxs);
+      
+      if (accountTxs.length === 0) {
+        setError('No transactions found for this account');
+      }
+    } catch (e: any) {
+      console.error('Error fetching account transactions:', e);
+      setError(e.message || 'Failed to load transactions');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle refresh button click
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      onRefresh();
+    }
+    await fetchTransactions();
+  };
 
   const handleTransactionPress = (hash: string) => {
     // Normalize the hash using our utility function
@@ -99,6 +114,15 @@ export const TransactionsList = observer(({
       const parts = functionPath.split('::');
       if (parts.length >= 3) {
         // Return the last part (e.g., "vouch_for" from "0x1::vouch::vouch_for")
+        return parts[parts.length - 1];
+      }
+    }
+    
+    // For transactions from REST API, check transaction structure
+    if (item.transaction?.payload?.function) {
+      const functionPath = item.transaction.payload.function;
+      const parts = functionPath.split('::');
+      if (parts.length >= 3) {
         return parts[parts.length - 1];
       }
     }
@@ -159,34 +183,42 @@ export const TransactionsList = observer(({
   };
 
   const renderTransactionItem = (item: any) => {
-    const functionLabel = getFunctionLabel(item.type, item);
-    const functionPillColor = getFunctionPillColor(item.type);
+    // Handle different data formats (REST API vs SDK)
+    const hash = item.hash || item.transaction?.hash || '';
+    const version = item.version || 0;
+    const type = item.type || item.transaction?.type || '';
+    const timestamp = item.timestamp || 
+                      (item.transaction?.expiration_timestamp_secs ? item.transaction.expiration_timestamp_secs * 1000 : null) || 
+                      Date.now();
+    
+    const functionLabel = getFunctionLabel(type, item);
+    const functionPillColor = getFunctionPillColor(type);
 
     // Mobile view with stacked layout
     if (isMobile) {
       return (
         <TouchableOpacity
-          key={item.hash}
+          key={hash}
           className="py-3 px-4 border-b border-border"
-          onPress={() => handleTransactionPress(item.hash)}
-          testID={`transaction-${item.hash}`}
+          onPress={() => handleTransactionPress(hash)}
+          testID={`transaction-${hash}`}
         >
           <View className="flex-row justify-between items-center mb-2">
             <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
               <Text className="text-xs font-medium">{functionLabel}</Text>
             </View>
-            <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
+            <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
           </View>
 
           <View className="flex-row mb-1">
             <Text className="text-text-muted text-xs mr-2">Tx Hash:</Text>
-            <Text className="text-white text-xs font-data">{getSenderDisplay(item.hash)}</Text>
+            <Text className="text-white text-xs font-data">{getSenderDisplay(hash)}</Text>
           </View>
 
           <View className="flex-row justify-between">
             <View className="flex-row">
               <Text className="text-text-muted text-xs mr-2">Version:</Text>
-              <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
+              <Text className="text-white text-xs font-data">{formatNumber(version)}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -196,19 +228,19 @@ export const TransactionsList = observer(({
     // Desktop view with row layout
     return (
       <TouchableOpacity
-        key={item.hash}
+        key={hash}
         className="flex-row py-3 px-4 border-b border-border"
-        onPress={() => handleTransactionPress(item.hash)}
-        testID={`transaction-${item.hash}`}
+        onPress={() => handleTransactionPress(hash)}
+        testID={`transaction-${hash}`}
       >
-        <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(item.version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(item.hash)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(version)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(hash)}</Text>
         <View className="flex-1 min-w-[120px] flex items-center justify-center">
           <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
             <Text className="text-xs font-medium">{functionLabel}</Text>
           </View>
         </View>
-        <Text className="text-white text-sm flex-1 min-w-[180px] text-center">{formatTimestamp(item.timestamp)}</Text>
+        <Text className="text-white text-sm flex-1 min-w-[180px] text-center">{formatTimestamp(timestamp)}</Text>
       </TouchableOpacity>
     );
   };
@@ -221,10 +253,9 @@ export const TransactionsList = observer(({
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
             <Text className="text-lg font-bold text-white">
-              Recent Transactions
+              Account Transactions
               <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
             </Text>
-            {/* No refresh button during loading */}
           </View>
 
           <View className="justify-center items-center p-8">
@@ -236,20 +267,17 @@ export const TransactionsList = observer(({
     );
   }
 
-  // Fixed condition for empty state when not loading
-  if (transactions.length === 0 && !isLoading) {
+  // Display error state if there was an error and no transactions
+  if (error && transactions.length === 0) {
     return (
       <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
-            <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
-            {isRefreshing ? (
-              <ActivityIndicator size="small" color="#E75A5C" />
-            ) : null}
+            <Text className="text-lg font-bold text-white">Account Transactions (0)</Text>
           </View>
           <View className="justify-center items-center p-8">
-            <Text className="text-white text-base mb-4">No transactions found</Text>
+            <Text className="text-white text-base mb-4">{error}</Text>
             <TouchableOpacity
               className="bg-primary rounded-lg py-2 px-4"
               onPress={handleRefresh}
@@ -269,18 +297,22 @@ export const TransactionsList = observer(({
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
-            Recent Transactions ({transactions.length})
+            Account Transactions ({transactions.length})
           </Text>
-          {isRefreshing ? (
+          {isLoading ? (
             <ActivityIndicator size="small" color="#E75A5C" />
-          ) : null}
+          ) : (
+            <TouchableOpacity onPress={handleRefresh} className="p-2">
+              <Text className="text-primary">Refresh</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {renderTableHeader()}
 
         {transactions.length > 0 ? (
           <View className="w-full">
-            {sortedTransactions.map(item => renderTransactionItem(item))}
+            {transactions.map(item => renderTransactionItem(item))}
           </View>
         ) : (
           <View className="justify-center items-center p-5">

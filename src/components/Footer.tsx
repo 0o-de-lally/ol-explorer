@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
     };
 
     return (
-        <View className="bg-background py-8 w-full border-t border-border">
+        <View className="bg-background py-4 w-full border-border">
             <View className="mx-auto w-full max-w-screen-lg px-4">
                 {isMobile ? (
                     // Mobile layout

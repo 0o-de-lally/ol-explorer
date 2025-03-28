@@ -82,7 +82,7 @@ export const SearchBar: React.FC = () => {
         <View className="w-full">
             <View className="flex flex-row overflow-hidden rounded w-full">
                 <TextInput
-                    className="h-9 bg-secondary border-0 px-3 text-white rounded-l text-sm flex-1"
+                    className="h-9 bg-secondary border-0 px-3 text-white rounded-l text-base flex-1"
                     placeholder="Search by account or tx hash..."
                     placeholderTextColor="#8F9BB3"
                     value={searchQuery}

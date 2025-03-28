@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BlockchainSDK } from '../types/blockchain';
+import { BlockchainSDK, LedgerInfo } from '../types/blockchain';
 import { useSdkContext } from '../context/SdkContext';
 import { normalizeAddress } from '../utils/addressUtils';
 
@@ -7,7 +7,9 @@ import { normalizeAddress } from '../utils/addressUtils';
  * Hook for accessing the SDK instance.
  * This is a thin wrapper over the SDK context that handles address normalization.
  */
-export const useSdk = (): BlockchainSDK => {
+export const useSdk = (): BlockchainSDK & {
+  ext_getAccountTransactions: (address: string, limit?: number) => Promise<any[]>;
+} => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
   // Log SDK status on changes
@@ -19,6 +21,65 @@ export const useSdk = (): BlockchainSDK => {
       isUsingMockData
     });
   }, [isInitialized, isInitializing, error, isUsingMockData]);
+
+  // Extension function to get account transactions
+  const ext_getAccountTransactions = async (address: string, limit: number = 25): Promise<any[]> => {
+    console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}`);
+    
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get account transactions');
+      return [];
+    }
+    
+    try {
+      // Normalize the address for consistency
+      const normalizedAddress = normalizeAddress(address);
+      
+      // Use the REST API endpoint to fetch account transactions
+      const restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${normalizedAddress}/transactions?limit=${limit}`;
+      console.log(`Fetching from REST endpoint: ${restUrl}`);
+      
+      const response = await fetch(restUrl);
+      
+      if (!response.ok) {
+        throw new Error(`REST API responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Check if we got valid transactions data
+      if (Array.isArray(data)) {
+        console.log(`Found ${data.length} transactions for account ${normalizedAddress}`);
+        return data;
+      }
+      
+      console.warn('Unexpected response format from REST API');
+      return [];
+    } catch (error) {
+      console.error('Error fetching account transactions:', error);
+      
+      // Fall back to SDK filtering method if REST API fails
+      console.log('Falling back to client-side filtering approach');
+      
+      try {
+        // Get all transactions and filter client-side
+        const allTxs = await sdk.getTransactions(limit * 2, true);
+        
+        // Filter transactions where the sender matches our address
+        const normalizedAddress = normalizeAddress(address);
+        const filteredTxs = allTxs.filter(tx => 
+          tx.sender && 
+          tx.sender.toLowerCase() === normalizedAddress.toLowerCase()
+        ).slice(0, limit);
+        
+        console.log(`Found ${filteredTxs.length} transactions for account ${normalizedAddress} via filtering`);
+        return filteredTxs;
+      } catch (sdkError) {
+        console.error('Error with fallback method:', sdkError);
+        return [];
+      }
+    }
+  };
 
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
@@ -47,9 +108,27 @@ export const useSdk = (): BlockchainSDK => {
         console.log('SDK not initialized, returning null account');
         return null;
       },
+      getLedgerInfo: async () => {
+        console.log('SDK not initialized, returning placeholder ledger info');
+        return {
+          chain_id: '0',
+          epoch: '0',
+          ledger_version: '0',
+          oldest_ledger_version: '0',
+          ledger_timestamp: Date.now().toString(),
+          node_role: 'unknown',
+          oldest_block_height: '0',
+          block_height: '0',
+          git_hash: ''
+        } as LedgerInfo;
+      },
       isInitialized: false,
       error: error || new Error('SDK not initialized'),
-      isUsingMockData: false
+      isUsingMockData: false,
+      ext_getAccountTransactions: async () => {
+        console.log('SDK not initialized, cannot get account transactions');
+        return [];
+      }
     };
   }
 
@@ -81,6 +160,7 @@ export const useSdk = (): BlockchainSDK => {
     },
     isInitialized,
     error,
-    isUsingMockData
+    isUsingMockData,
+    ext_getAccountTransactions
   };
 }; 
