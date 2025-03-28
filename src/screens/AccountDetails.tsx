@@ -7,6 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { observer } from '@legendapp/state/react';
 import { useAccount } from '../hooks/useAccount';
 import { ACCOUNT_DATA_CONFIG } from '../store/accountStore';
+import { MaterialIcons } from '@expo/vector-icons';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -391,15 +392,18 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
-              <TouchableOpacity onPress={() => copyToClipboard(getObservableValue(accountData.address, ''))}>
-                <Text className="text-primary text-sm">Copy</Text>
-              </TouchableOpacity>
             </View>
 
-            <View className="bg-background rounded px-3 py-2 mb-4 relative">
-              <Text className="text-text-light font-mono text-sm">
-                {getObservableValue(accountData.address, '')}
-              </Text>
+            <View className="flex-row items-center mb-4">
+              <View className="bg-background rounded px-3 py-2 flex-1">
+                <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.address, '')}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => copyToClipboard(getObservableValue(accountData.address, ''))}
+                className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
+              >
+                <MaterialIcons name="content-copy" size={14} color="white" />
+              </TouchableOpacity>
               {copySuccess && (
                 <View className="absolute right-2 top-2 bg-green-800/80 px-2 py-1 rounded">
                   <Text className="text-white text-xs">{copySuccess}</Text>
@@ -407,18 +411,20 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               )}
             </View>
 
-            <View className="flex-row justify-between items-center py-2 border-b border-border">
-              <Text className="text-text-muted text-sm w-1/3">Balance</Text>
-              <Text className="text-white text-sm w-2/3 text-right">
-                {formatBalance(getObservableValue(accountData.balance, 0))} LIBRA
-              </Text>
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-text-light text-base font-bold">Balance</Text>
             </View>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Sequence Number</Text>
-              <Text className="text-white text-sm w-2/3 text-right">
-                {getObservableValue(accountData.sequence_number, 0)}
-              </Text>
+            <View className="bg-background rounded px-3 py-2 mb-4">
+              <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} LIBRA</Text>
+            </View>
+
+            <View className="flex-row justify-between items-center mb-1">
+              <Text className="text-text-light text-base font-bold">Sequence Number</Text>
+            </View>
+
+            <View className="bg-background rounded px-3 py-2">
+              <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.sequence_number, 0)}</Text>
             </View>
           </View>
 
@@ -511,30 +517,40 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                 </View>
 
                 {/* Resource Type Navigation */}
-                <View className="mb-4">
+                <View className="mb-6">
                   {Object.entries(categorizeResourceTypes(typesList)).map(([category, categoryTypes]) => (
-                    <View key={category} className="mb-3">
-                      <Text className="text-gray-400 text-xs font-bold uppercase mb-1 ml-1">{category}</Text>
-                      <View className="flex-row flex-wrap gap-2">
+                    <View key={category} className="mb-4">
+                      {/* Category Header with Background */}
+                      <View className="mb-2 bg-secondary/40 py-1.5 px-2 rounded-md">
+                        <Text className="text-white text-sm font-bold uppercase">{category}</Text>
+                      </View>
+
+                      {/* Resource Type Buttons - Using grid layout */}
+                      <View className="flex-row flex-wrap">
                         {categoryTypes.map((type) => {
                           // Extract a shorter display name for mobile
                           const shortName = type.split('::').pop() || type;
+
+                          // Define colors based on category
+                          let bgColor = 'bg-gray-700';
+                          let activeBgColor = 'bg-primary';
+
+                          if (category === 'Account') bgColor = 'bg-amber-800';
+                          else if (category === 'Assets') bgColor = 'bg-green-800';
+                          else if (category === 'Validating') bgColor = 'bg-blue-800';
+                          else if (category === 'Social') bgColor = 'bg-purple-800';
+
+                          const isActive = type === currentActiveType;
 
                           return (
                             <TouchableOpacity
                               key={type}
                               onPress={() => setActiveResourceType(type)}
-                              className={`px-3 py-2 rounded-md mb-1 ${type === currentActiveType
-                                  ? 'bg-primary'
-                                  : category === 'Assets' ? 'bg-green-800' :
-                                    category === 'Validating' ? 'bg-blue-800' :
-                                      category === 'Social' ? 'bg-purple-800' :
-                                        category === 'Account' ? 'bg-yellow-800' :
-                                          'bg-gray-700'
+                              className={`px-3 py-2 rounded-md m-1 min-w-[110px] ${isActive ? activeBgColor : bgColor
                                 }`}
                             >
                               <Text
-                                className={`text-sm font-medium ${type === currentActiveType ? 'text-white' : 'text-gray-300'
+                                className={`text-sm font-medium text-center ${isActive ? 'text-white' : 'text-gray-300'
                                   }`}
                                 numberOfLines={1}
                               >
@@ -574,6 +590,12 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
                         >
                           <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
+                          <TouchableOpacity
+                            onPress={() => copyToClipboard(JSON.stringify(resource.data, null, 2))}
+                            className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                          >
+                            <MaterialIcons name="content-copy" size={14} color="white" />
+                          </TouchableOpacity>
                         </View>
                         <View className="p-3 border-t border-border">
                           <View className="overflow-auto">
