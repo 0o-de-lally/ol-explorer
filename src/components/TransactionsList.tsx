@@ -48,6 +48,16 @@ export const TransactionsList = observer(({
   const transactions = blockchainStore.transactions.get();
   const isLoading = blockchainStore.isLoading.get();
 
+  // Sort transactions by version (descending) and then by timestamp (most recent first)
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    // First sort by version (block number) in descending order
+    if (Number(b.version) !== Number(a.version)) {
+      return Number(b.version) - Number(a.version);
+    }
+    // If versions are equal, sort by timestamp in descending order
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+
   const handleTransactionPress = (hash: string) => {
     // Normalize the hash using our utility function
     const normalizedHash = normalizeTransactionHash(hash);
@@ -259,7 +269,7 @@ export const TransactionsList = observer(({
 
         {transactions.length > 0 ? (
           <View className="w-full">
-            {transactions.map(item => renderTransactionItem(item))}
+            {sortedTransactions.map(item => renderTransactionItem(item))}
           </View>
         ) : (
           <View className="justify-center items-center p-5">
