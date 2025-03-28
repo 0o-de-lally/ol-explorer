@@ -22,25 +22,25 @@ const isMobile = screenWidth < 768;
 const getFunctionPillColor = (type: string, functionName?: string) => {
   // Use the function name if provided, otherwise use the type
   const textToUse = functionName?.toLowerCase() || type.toLowerCase();
-  
+
   // First check for special mappings from config
   const normalizedType = type.toLowerCase();
-  
+
   // Check for special cases from config
   for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
     if (normalizedType.includes(specialType)) {
       return `${colors.bg} ${colors.text}`;
     }
   }
-  
+
   // Get alphabetical position and map to color
   const firstChar = textToUse.charAt(0);
   const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
-  
+
   // Ensure positive index (in case of non-alphabetic characters)
   const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
   const colors = appConfig.ui.functionPillColors[index];
-  
+
   return `${colors.bg} ${colors.text}`;
 };
 
@@ -304,7 +304,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 <View className="w-2/3 flex-row justify-end items-center">
                   <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
                     <Text className="text-primary text-sm text-right mr-2">
-                      {formatAddressForDisplay(transaction.sender)}
+                      {transaction.sender}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -325,7 +325,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Transaction Type</Text>
               <View className="w-2/3 flex items-end justify-end">
-                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type, 
+                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type,
                   // Get function name from payload if available
                   transaction.payload?.function?.split('::').pop() || undefined)}`}>
                   <Text className="text-xs font-medium">
@@ -339,7 +339,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                           return parts[parts.length - 1];
                         }
                       }
-                      
+
                       // Fall back to transaction type
                       if (transaction.type.endsWith('_transaction')) {
                         return transaction.type.replace('_transaction', '');
@@ -467,22 +467,30 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
           {transaction.changes && transaction.changes.length > 0 && (
             <View className="bg-secondary rounded-lg p-6 mb-6">
-              <Text className="text-text-light text-lg font-bold mb-3">State Changes ({transaction.changes.length})</Text>
-              {transaction.changes.map((change, index) => (
-                <View key={index} className="bg-background rounded p-3 mb-2">
-                  <Text className="text-primary text-sm font-bold mb-1">{change.type}</Text>
-                  <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
-                    <Text className="text-primary text-sm mb-2">
-                      {formatAddressForDisplay(change.address)}
-                    </Text>
-                  </TouchableOpacity>
-                  <View className="overflow-auto">
-                    <Text className="text-white font-mono text-xs whitespace-pre">
-                      {JSON.stringify(change.data, null, 2)}
-                    </Text>
+              <Text className="text-text-light text-lg font-bold mb-3">
+                State Changes ({transaction.changes.filter(change =>
+                  !(Object.keys(change.data).length === 0 && change.address === "" && change.path === "")
+                ).length})
+              </Text>
+              {transaction.changes
+                .filter(change =>
+                  !(Object.keys(change.data).length === 0 && change.address === "" && change.path === "")
+                )
+                .map((change, index) => (
+                  <View key={index} className="bg-background rounded p-3 mb-2">
+                    <Text className="text-primary text-sm font-bold mb-1">{change.type}</Text>
+                    <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
+                      <Text className="text-primary text-sm mb-2">
+                        {formatAddressForDisplay(change.address)}
+                      </Text>
+                    </TouchableOpacity>
+                    <View className="overflow-auto">
+                      <Text className="text-white font-mono text-xs whitespace-pre">
+                        {JSON.stringify(change.data, null, 2)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))}
               {/* Add copy button at bottom right */}
               <View className="flex-row justify-end mt-4">
                 <TouchableOpacity

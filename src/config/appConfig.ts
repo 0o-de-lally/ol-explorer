@@ -9,6 +9,59 @@ export const appConfig = {
     maxLimit: 100           // Maximum number of transactions that can be loaded (API limit)
   },
 
+  // Blockchain metrics configuration
+  metrics: {
+    // Control which metrics are displayed in the HUD
+    display: {
+      // Row 1: Chain state metrics
+      row1: {
+        latestVersion: {
+          enabled: true,
+          label: 'Latest Version',
+          tooltip: 'Most recent transaction version number'
+        },
+        blockHeight: {
+          enabled: true,
+          label: 'Block Height',
+          tooltip: 'Current blockchain height'
+        },
+        epoch: {
+          enabled: true,
+          label: 'Epoch',
+          tooltip: 'Current epoch number'
+        },
+        chainId: {
+          enabled: true,
+          label: 'Chain ID',
+          tooltip: 'Network chain identifier'
+        }
+      },
+      // Row 2: Performance metrics
+      row2: {
+        blockTime: {
+          enabled: true,
+          label: 'Block Time',
+          tooltip: 'Average time between blocks'
+        },
+        tps: {
+          enabled: true,
+          label: 'TPS',
+          tooltip: 'Transactions per second'
+        },
+        ledgerTime: {
+          enabled: true,
+          label: 'Ledger Time',
+          tooltip: 'Latest ledger timestamp'
+        }
+      }
+    },
+    // Configuration for metrics calculations
+    calculations: {
+      maxMeasurements: 10,  // Number of measurements to keep for rolling averages
+      updateInterval: 10000 // Update interval in milliseconds
+    }
+  },
+
   // UI Configuration
   ui: {
     // Color palette for transaction function pills - darker pastels
@@ -19,7 +72,7 @@ export const appConfig = {
       { bg: 'bg-[#FFD9B3]', text: 'text-[#BF360C]' }, // deep orange
       { bg: 'bg-[#FFCCCC]', text: 'text-[#B71C1C]' }  // deep red
     ],
-    
+
     // Special function pill mappings (override the alphabetical index)
     specialFunctionPills: {
       'state_checkpoint': { bg: 'bg-[#FFCCCC]', text: 'text-[#B71C1C]' }, // deep red
