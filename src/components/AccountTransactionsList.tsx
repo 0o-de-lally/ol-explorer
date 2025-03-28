@@ -525,11 +525,8 @@ export const AccountTransactionsList = observer(({
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
             Account Transactions ({transactions.length})
-            {isAutoRefreshing && (
-              <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
-            )}
           </Text>
-          {isLoading ? (
+          {(isLoading || isAutoRefreshing || !isInitialized) ? (
             <ActivityIndicator size="small" color="#E75A5C" />
           ) : (
             <TouchableOpacity onPress={handleRefresh} className="p-2">

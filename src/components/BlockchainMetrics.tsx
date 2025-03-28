@@ -6,7 +6,7 @@ import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
 import { useSdkContext } from '../context/SdkContext';
-import { useForceUpdate } from '../hooks/useForceUpdate';
+import { useForceUpdateMetrics } from '../hooks/useForceUpdate';
 
 // Add polling interval constant to match other components
 const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds
@@ -35,8 +35,8 @@ type BlockchainMetricsProps = {
 
 // Use the observer HOC to automatically handle observables
 export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
-  // Force component to update on SDK changes
-  const updateCounter = useForceUpdate();
+  // Force component to update on SDK changes - use metrics-specific hook
+  const updateCounter = useForceUpdateMetrics();
   const { isInitialized } = useSdkContext();
   
   // Add state for auto-refreshing
@@ -54,7 +54,7 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
   const currentBlockHeight = Number(blockchainStore.stats.blockHeight.get() ?? 0);
   const currentEpoch = Number(blockchainStore.stats.epoch.get() ?? 0);
   const chainIdValue = blockchainStore.stats.chainId.get() || '-';
-  const isLoadingValue = blockchainStore.isLoading.get();
+  const isLoadingValue = blockchainStore.isMetricsLoading.get();
   const loading = isLoadingValue || !isInitialized;
 
   // Get highest values from our store
@@ -147,8 +147,8 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
     try {
       setIsAutoRefreshing(true);
       
-      // Trigger store updates using the blockchainActions
-      blockchainActions.forceUpdate();
+      // Trigger store updates using the metrics-specific action
+      blockchainActions.forceUpdateMetrics();
       
       console.log('Auto-refreshed blockchain metrics');
     } catch (error) {
@@ -199,8 +199,10 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
       <View className="bg-secondary rounded-lg overflow-hidden">
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
-          <Text className="text-lg font-bold text-white">Blockchain Metrics</Text>
-          {(loading || isAutoRefreshing) ? (
+          <Text className="text-lg font-bold text-white">
+            Blockchain Metrics
+          </Text>
+          {(loading || isAutoRefreshing || !isInitialized) ? (
             <ActivityIndicator size="small" color="#E75A5C" />
           ) : (
             <TouchableOpacity onPress={handleAutoRefresh} className="p-2">

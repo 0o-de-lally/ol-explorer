@@ -13,7 +13,7 @@ import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 import { useSdkContext } from '../context/SdkContext';
-import { useForceUpdate } from '../hooks/useForceUpdate';
+import { useForceUpdateTransactions } from '../hooks/useForceUpdate';
 import { router } from 'expo-router';
 import { useSdk } from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
@@ -61,7 +61,7 @@ export const TransactionsList = observer(({
   
   const { isInitialized } = useSdkContext();
   const { width } = useWindowDimensions();
-  const updateCounter = useForceUpdate();
+  const updateCounter = useForceUpdateTransactions();
   const sdk = useSdk();
 
   // Set isMounted ref on mount/unmount
@@ -152,7 +152,7 @@ export const TransactionsList = observer(({
       // Fetch transactions directly with current limit from store
       const transactions = await sdk.getTransactions(currentStoreLimit);
       
-      // Update the store directly with these transactions
+      // Update the store directly with these transactions using transaction-specific actions
       if (isMounted.current) {
         blockchainActions.setTransactions(transactions);
       }
@@ -184,6 +184,9 @@ export const TransactionsList = observer(({
       const currentStoreLimit = blockchainStore.currentLimit.get();
       console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
       
+      // Use forceUpdateTransactions to force only transaction updates, not metrics
+      blockchainActions.forceUpdateTransactions();
+      
       // Fetch transactions directly with current limit
       const transactions = await sdk.getTransactions(currentStoreLimit);
       
@@ -211,7 +214,7 @@ export const TransactionsList = observer(({
       const newLimit = Math.min(currentLimit + 25, 100);
       console.log(`Loading more transactions, new limit: ${newLimit}`);
       
-      // Update the currentLimit in the store
+      // Update the currentLimit in the store - this only affects transactions
       blockchainActions.setCurrentLimit(newLimit);
       
       // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
@@ -220,6 +223,7 @@ export const TransactionsList = observer(({
       
       // Update the store with the new transactions if the component is still mounted
       if (isMounted.current) {
+        // Use transaction-specific actions
         blockchainActions.setTransactions(transactions);
         console.log(`Successfully loaded ${transactions.length} transactions with limit ${newLimit}`);
       }
@@ -239,6 +243,7 @@ export const TransactionsList = observer(({
   // Get values from observables
   const transactions = blockchainStore.transactions.get();
   const isLoading = blockchainStore.isLoading.get();
+  const lastTransactionsUpdated = blockchainStore.lastTransactionsUpdated.get();
 
   // Sort transactions by version (descending) and then by timestamp (most recent first)
   const sortedTransactions = [...transactions].sort((a, b) => {
@@ -440,7 +445,7 @@ export const TransactionsList = observer(({
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
             <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
-            {isRefreshing ? (
+            {(isRefreshing || isAutoRefreshing) ? (
               <ActivityIndicator size="small" color="#E75A5C" />
             ) : (
               <TouchableOpacity onPress={handleRefresh} className="p-2">
@@ -470,11 +475,8 @@ export const TransactionsList = observer(({
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
             Recent Transactions ({transactions.length})
-            {isAutoRefreshing && (
-              <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
-            )}
           </Text>
-          {isRefreshing ? (
+          {(isRefreshing || isAutoRefreshing || isLoading) ? (
             <ActivityIndicator size="small" color="#E75A5C" />
           ) : (
             <TouchableOpacity onPress={handleRefresh} className="p-2">

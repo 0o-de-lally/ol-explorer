@@ -4,7 +4,7 @@ import { useSdkContext } from '../context/SdkContext';
 import { useObservable } from '@legendapp/state/react';
 
 /**
- * Hook that forces a component to update when blockchain data changes
+ * Hook that forces a component to update when any blockchain data changes
  * or SDK initialization status changes.
  * 
  * @returns A counter value that changes when updates occur (for dependency arrays)
@@ -60,16 +60,16 @@ export const useForceUpdate = (): number => {
 
     // Listen for blockchain-updated events
     useEffect(() => {
-        const handleBlockchainUpdated = () => {
-            console.log('Force update triggered by blockchain-updated event');
+        const handleBlockchainUpdated = (event: CustomEvent) => {
+            console.log('Force update triggered by blockchain-updated event', event.detail);
             setUpdateCounter(prev => prev + 1);
         };
 
         if (typeof window !== 'undefined') {
-            window.addEventListener('blockchain-updated', handleBlockchainUpdated);
+            window.addEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
 
             return () => {
-                window.removeEventListener('blockchain-updated', handleBlockchainUpdated);
+                window.removeEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
             };
         }
     }, []);
@@ -93,6 +93,150 @@ export const useForceUpdate = (): number => {
             };
         }
     }, [isInitialized]);
+
+    return updateCounter;
+};
+
+/**
+ * Hook that forces a component to update when metrics data changes.
+ * Use this in metrics-specific components to avoid unnecessary updates from transactions.
+ * 
+ * @returns A counter value that changes when metrics updates occur
+ */
+export const useForceUpdateMetrics = (): number => {
+    const [updateCounter, setUpdateCounter] = useState(0);
+    const { isInitialized, isInitializing } = useSdkContext();
+
+    // Use useObservable to automatically subscribe to metrics-specific changes
+    const lastMetricsUpdated = useObservable(blockchainStore.lastMetricsUpdated);
+
+    // React to changes in lastMetricsUpdated
+    useEffect(() => {
+        console.log('Metrics update triggered by lastMetricsUpdated change:', lastMetricsUpdated.get());
+        setUpdateCounter(prev => prev + 1);
+    }, [lastMetricsUpdated.get()]);
+
+    // Update when SDK initialization changes
+    useEffect(() => {
+        if (isInitialized && !isInitializing) {
+            console.log('Metrics update triggered by SDK initialization');
+            setUpdateCounter(prev => prev + 1);
+
+            // Force update metrics data
+            blockchainActions.forceUpdateMetrics();
+        }
+    }, [isInitialized, isInitializing]);
+
+    // Listen for sdkinitialized events
+    useEffect(() => {
+        const handleSdkInitialized = () => {
+            console.log('Metrics update triggered by SDK initialized event');
+            setUpdateCounter(prev => prev + 1);
+
+            // Force update metrics data
+            blockchainActions.forceUpdateMetrics();
+        };
+
+        // Listen for custom sdk initialized event
+        if (typeof window !== 'undefined') {
+            window.addEventListener('sdkinitialized', handleSdkInitialized);
+
+            return () => {
+                window.removeEventListener('sdkinitialized', handleSdkInitialized);
+            };
+        }
+    }, []);
+
+    // Listen for blockchain-updated events related to metrics
+    useEffect(() => {
+        const handleBlockchainUpdated = (event: CustomEvent) => {
+            // Only trigger update if this is a metrics update or all update
+            if (event.detail?.updateType === 'metrics' || event.detail?.updateType === 'all') {
+                console.log('Metrics update triggered by blockchain-updated event', event.detail);
+                setUpdateCounter(prev => prev + 1);
+            }
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
+
+            return () => {
+                window.removeEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
+            };
+        }
+    }, []);
+
+    return updateCounter;
+};
+
+/**
+ * Hook that forces a component to update when transactions data changes.
+ * Use this in transaction-specific components to avoid unnecessary updates from metrics.
+ * 
+ * @returns A counter value that changes when transaction updates occur
+ */
+export const useForceUpdateTransactions = (): number => {
+    const [updateCounter, setUpdateCounter] = useState(0);
+    const { isInitialized, isInitializing } = useSdkContext();
+
+    // Use useObservable to automatically subscribe to transaction-specific changes
+    const lastTransactionsUpdated = useObservable(blockchainStore.lastTransactionsUpdated);
+
+    // React to changes in lastTransactionsUpdated
+    useEffect(() => {
+        console.log('Transactions update triggered by lastTransactionsUpdated change:', lastTransactionsUpdated.get());
+        setUpdateCounter(prev => prev + 1);
+    }, [lastTransactionsUpdated.get()]);
+
+    // Update when SDK initialization changes
+    useEffect(() => {
+        if (isInitialized && !isInitializing) {
+            console.log('Transactions update triggered by SDK initialization');
+            setUpdateCounter(prev => prev + 1);
+
+            // Force update transactions data
+            blockchainActions.forceUpdateTransactions();
+        }
+    }, [isInitialized, isInitializing]);
+
+    // Listen for sdkinitialized events
+    useEffect(() => {
+        const handleSdkInitialized = () => {
+            console.log('Transactions update triggered by SDK initialized event');
+            setUpdateCounter(prev => prev + 1);
+
+            // Force update transactions data
+            blockchainActions.forceUpdateTransactions();
+        };
+
+        // Listen for custom sdk initialized event
+        if (typeof window !== 'undefined') {
+            window.addEventListener('sdkinitialized', handleSdkInitialized);
+
+            return () => {
+                window.removeEventListener('sdkinitialized', handleSdkInitialized);
+            };
+        }
+    }, []);
+
+    // Listen for blockchain-updated events related to transactions
+    useEffect(() => {
+        const handleBlockchainUpdated = (event: CustomEvent) => {
+            // Only trigger update if this is a transactions update or all update
+            if (event.detail?.updateType === 'transactions' || event.detail?.updateType === 'all') {
+                console.log('Transactions update triggered by blockchain-updated event', event.detail);
+                setUpdateCounter(prev => prev + 1);
+            }
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
+
+            return () => {
+                window.removeEventListener('blockchain-updated', handleBlockchainUpdated as EventListener);
+            };
+        }
+    }, []);
 
     return updateCounter;
 }; 

@@ -680,19 +680,20 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             >
               <Text className="text-primary text-base font-bold">← Back</Text>
             </TouchableOpacity>
-            <Text className="text-white text-2xl font-bold flex-1 flex-wrap">Account Details</Text>
+            <Text className="text-white text-2xl font-bold flex-1 flex-wrap">
+              Account Details
+            </Text>
           </View>
 
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
-              {(isLoading === true || isAutoRefreshing === true) ? (
+              {(isLoading || isAutoRefreshing || !isInitialized) ? (
                 <ActivityIndicator size="small" color="#E75A5C" />
               ) : (
                 <TouchableOpacity 
                   onPress={() => {
                     console.log('Account card refresh triggered');
-                    // Always allow manual refresh, even if auto-refresh is running
                     setIsAutoRefreshing(true);
                     refreshAccount()
                       .then(() => console.log('Account card refresh completed'))
