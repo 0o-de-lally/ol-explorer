@@ -19,6 +19,38 @@ A modern, responsive blockchain explorer for the Open Libra blockchain, built wi
 
 Visit the live explorer at [https://explorer.openlibra.space](https://explorer.openlibra.space)
 
+## Progressive Web App (PWA)
+
+OL Explorer is configured as a Progressive Web App, allowing users to install it on their devices and access certain features offline.
+
+### PWA Features
+
+- **Installable**: Users can add the app to their home screen/desktop
+- **Offline Support**: Basic navigation and cached content remain accessible without an internet connection
+- **Fast Loading**: Caches important assets for quick startup
+- **Responsive**: Works on all device sizes
+
+### Installing as PWA
+
+#### On Mobile (iOS/Android)
+1. Open the app in your mobile browser
+2. Tap the Share button (iOS) or Menu button (Android)
+3. Select "Add to Home Screen" or "Install App"
+
+#### On Desktop (Chrome, Edge)
+1. Open the app in your browser
+2. Look for the install icon in the address bar
+3. Click "Install" in the prompt
+
+### Verifying PWA Setup
+
+To verify the PWA configuration is correct, run:
+```bash
+npm run verify-pwa
+```
+
+This script checks for all required PWA assets and configurations.
+
 ## Getting Started
 
 ### Prerequisites

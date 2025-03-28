@@ -10,12 +10,30 @@
         content="Open Libra Blockchain Explorer - Explore transactions, accounts, and blocks on the Open Libra network" />
     <link rel="apple-touch-icon" href="./logo192.png" />
     <link rel="manifest" href="./manifest.json" />
+
+    <!-- PWA meta tags for iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OL Explorer">
+
+    <!-- PWA meta tags for Windows -->
+    <meta name="msapplication-TileImage" content="./logo192.png">
+    <meta name="msapplication-TileColor" content="#0B1221">
+
     <title>Open Libra Explorer</title>
 </head>
 
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+
+    <!-- Inline script to check for PWA display mode -->
+    <script>
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            console.log('App is being displayed in standalone/PWA mode');
+            // You can add specific PWA-mode behavior here
+        }
+    </script>
 </body>
 
 </html>
