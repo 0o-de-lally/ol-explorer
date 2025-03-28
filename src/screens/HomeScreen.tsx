@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView, AppState, AppStateStatus } from 'react-native';
 import { BlockchainStats } from '../components/BlockchainStats';
 import { TransactionsList } from '../components/TransactionsList';
 import { blockchainActions, blockchainStore } from '../store/blockchainStore';
@@ -9,11 +9,13 @@ import { Transaction } from '../types/blockchain';
 import { BlockchainMetrics } from '../components/BlockchainMetrics';
 import { SearchBar } from '../components/SearchBar';
 import sdkConfig from '../config/sdkConfig';
+import appConfig from '../config/appConfig';
+import { useIsFocused } from '@react-navigation/native';
 
 // Debug flag - must match the one in SdkContext.tsx
 const DEBUG_MODE = false;
 
-export const HomeScreen: React.FC = () => {
+export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true }) => {
   const sdk = useSdk();
   const { isInitialized, isInitializing, error, isUsingMockData, reinitialize } = useSdkContext();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -21,6 +23,51 @@ export const HomeScreen: React.FC = () => {
   const dataFetchAttempted = useRef(false);
   // Track manual retry attempts
   const [retryCount, setRetryCount] = useState(0);
+  // Track the current transaction limit to respect user preferences
+  const [currentLimit, setCurrentLimit] = useState(appConfig.transactions.defaultLimit);
+  // Add refs for visibility tracking
+  const isMounted = useRef(true);
+  const appState = useRef(AppState.currentState);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Try to use navigation focus hook if available
+  let isFocused = true;
+  try {
+    isFocused = useIsFocused();
+  } catch (e) {
+    // If hook is not available, default to true
+    isFocused = true;
+  }
+  
+  // Determine if screen is actually visible based on props and navigation
+  const isScreenVisible = isVisible && isFocused;
+
+  // Set isMounted ref on mount/unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Listen for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Handle app state changes
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to the foreground
+      console.log('App has come to the foreground, refreshing home screen data');
+      if (isScreenVisible) {
+        fetchData(true);
+      }
+    }
+    appState.current = nextAppState;
+  };
 
   // Set a timeout to prevent infinite loading
   useEffect(() => {
@@ -41,7 +88,7 @@ export const HomeScreen: React.FC = () => {
             epoch: 20,
             chainId: 'testnet'
           });
-          blockchainActions.setTransactions(createMockTransactions(20));
+          blockchainActions.setTransactions(createMockTransactions(currentLimit));
         }
 
         blockchainActions.setLoading(false);
@@ -49,7 +96,7 @@ export const HomeScreen: React.FC = () => {
     }, 5000); // 5 seconds timeout
 
     return () => clearTimeout(timer);
-  }, [sdk]);
+  }, [sdk, currentLimit]);
 
   // Create mock transactions with correct typing (only used in debug mode)
   const createMockTransactions = (count: number): Transaction[] => {
@@ -70,15 +117,65 @@ export const HomeScreen: React.FC = () => {
 
   // Handle manual refresh - just fetch data directly
   const handleRefresh = () => {
-    console.log('Manual refresh triggered');
+    console.log('Manual refresh triggered with current limit:', currentLimit);
     fetchData();
   };
 
-  const fetchData = async () => {
+  // Handle transaction limit changes from the TransactionsList component
+  const handleLimitChange = (newLimit: number) => {
+    console.log(`Transaction limit changed to ${newLimit}`);
+    setCurrentLimit(newLimit);
+  };
+
+  // Set up polling for data updates based on visibility
+  useEffect(() => {
+    if (isScreenVisible && isInitialized && !isUsingMockData) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Clean up on unmount
+    return () => {
+      stopPolling();
+    };
+  }, [isScreenVisible, isInitialized, isUsingMockData, currentLimit]);
+
+  // Start polling interval
+  const startPolling = () => {
+    if (!pollingIntervalRef.current) {
+      console.log('Starting polling interval for blockchain data...');
+
+      // Set up polling for new data using the configured interval
+      pollingIntervalRef.current = setInterval(() => {
+        // Only poll if we're not already loading and component is still visible and mounted
+        if (!blockchainStore.isLoading.get() && isScreenVisible && isMounted.current) {
+          console.log('Polling for new blockchain data with current limit:', currentLimit);
+          fetchData(true); // Pass true to indicate this is an auto-refresh
+        }
+      }, sdkConfig.pollingIntervals.homeScreenRefresh);
+    }
+  };
+
+  // Stop polling interval
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      console.log('Stopping polling interval for blockchain data');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  const fetchData = async (isAutoRefresh = false) => {
     try {
-      console.log('Fetching blockchain data...');
+      console.log(`Fetching blockchain data with limit: ${currentLimit}, auto-refresh: ${isAutoRefresh}`);
       dataFetchAttempted.current = true;
-      blockchainActions.setLoading(true);
+      
+      if (!isAutoRefresh) {
+        // Only set loading state for manual refreshes to avoid UI flicker
+        blockchainActions.setLoading(true);
+      }
+      
       blockchainActions.setError(null);
 
       // Fetch blockchain stats
@@ -87,6 +184,9 @@ export const HomeScreen: React.FC = () => {
         sdk.getLatestEpoch(),
         sdk.getChainId()
       ]);
+
+      // Only update state if component is still mounted
+      if (!isMounted.current) return;
 
       console.log('Blockchain data fetched:', { blockHeight, epoch, chainId });
 
@@ -104,28 +204,20 @@ export const HomeScreen: React.FC = () => {
         chainId: blockchainStore.stats.chainId.get()
       });
 
-      // Fetch recent transactions
-      const transactions = await sdk.getTransactions(20);
-      console.log(`Fetched ${transactions.length} transactions`);
+      // Fetch recent transactions - use the current limit to respect user preference
+      console.log(`Fetching transactions with current limit: ${currentLimit}`);
+      const transactions = await sdk.getTransactions(currentLimit);
+      
+      // Only update state if component is still mounted
+      if (!isMounted.current) return;
 
-      // Log the first transaction in detail to examine its structure
-      if (transactions.length > 0) {
-        console.log('First raw transaction from SDK:', JSON.stringify(transactions[0], null, 2));
-        console.log('Transaction block_height:', transactions[0].block_height);
-        console.log('Transaction version:', transactions[0].version);
-        console.log('Transaction type:', transactions[0].type);
-      }
+      console.log(`Fetched ${transactions.length} transactions`);
 
       // Add block height to each transaction if needed
       const transactionsWithBlockHeight = transactions.map((tx, index) => ({
         ...tx,
         block_height: tx.block_height || blockHeight - index,
       }));
-
-      // Log the modified first transaction to see the changes
-      if (transactionsWithBlockHeight.length > 0) {
-        console.log('First transaction after modification:', JSON.stringify(transactionsWithBlockHeight[0], null, 2));
-      }
 
       // Set transactions and force update
       blockchainActions.setTransactions(transactionsWithBlockHeight);
@@ -134,6 +226,10 @@ export const HomeScreen: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching blockchain data:', error);
+      
+      // Only update state if component is still mounted
+      if (!isMounted.current) return;
+      
       blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
 
       // Only use mock data in debug mode if there's an error
@@ -144,12 +240,14 @@ export const HomeScreen: React.FC = () => {
           epoch: 20,
           chainId: 'testnet'
         });
-        blockchainActions.setTransactions(createMockTransactions(20));
+        blockchainActions.setTransactions(createMockTransactions(currentLimit));
       }
     } finally {
-      // Ensure loading state is cleared
-      blockchainActions.setLoading(false);
-      console.log('Finished loading data, loading state:', blockchainStore.isLoading.get());
+      // Ensure loading state is cleared only if component is still mounted
+      if (isMounted.current) {
+        blockchainActions.setLoading(false);
+        console.log('Finished loading data, loading state:', blockchainStore.isLoading.get());
+      }
     }
   };
 
@@ -201,27 +299,6 @@ export const HomeScreen: React.FC = () => {
     }
   }, [isInitialized, isInitializing, blockchainStore.stats.blockHeight.get(),
     blockchainStore.transactions.get().length]);
-
-  // Set up polling for data updates
-  useEffect(() => {
-    if (isInitialized && !isUsingMockData) {
-      console.log('Setting up polling interval for blockchain data...');
-
-      // Set up polling for new data using the configured interval
-      const pollInterval = setInterval(() => {
-        // Only poll if we're not already loading
-        if (!blockchainStore.isLoading.get()) {
-          console.log('Polling for new blockchain data...');
-          fetchData();
-        }
-      }, sdkConfig.pollingIntervals.homeScreenRefresh);
-
-      return () => {
-        console.log('Clearing polling interval');
-        clearInterval(pollInterval);
-      };
-    }
-  }, [isInitialized, isUsingMockData]);
 
   // Handle retry when SDK fails to initialize
   const handleRetryInitialization = () => {
@@ -334,7 +411,12 @@ export const HomeScreen: React.FC = () => {
 
           {/* <BlockchainStats testID="blockchain-stats" /> */}
           <BlockchainMetrics />
-          <TransactionsList testID="transactions-list" onRefresh={handleRefresh} />
+          <TransactionsList 
+            testID="transactions-list" 
+            onRefresh={handleRefresh} 
+            initialLimit={appConfig.transactions.defaultLimit}
+            onLimitChange={handleLimitChange}
+          />
         </View>
       </ScrollView>
     </View>

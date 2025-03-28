@@ -23,8 +23,12 @@ export const useSdk = (): BlockchainSDK & {
   }, [isInitialized, isInitializing, error, isUsingMockData]);
 
   // Extension function to get account transactions
-  const ext_getAccountTransactions = async (address: string, limit: number = 25): Promise<any[]> => {
-    console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}`);
+  const ext_getAccountTransactions = async (
+    address: string, 
+    limit: number = 25, 
+    start?: string
+  ): Promise<any[]> => {
+    console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}, start: ${start || 'none'}`);
     
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get account transactions');
@@ -35,8 +39,11 @@ export const useSdk = (): BlockchainSDK & {
       // Normalize the address for consistency
       const normalizedAddress = normalizeAddress(address);
       
-      // Use the REST API endpoint to fetch account transactions
-      const restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${normalizedAddress}/transactions?limit=${limit}`;
+      // Build the REST API endpoint URL with pagination parameters
+      let restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${normalizedAddress}/transactions?limit=${limit}`;
+      if (start) {
+        restUrl += `&start=${start}`;
+      }
       console.log(`Fetching from REST endpoint: ${restUrl}`);
       
       const response = await fetch(restUrl);
@@ -62,7 +69,8 @@ export const useSdk = (): BlockchainSDK & {
       console.log('Falling back to client-side filtering approach');
       
       try {
-        // Get all transactions and filter client-side
+        // Note: This fallback method doesn't support proper pagination
+        // For a production app, we might want to implement more sophisticated fallback
         const allTxs = await sdk.getTransactions(limit * 2, true);
         
         // Filter transactions where the sender matches our address

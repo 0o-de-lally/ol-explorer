@@ -78,4 +78,5 @@ export interface BlockchainSDK {
   isInitialized: boolean;
   error: Error | null;
   isUsingMockData?: boolean;
+  ext_getAccountTransactions: (address: string, limit?: number, start?: string) => Promise<any[]>;
 } 

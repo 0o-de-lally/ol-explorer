@@ -7,37 +7,101 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
-import { blockchainStore } from '../store/blockchainStore';
+import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 import { useSdkContext } from '../context/SdkContext';
 import { useForceUpdate } from '../hooks/useForceUpdate';
 import { router } from 'expo-router';
+import { useSdk } from '../hooks/useSdk';
+import appConfig from '../config/appConfig';
 
 type TransactionsListProps = {
   testID?: string;
   onRefresh?: () => void;
+  initialLimit?: number;
+  onLimitChange?: (newLimit: number) => void;
 };
 
 // Use observer pattern to correctly handle observables
 export const TransactionsList = observer(({
   testID,
-  onRefresh
+  onRefresh,
+  initialLimit = appConfig.transactions.defaultLimit,
+  onLimitChange
 }: TransactionsListProps) => {
   // State for refresh indicator
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentLimit, setCurrentLimit] = useState(initialLimit);
+  
+  // Effect to notify parent component when limit changes
+  useEffect(() => {
+    if (onLimitChange && currentLimit !== initialLimit) {
+      onLimitChange(currentLimit);
+    }
+  }, [currentLimit, initialLimit, onLimitChange]);
+  
   const { isInitialized } = useSdkContext();
   const { width } = useWindowDimensions();
   const updateCounter = useForceUpdate();
+  const sdk = useSdk();
 
   // Handle refresh button click
   const handleRefresh = async () => {
     if (onRefresh && !isRefreshing) {
       setIsRefreshing(true);
-      await onRefresh();
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 800); // Ensure animation completes
+      
+      try {
+        // Don't reset to initial limit - keep the user's current view preference
+        // First, try to fetch using the SDK directly with the current limit
+        console.log(`Refreshing transactions with current limit: ${currentLimit}`);
+        
+        // Fetch transactions directly with current limit
+        const transactions = await sdk.getTransactions(currentLimit);
+        
+        // Update the store directly with these transactions
+        blockchainActions.setTransactions(transactions);
+        
+        console.log(`Refreshed ${transactions.length} transactions with limit ${currentLimit}`);
+      } catch (error) {
+        console.error('Error during direct refresh:', error);
+        // Fall back to the parent's refresh method
+        await onRefresh();
+      } finally {
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 800); // Ensure animation completes
+      }
+    }
+  };
+  
+  // Handle load more button click
+  const handleLoadMore = async () => {
+    if (!isLoadingMore && isInitialized) {
+      try {
+        setIsLoadingMore(true);
+        
+        // Calculate the new limit
+        const newLimit = Math.min(currentLimit + appConfig.transactions.incrementSize, appConfig.transactions.maxLimit);
+        
+        // Update the current limit state - this will trigger the useEffect to notify parent
+        setCurrentLimit(newLimit);
+        
+        console.log(`Loading more transactions, new limit: ${newLimit}`);
+        
+        // Fetch transactions with the new limit
+        const transactions = await sdk.getTransactions(newLimit);
+        
+        // Update the store with the new transactions
+        blockchainActions.setTransactions(transactions);
+        
+        console.log(`Loaded ${transactions.length} transactions`);
+      } catch (error) {
+        console.error('Error loading more transactions:', error);
+      } finally {
+        setIsLoadingMore(false);
+      }
     }
   };
 
@@ -120,26 +184,30 @@ export const TransactionsList = observer(({
     }
   };
 
-  // Get color for function pill based on function type
-  const getFunctionPillColor = (type: string) => {
-    // Map function types to pastel colors
-    if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
-    if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
-    if (type === 'script') return 'bg-[#F3ECFF] text-[#6B46C1]';
-    if (type === 'module') return 'bg-[#E6F7F5] text-[#047857]';
-    if (type === 'entry_function') return 'bg-[#FFF7E6] text-[#B45309]';
-
-    // Generate a consistent color based on the first character of the type
-    const charCode = type.charCodeAt(0) % 5;
-    const colorOptions = [
-      'bg-[#E6F7FF] text-[#0072C6]', // blue
-      'bg-[#F3ECFF] text-[#6B46C1]', // purple
-      'bg-[#E6F7F5] text-[#047857]', // green
-      'bg-[#FFF7E6] text-[#B45309]', // orange
-      'bg-[#FFECEC] text-[#A73737]', // red
-    ];
-
-    return colorOptions[charCode];
+  // Get color for function pill based on function type - using alphabetical index
+  const getFunctionPillColor = (type: string, functionName: string) => {
+    // First check for special mappings from config
+    const normalizedType = type.toLowerCase();
+    
+    // Check for special cases from config
+    for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
+      if (normalizedType.includes(specialType)) {
+        return `${colors.bg} ${colors.text}`;
+      }
+    }
+    
+    // Use the functionName (which is from getFunctionLabel) for consistent alphabetical indexing
+    const normalizedName = functionName.toLowerCase();
+    
+    // Get alphabetical position and map to color
+    const firstChar = normalizedName.charAt(0);
+    const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
+    
+    // Ensure positive index (in case of non-alphabetic characters)
+    const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
+    const colors = appConfig.ui.functionPillColors[index];
+    
+    return `${colors.bg} ${colors.text}`;
   };
 
   const renderTableHeader = () => {
@@ -160,7 +228,7 @@ export const TransactionsList = observer(({
 
   const renderTransactionItem = (item: any) => {
     const functionLabel = getFunctionLabel(item.type, item);
-    const functionPillColor = getFunctionPillColor(item.type);
+    const functionPillColor = getFunctionPillColor(item.type, functionLabel);
 
     // Mobile view with stacked layout
     if (isMobile) {
@@ -246,7 +314,11 @@ export const TransactionsList = observer(({
             <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
             {isRefreshing ? (
               <ActivityIndicator size="small" color="#E75A5C" />
-            ) : null}
+            ) : (
+              <TouchableOpacity onPress={handleRefresh} className="p-2">
+                <Text className="text-primary">Refresh</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View className="justify-center items-center p-8">
             <Text className="text-white text-base mb-4">No transactions found</Text>
@@ -273,7 +345,11 @@ export const TransactionsList = observer(({
           </Text>
           {isRefreshing ? (
             <ActivityIndicator size="small" color="#E75A5C" />
-          ) : null}
+          ) : (
+            <TouchableOpacity onPress={handleRefresh} className="p-2">
+              <Text className="text-primary">Refresh</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {renderTableHeader()}
@@ -281,6 +357,24 @@ export const TransactionsList = observer(({
         {transactions.length > 0 ? (
           <View className="w-full">
             {sortedTransactions.map(item => renderTransactionItem(item))}
+            
+            {/* Load More Button */}
+            <View className="items-center justify-center py-4">
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color="#E75A5C" />
+              ) : currentLimit >= appConfig.transactions.maxLimit ? (
+                <Text className="text-text-muted text-sm py-2">
+                  Maximum of {appConfig.transactions.maxLimit} transactions reached (API limit)
+                </Text>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleLoadMore}
+                  className="bg-secondary border border-primary rounded-lg py-2 px-4"
+                >
+                  <Text className="text-primary">Load More Transactions ({transactions.length} shown)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ) : (
           <View className="justify-center items-center p-5">

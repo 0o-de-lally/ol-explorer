@@ -10,33 +10,38 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useWindowDimensions } from 'react-native';
 import { navigate } from '../navigation/navigationUtils';
+import appConfig from '../config/appConfig';
 
 // Get screen width to adjust formatting for mobile
 const screenWidth = Dimensions.get('window').width;
 const isMobile = screenWidth < 768;
 
 /**
- * Get color for function pill based on function type
+ * Get color for function pill based on function type using alphabetical index
  */
-const getFunctionPillColor = (type: string) => {
-  // Map function types to pastel colors
-  if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
-  if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
-  if (type === 'script') return 'bg-[#F3ECFF] text-[#6B46C1]';
-  if (type === 'module') return 'bg-[#E6F7F5] text-[#047857]';
-  if (type === 'entry_function') return 'bg-[#FFF7E6] text-[#B45309]';
-
-  // Generate a consistent color based on the first character of the type
-  const charCode = type.charCodeAt(0) % 5;
-  const colorOptions = [
-    'bg-[#E6F7FF] text-[#0072C6]', // blue
-    'bg-[#F3ECFF] text-[#6B46C1]', // purple
-    'bg-[#E6F7F5] text-[#047857]', // green
-    'bg-[#FFF7E6] text-[#B45309]', // orange
-    'bg-[#FFECEC] text-[#A73737]', // red
-  ];
-
-  return colorOptions[charCode];
+const getFunctionPillColor = (type: string, functionName?: string) => {
+  // Use the function name if provided, otherwise use the type
+  const textToUse = functionName?.toLowerCase() || type.toLowerCase();
+  
+  // First check for special mappings from config
+  const normalizedType = type.toLowerCase();
+  
+  // Check for special cases from config
+  for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
+    if (normalizedType.includes(specialType)) {
+      return `${colors.bg} ${colors.text}`;
+    }
+  }
+  
+  // Get alphabetical position and map to color
+  const firstChar = textToUse.charAt(0);
+  const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
+  
+  // Ensure positive index (in case of non-alphabetic characters)
+  const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
+  const colors = appConfig.ui.functionPillColors[index];
+  
+  return `${colors.bg} ${colors.text}`;
 };
 
 /**
@@ -320,7 +325,9 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Transaction Type</Text>
               <View className="w-2/3 flex items-end justify-end">
-                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type)}`}>
+                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type, 
+                  // Get function name from payload if available
+                  transaction.payload?.function?.split('::').pop() || undefined)}`}>
                   <Text className="text-xs font-medium">
                     {(() => {
                       // Extract specific function name from payload if available

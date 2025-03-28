@@ -9,6 +9,8 @@ import { useAccount } from '../hooks/useAccount';
 import { ACCOUNT_DATA_CONFIG } from '../store/accountStore';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AccountTransactionsList } from '../components/AccountTransactionsList';
+import appConfig from '../config/appConfig';
+import { useIsFocused } from '@react-navigation/native';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -202,6 +204,16 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
   // Data loaded tracking
   const dataLoadedRef = useRef(false);
+
+  // Try to use navigation focus hook for determining if screen is visible
+  let isFocused = true;
+  try {
+    isFocused = useIsFocused();
+  } catch (e) {
+    // If hook is not available, default to true
+    console.log('Navigation focus hook not available, defaulting to visible');
+    isFocused = true;
+  }
 
   // Debug log the parameters
   useEffect(() => {
@@ -812,8 +824,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           {accountData && getObservableValue(accountData.address, '') && (
             <AccountTransactionsList 
               accountAddress={getObservableValue(accountData.address, '')}
-              limit={25}
+              initialLimit={appConfig.transactions.defaultLimit}
               onRefresh={handleRefresh}
+              isVisible={isFocused}
             />
           )}
         </View>

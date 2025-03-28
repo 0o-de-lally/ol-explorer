@@ -81,15 +81,16 @@ const TestAccountTransactionsPage = observer(() => {
     setUsingFallbackMethod(false);
     
     try {
-      // Normalize address format - ensure it always has the 0x prefix
+      // Normalize address format
       const normalizedAddress = address.startsWith('0x') ? address : `0x${address}`;
+      const addressWithoutPrefix = normalizedAddress.replace('0x', '');
       
       // Calculate limit
       const limitNum = parseInt(limit) || 25;
 
       try {
-        // Try using the REST API endpoint first - REST API expects the address WITH the 0x prefix
-        const restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${normalizedAddress}/transactions?limit=${limitNum}`;
+        // Try using the REST API endpoint first
+        const restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${addressWithoutPrefix}/transactions?limit=${limitNum}`;
         
         console.log(`Fetching from REST endpoint: ${restUrl}`);
         const response = await fetch(restUrl);

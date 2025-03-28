@@ -1,67 +1,222 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions
+  useWindowDimensions,
+  AppState,
+  AppStateStatus
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 import { useSdk } from '../hooks/useSdk';
 import { router } from 'expo-router';
+import appConfig from '../config/appConfig';
+import { useSdkContext } from '../context/SdkContext';
+
+// Polling interval in milliseconds - could be moved to appConfig
+const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 
 type AccountTransactionsListProps = {
   accountAddress: string;
-  limit?: number;
+  initialLimit?: number;
   testID?: string;
   onRefresh?: () => void;
+  onLimitChange?: (newLimit: number) => void;
+  isVisible?: boolean; // Add prop to indicate if component is visible
 };
 
 // Use observer pattern to correctly handle observables
 export const AccountTransactionsList = observer(({
   accountAddress,
-  limit = 25,
+  initialLimit = appConfig.transactions.defaultLimit,
   testID,
-  onRefresh
+  onRefresh,
+  onLimitChange,
+  isVisible = true // Default to true if not provided
 }: AccountTransactionsListProps) => {
   // State for transactions and loading
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  // Track the current limit for pagination
+  const [currentLimit, setCurrentLimit] = useState(initialLimit);
+  // Add state to track auto-refresh
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  // Add ref to track polling interval
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Add ref to track app state
+  const appState = useRef(AppState.currentState);
+  // Track if component is mounted
+  const isMounted = useRef(true);
+  
   const { width } = useWindowDimensions();
   const sdk = useSdk();
+  const { isInitialized, isUsingMockData } = useSdkContext();
+
+  // Effect to notify parent component when limit changes
+  useEffect(() => {
+    if (onLimitChange && currentLimit !== initialLimit) {
+      onLimitChange(currentLimit);
+    }
+  }, [currentLimit, initialLimit, onLimitChange]);
+
+  // Set isMounted ref on mount/unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Listen for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Handle app state changes
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to the foreground
+      console.log('App has come to the foreground, refreshing account transactions');
+      if (isVisible && accountAddress) {
+        fetchTransactions(false, true);
+      }
+    }
+    appState.current = nextAppState;
+  };
 
   // Check if we should use mobile layout
   const isMobile = width < 768;
 
+  // Sort transactions by version (descending) and then by timestamp (most recent first)
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      // Extract version numbers, handling different data formats
+      const versionA = Number(a.version || a.sequence_number || 0);
+      const versionB = Number(b.version || b.sequence_number || 0);
+      
+      // First sort by version (block number) in descending order
+      if (versionB !== versionA) {
+        return versionB - versionA;
+      }
+      
+      // Extract timestamps, handling different formats
+      const timestampA = new Date(
+        a.timestamp || 
+        (a.transaction?.expiration_timestamp_secs ? a.transaction.expiration_timestamp_secs * 1000 : 0)
+      ).getTime();
+      
+      const timestampB = new Date(
+        b.timestamp || 
+        (b.transaction?.expiration_timestamp_secs ? b.transaction.expiration_timestamp_secs * 1000 : 0)
+      ).getTime();
+      
+      // If versions are equal, sort by timestamp in descending order
+      return timestampB - timestampA;
+    });
+  }, [transactions]);
+
   // Load transactions on component mount
   useEffect(() => {
-    if (accountAddress) {
+    if (accountAddress && isVisible) {
       fetchTransactions();
     }
-  }, [accountAddress, limit]);
+  }, [accountAddress, isVisible]);
+
+  // Set up and clean up polling based on visibility
+  useEffect(() => {
+    // Create or destroy polling interval based on visibility
+    if (isVisible) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Clean up polling on unmount
+    return () => {
+      stopPolling();
+    };
+  }, [isVisible, isInitialized, isUsingMockData, accountAddress, isLoading, isLoadingMore]);
+
+  // Start polling interval
+  const startPolling = () => {
+    // Only start polling if not already polling, component is visible, SDK is initialized and not using mock data
+    if (!pollingIntervalRef.current && isVisible && isInitialized && !isUsingMockData && accountAddress) {
+      console.log('Starting polling for account transactions');
+      
+      pollingIntervalRef.current = setInterval(() => {
+        // Only poll if we're not already loading and component is still visible and mounted
+        if (!isLoading && !isLoadingMore && isVisible && isMounted.current) {
+          console.log('Auto-refreshing account transactions');
+          // Set auto-refreshing flag to true
+          setIsAutoRefreshing(true);
+          // Fetch transactions with current limit
+          fetchTransactions(false, true)
+            .finally(() => {
+              // Reset auto-refreshing flag when done
+              if (isMounted.current) {
+                setIsAutoRefreshing(false);
+              }
+            });
+        }
+      }, AUTO_REFRESH_INTERVAL);
+    }
+  };
+
+  // Stop polling interval
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      console.log('Stopping polling for account transactions');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
 
   // Function to fetch transactions
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (isLoadMore = false, isAutoRefresh = false) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!isLoadMore && !isAutoRefresh) {
+        // Initial fetch - will show the latest transactions
+        setIsLoading(true);
+        setError(null);
+        setTransactions([]);
+      } else if (!isAutoRefresh) {
+        // Loading more
+        setIsLoadingMore(true);
+      }
+      // Note: if isAutoRefresh is true, we don't set isLoading or isLoadingMore
+      // to avoid UI flickering during auto-refresh
       
-      console.log(`Fetching transactions for account: ${accountAddress}`);
-      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, limit);
+      console.log(`Fetching transactions for account: ${accountAddress}, limit: ${currentLimit}, isAutoRefresh: ${isAutoRefresh}`);
+      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, currentLimit);
       
-      setTransactions(accountTxs);
-      
-      if (accountTxs.length === 0) {
-        setError('No transactions found for this account');
+      // Only update state if component is still mounted
+      if (isMounted.current) {
+        // Replace with new transactions - we're getting everything in one go
+        setTransactions(accountTxs);
+        
+        if (accountTxs.length === 0) {
+          setError('No transactions found for this account');
+        }
       }
     } catch (e: any) {
       console.error('Error fetching account transactions:', e);
-      setError(e.message || 'Failed to load transactions');
+      if (isMounted.current) {
+        setError(e.message || 'Failed to load transactions');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isAutoRefresh && isMounted.current) {
+        // Only reset these flags if it's not an auto-refresh
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   };
 
@@ -70,7 +225,19 @@ export const AccountTransactionsList = observer(({
     if (onRefresh) {
       onRefresh();
     }
+    // Don't reset to initial limit - keep the user's current view preference
     await fetchTransactions();
+  };
+  
+  // Handle load more button click
+  const handleLoadMore = async () => {
+    if (!isLoadingMore) {
+      // Increase the limit by the configured increment size
+      const newLimit = Math.min(currentLimit + appConfig.transactions.incrementSize, appConfig.transactions.maxLimit);
+      setCurrentLimit(newLimit);
+      console.log(`Increasing fetch limit to ${newLimit}`);
+      await fetchTransactions(true);
+    }
   };
 
   const handleTransactionPress = (hash: string) => {
@@ -144,26 +311,30 @@ export const AccountTransactionsList = observer(({
     }
   };
 
-  // Get color for function pill based on function type
-  const getFunctionPillColor = (type: string) => {
-    // Map function types to pastel colors
-    if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
-    if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
-    if (type === 'script') return 'bg-[#F3ECFF] text-[#6B46C1]';
-    if (type === 'module') return 'bg-[#E6F7F5] text-[#047857]';
-    if (type === 'entry_function') return 'bg-[#FFF7E6] text-[#B45309]';
-
-    // Generate a consistent color based on the first character of the type
-    const charCode = type.charCodeAt(0) % 5;
-    const colorOptions = [
-      'bg-[#E6F7FF] text-[#0072C6]', // blue
-      'bg-[#F3ECFF] text-[#6B46C1]', // purple
-      'bg-[#E6F7F5] text-[#047857]', // green
-      'bg-[#FFF7E6] text-[#B45309]', // orange
-      'bg-[#FFECEC] text-[#A73737]', // red
-    ];
-
-    return colorOptions[charCode];
+  // Get color for function pill based on function type - using alphabetical index
+  const getFunctionPillColor = (type: string, functionName: string) => {
+    // First check for special mappings from config
+    const normalizedType = type.toLowerCase();
+    
+    // Check for special cases from config
+    for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
+      if (normalizedType.includes(specialType)) {
+        return `${colors.bg} ${colors.text}`;
+      }
+    }
+    
+    // Use the functionName (which is from getFunctionLabel) for consistent alphabetical indexing
+    const normalizedName = functionName.toLowerCase();
+    
+    // Get alphabetical position and map to color
+    const firstChar = normalizedName.charAt(0);
+    const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
+    
+    // Ensure positive index (in case of non-alphabetic characters)
+    const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
+    const colors = appConfig.ui.functionPillColors[index];
+    
+    return `${colors.bg} ${colors.text}`;
   };
 
   const renderTableHeader = () => {
@@ -192,7 +363,7 @@ export const AccountTransactionsList = observer(({
                       Date.now();
     
     const functionLabel = getFunctionLabel(type, item);
-    const functionPillColor = getFunctionPillColor(type);
+    const functionPillColor = getFunctionPillColor(type, functionLabel);
 
     // Mobile view with stacked layout
     if (isMobile) {
@@ -298,6 +469,9 @@ export const AccountTransactionsList = observer(({
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
             Account Transactions ({transactions.length})
+            {isAutoRefreshing && (
+              <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
+            )}
           </Text>
           {isLoading ? (
             <ActivityIndicator size="small" color="#E75A5C" />
@@ -312,7 +486,25 @@ export const AccountTransactionsList = observer(({
 
         {transactions.length > 0 ? (
           <View className="w-full">
-            {transactions.map(item => renderTransactionItem(item))}
+            {sortedTransactions.map(item => renderTransactionItem(item))}
+            
+            {/* Load More Button - Only show if not at max limit */}
+            <View className="items-center justify-center py-4">
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color="#E75A5C" />
+              ) : currentLimit >= appConfig.transactions.maxLimit ? (
+                <Text className="text-text-muted text-sm py-2">
+                  Maximum of {appConfig.transactions.maxLimit} transactions reached (API limit)
+                </Text>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleLoadMore}
+                  className="bg-secondary border border-primary rounded-lg py-2 px-4"
+                >
+                  <Text className="text-primary">Load More ({transactions.length} shown)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ) : (
           <View className="justify-center items-center p-5">
