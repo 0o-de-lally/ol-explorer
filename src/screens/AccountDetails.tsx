@@ -19,7 +19,7 @@ type AccountDetailsScreenProps = {
 
 // Coin resource type for LibraCoin
 const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
-const LIBRA_DECIMALS = 8;
+const LIBRA_DECIMALS = 6;
 
 // Add a helper function at the top of the component to safely get values from observables
 const getObservableValue = <T,>(value: any, defaultValue: T): T => {
@@ -389,7 +389,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       // App has come to the foreground
       console.log('App has come to the foreground, refreshing account details');
       if (isFocused && addressFromParams) {
-        refreshAccount();
+        setIsAutoRefreshing(true);
+        refreshAccount()
+          .then(() => console.log('Foreground refresh completed'))
+          .catch(err => console.error('Foreground refresh error:', err))
+          .finally(() => {
+            if (isMounted.current) {
+              setTimeout(() => setIsAutoRefreshing(false), 500);
+            }
+          });
       }
     }
     appState.current = nextAppState;
@@ -415,7 +423,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     if (!refreshTimerRef.current && isFocused && addressFromParams) {
       console.log('Starting polling for account details');
       
-      // Make sure auto-refreshing is initially false
+      // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
       
       // Force an immediate refresh when starting polling
@@ -435,8 +443,8 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       }, 200);
       
       refreshTimerRef.current = setInterval(() => {
-        // Only refresh if not already refreshing and component is still visible
-        if (!isLoading && !isAutoRefreshing && isFocused && isMounted.current) {
+        // Only refresh if we're not already refreshing and component is still visible
+        if (!isAutoRefreshing && isFocused && isMounted.current) {
           console.log('[POLL] Auto-refreshing account details - starting refresh');
           setIsAutoRefreshing(true);
           refreshAccount()
@@ -452,7 +460,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             });
         } else {
           console.log('[POLL] Skipping account refresh, conditions not met:', {
-            isLoading, isAutoRefreshing, isFocused, isMounted: isMounted.current
+            isAutoRefreshing, isFocused, isMounted: isMounted.current
           });
         }
       }, AUTO_REFRESH_INTERVAL);
@@ -613,6 +621,20 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     return categories;
   };
 
+  // Update the refresh button logic to handle loading states properly
+  const handleRefresh = async () => {
+    console.log('Manual refresh triggered');
+    setIsAutoRefreshing(true);
+    refreshAccount()
+      .then(() => console.log('Manual refresh completed successfully'))
+      .catch(err => console.error('Error during manual refresh:', err))
+      .finally(() => {
+        if (isMounted.current) {
+          setTimeout(() => setIsAutoRefreshing(false), 500);
+        }
+      });
+  };
+
   if (isLoading && !accountData) {
     return (
       <View className="bg-background flex-1">
@@ -688,20 +710,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
-              {(isLoading || isAutoRefreshing || !isInitialized) ? (
+              {(isLoading && !accountData) ? (
+                <ActivityIndicator size="small" color="#E75A5C" />
+              ) : (isAutoRefreshing) ? (
                 <ActivityIndicator size="small" color="#E75A5C" />
               ) : (
                 <TouchableOpacity 
-                  onPress={() => {
-                    console.log('Account card refresh triggered');
-                    setIsAutoRefreshing(true);
-                    refreshAccount()
-                      .then(() => console.log('Account card refresh completed'))
-                      .catch(err => console.error('Account card refresh error:', err))
-                      .finally(() => {
-                        setTimeout(() => setIsAutoRefreshing(false), 500);
-                      });
-                  }}
+                  onPress={handleRefresh}
                   className="p-2"
                 >
                   <Text className="text-primary">Refresh</Text>
@@ -732,6 +747,66 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
             <View className="bg-background rounded px-3 py-2 mb-4">
               <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} LIBRA</Text>
+            </View>
+
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-text-light text-base font-bold">Unlocked Balance</Text>
+            </View>
+
+            <View className="bg-background rounded px-3 py-2 mb-4">
+              <Text className="text-text-light font-mono text-sm">
+                {(() => {
+                  // Get resources directly using our helper
+                  const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+                  if (!rawAccount?.resources) return '0';
+
+                  // Extract resources array
+                  let resourcesArray = [];
+                  if (rawAccount.resources) {
+                    const rawResources = typeof rawAccount.resources?.get === 'function'
+                      ? rawAccount.resources.get()
+                      : rawAccount.resources;
+
+                    if (Array.isArray(rawResources)) {
+                      resourcesArray = rawResources;
+                    } else if (typeof rawResources === 'object' && rawResources !== null) {
+                      resourcesArray = Object.values(rawResources);
+                    }
+                  }
+
+                  // Find SlowWallet resource
+                  const slowWallet = resourcesArray.find(resource => 
+                    resource?.type === '0x1::slow_wallet::SlowWallet'
+                  );
+
+                  if (slowWallet?.data?.unlocked) {
+                    // Calculate whole and fractional parts based on LIBRA_DECIMALS
+                    const balance = Number(slowWallet.data.unlocked);
+                    const divisor = Math.pow(10, LIBRA_DECIMALS);
+                    const wholePart = Math.floor(balance / divisor);
+                    const fractionalPart = balance % divisor;
+
+                    // Format with proper decimal places
+                    const wholePartFormatted = wholePart.toLocaleString();
+
+                    // Convert fractional part to string with proper padding
+                    const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
+
+                    // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
+                    const trimmedFractional = fractionalPart > 0
+                      ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
+                      : '00';
+
+                    // Only show decimal part if it's non-zero
+                    const formattedBalance = trimmedFractional === '00'
+                      ? wholePartFormatted
+                      : `${wholePartFormatted}.${trimmedFractional}`;
+
+                    return `${formattedBalance} LIBRA`;
+                  }
+                  return '0 LIBRA';
+                })()}
+              </Text>
             </View>
 
             <View className="flex-row justify-between items-center mb-1">

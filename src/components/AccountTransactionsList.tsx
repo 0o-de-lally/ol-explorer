@@ -170,7 +170,7 @@ export const AccountTransactionsList = observer(({
       
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
-        if (!isLoading && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
+        if (!isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
           console.log('[POLL] Auto-refreshing account transactions');
           // Set auto-refreshing flag to true
           setIsAutoRefreshing(true);
@@ -188,7 +188,7 @@ export const AccountTransactionsList = observer(({
             });
         } else {
           console.log('[POLL] Skipping transactions refresh, conditions not met:', {
-            isLoading, isLoadingMore, isAutoRefreshing, isVisible, isMounted: isMounted.current
+            isLoadingMore, isAutoRefreshing, isVisible, isMounted: isMounted.current
           });
         }
       }, AUTO_REFRESH_INTERVAL);
