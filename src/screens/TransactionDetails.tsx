@@ -268,25 +268,54 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           <Text className="text-white text-2xl font-bold mb-5">Transaction Details</Text>
 
           <View className="bg-secondary rounded-lg p-6 mb-6">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
-              <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
-              </View>
-            </View>
+            {isMobile ? (
+              // Mobile layout
+              <>
+                <View className="flex-row justify-between items-center mb-3">
+                  <View className={`px-3 py-1 rounded-full ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
+                    <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
+                  </View>
+                  <Text className="text-text-light text-sm">Version {transaction.version}</Text>
+                </View>
 
-            {/* Hash display with copy button to the right */}
-            <View className="flex-row items-center mb-4">
-              <View className="bg-background rounded px-3 py-2 flex-1">
-                <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => copyToClipboard(transaction.hash)}
-                className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
-              >
-                <MaterialIcons name="content-copy" size={14} color="white" />
-              </TouchableOpacity>
-            </View>
+                <View className="mb-4">
+                  <View className="flex-row items-center">
+                    <View className="bg-background rounded px-3 py-2 flex-1">
+                      <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash)}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(transaction.hash)}
+                      className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
+                    >
+                      <MaterialIcons name="content-copy" size={14} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-text-muted text-xs mt-2">{formatTimestamp(transaction.timestamp)}</Text>
+                </View>
+              </>
+            ) : (
+              // Desktop layout
+              <>
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
+                  <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
+                    <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-center mb-4">
+                  <View className="bg-background rounded px-3 py-2 flex-1">
+                    <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => copyToClipboard(transaction.hash)}
+                    className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
+                  >
+                    <MaterialIcons name="content-copy" size={14} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Version</Text>

@@ -38,10 +38,10 @@ export const TransactionsList = observer(({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
-  
+
   // Use the store's currentLimit instead of local state
   const currentLimit = blockchainStore.currentLimit.get();
-  
+
   // Effect to notify parent component when limit changes - now uses a ref to track previous value
   // to avoid unnecessary notifications
   const previousLimitRef = useRef(currentLimit);
@@ -53,12 +53,12 @@ export const TransactionsList = observer(({
       previousLimitRef.current = currentLimit;
     }
   }, [currentLimit, onLimitChange]);
-  
+
   // Add refs to track polling interval and app state
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const appState = useRef(AppState.currentState);
   const isMounted = useRef(true);
-  
+
   const { isInitialized } = useSdkContext();
   const { width } = useWindowDimensions();
   const updateCounter = useForceUpdateTransactions();
@@ -117,10 +117,10 @@ export const TransactionsList = observer(({
     // Only start polling if not already polling and component is visible
     if (!pollingIntervalRef.current && isVisible && isInitialized) {
       console.log('Starting polling for transactions list');
-      
+
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
-      
+
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
         if (!isRefreshing && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
@@ -145,18 +145,18 @@ export const TransactionsList = observer(({
     // Always allow manual refresh, even if auto-refresh is running
     try {
       setIsAutoRefreshing(true);
-      
+
       // Get the latest currentLimit from the store
       const currentStoreLimit = blockchainStore.currentLimit.get();
-      
+
       // Fetch transactions directly with current limit from store
       const transactions = await sdk.getTransactions(currentStoreLimit);
-      
+
       // Update the store directly with these transactions using transaction-specific actions
       if (isMounted.current) {
         blockchainActions.setTransactions(transactions);
       }
-      
+
       console.log(`Auto-refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
     } catch (error) {
       console.error('Error during auto-refresh:', error);
@@ -173,26 +173,26 @@ export const TransactionsList = observer(({
   const handleRefresh = async () => {
     // Always handle manual refresh requests
     setIsRefreshing(true);
-    
+
     try {
       if (onRefresh) {
         onRefresh();
       }
-      
+
       // Don't reset to initial limit - keep the user's current view preference
       // First, try to fetch using the SDK directly with the current limit
       const currentStoreLimit = blockchainStore.currentLimit.get();
       console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
-      
+
       // Use forceUpdateTransactions to force only transaction updates, not metrics
       blockchainActions.forceUpdateTransactions();
-      
+
       // Fetch transactions directly with current limit
       const transactions = await sdk.getTransactions(currentStoreLimit);
-      
+
       // Update the store directly with these transactions
       blockchainActions.setTransactions(transactions);
-      
+
       console.log(`Refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
     } catch (error) {
       console.error('Error during direct refresh:', error);
@@ -202,25 +202,25 @@ export const TransactionsList = observer(({
       }, 800); // Ensure animation completes
     }
   };
-  
+
   // Handle load more button click
   const handleLoadMore = async () => {
     // Always allow loading more when button is clicked
     try {
       // Set loading state immediately
       setIsLoadingMore(true);
-      
+
       // Calculate the new limit with exact 25 increment
       const newLimit = Math.min(currentLimit + 25, 100);
       console.log(`Loading more transactions, new limit: ${newLimit}`);
-      
+
       // Update the currentLimit in the store - this only affects transactions
       blockchainActions.setCurrentLimit(newLimit);
-      
+
       // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
       const transactions = await sdk.getTransactions(newLimit);  // Use newLimit directly, not currentLimit
       console.log(`Fetched ${transactions.length} transactions with new limit ${newLimit}`);
-      
+
       // Update the store with the new transactions if the component is still mounted
       if (isMounted.current) {
         // Use transaction-specific actions
@@ -321,25 +321,25 @@ export const TransactionsList = observer(({
   const getFunctionPillColor = (type: string, functionName: string) => {
     // First check for special mappings from config
     const normalizedType = type.toLowerCase();
-    
+
     // Check for special cases from config
     for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
       if (normalizedType.includes(specialType)) {
         return `${colors.bg} ${colors.text}`;
       }
     }
-    
+
     // Use the functionName (which is from getFunctionLabel) for consistent alphabetical indexing
     const normalizedName = functionName.toLowerCase();
-    
+
     // Get alphabetical position and map to color
     const firstChar = normalizedName.charAt(0);
     const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
-    
+
     // Ensure positive index (in case of non-alphabetic characters)
     const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
     const colors = appConfig.ui.functionPillColors[index];
-    
+
     return `${colors.bg} ${colors.text}`;
   };
 
@@ -372,22 +372,19 @@ export const TransactionsList = observer(({
           onPress={() => handleTransactionPress(item.hash)}
           testID={`transaction-${item.hash}`}
         >
-          <View className="flex-row justify-between items-center mb-2">
-            <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
-              <Text className="text-xs font-medium">{functionLabel}</Text>
-            </View>
-            <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
-          </View>
-
-          <View className="flex-row mb-1">
-            <Text className="text-text-muted text-xs mr-2">Tx Hash:</Text>
-            <Text className="text-white text-xs font-data">{getSenderDisplay(item.hash)}</Text>
-          </View>
-
-          <View className="flex-row justify-between">
-            <View className="flex-row">
-              <Text className="text-text-muted text-xs mr-2">Version:</Text>
+          <View className="w-full space-y-2">
+            {/* First row */}
+            <View className="w-full flex-none flex-row items-center justify-between">
+              <View className={`rounded-full ${functionPillColor}`}>
+                <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+              </View>
               <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
+            </View>
+
+            {/* Second row */}
+            <View className="w-full flex-none flex-row items-center justify-between">
+              <Text className="text-white text-xs font-data">{getSenderDisplay(item.hash)}</Text>
+              <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -490,7 +487,7 @@ export const TransactionsList = observer(({
         {transactions.length > 0 ? (
           <View className="w-full">
             {sortedTransactions.map(item => renderTransactionItem(item))}
-            
+
             {/* Load More Button */}
             <View className="items-center justify-center py-4">
               {isLoadingMore ? (

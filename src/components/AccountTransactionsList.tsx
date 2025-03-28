@@ -52,7 +52,7 @@ export const AccountTransactionsList = observer(({
   const appState = useRef(AppState.currentState);
   // Track if component is mounted
   const isMounted = useRef(true);
-  
+
   const { width } = useWindowDimensions();
   const sdk = useSdk();
   const { isInitialized, isUsingMockData } = useSdkContext();
@@ -101,23 +101,23 @@ export const AccountTransactionsList = observer(({
       // Extract version numbers, handling different data formats
       const versionA = Number(a.version || a.sequence_number || 0);
       const versionB = Number(b.version || b.sequence_number || 0);
-      
+
       // First sort by version (block number) in descending order
       if (versionB !== versionA) {
         return versionB - versionA;
       }
-      
+
       // Extract timestamps, handling different formats
       const timestampA = new Date(
-        a.timestamp || 
+        a.timestamp ||
         (a.transaction?.expiration_timestamp_secs ? a.transaction.expiration_timestamp_secs * 1000 : 0)
       ).getTime();
-      
+
       const timestampB = new Date(
-        b.timestamp || 
+        b.timestamp ||
         (b.transaction?.expiration_timestamp_secs ? b.transaction.expiration_timestamp_secs * 1000 : 0)
       ).getTime();
-      
+
       // If versions are equal, sort by timestamp in descending order
       return timestampB - timestampA;
     });
@@ -152,10 +152,10 @@ export const AccountTransactionsList = observer(({
     // Only start polling if not already polling, component is visible, SDK is initialized and not using mock data
     if (!pollingIntervalRef.current && isVisible && isInitialized && !isUsingMockData && accountAddress) {
       console.log('Starting polling for account transactions');
-      
+
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
-      
+
       // Force an immediate refresh when starting polling
       setTimeout(() => {
         console.log('Initial account transactions refresh');
@@ -167,7 +167,7 @@ export const AccountTransactionsList = observer(({
             }
           });
       }, 200);
-      
+
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
         if (!isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
@@ -192,7 +192,7 @@ export const AccountTransactionsList = observer(({
           });
         }
       }, AUTO_REFRESH_INTERVAL);
-      
+
       console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
     }
   };
@@ -213,7 +213,7 @@ export const AccountTransactionsList = observer(({
       if (!isLoadMore && !isAutoRefresh) {
         setIsLoading(true);
         setError(null);
-        
+
         // Only clear transactions on initial fetch, not on manual refresh
         if (isInitialFetch) {
           setTransactions([]);
@@ -223,18 +223,18 @@ export const AccountTransactionsList = observer(({
         setIsLoadingMore(true);
       }
       // For auto-refresh, we don't modify the loading state to avoid UI flickering
-      
+
       // Use override limit if provided (to avoid race conditions), otherwise use currentLimit
       const limitToUse = overrideLimit !== undefined ? overrideLimit : currentLimit;
-      
+
       console.log(`Fetching transactions for account: ${accountAddress}, limit: ${limitToUse}, isAutoRefresh: ${isAutoRefresh}`);
       const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, limitToUse);
-      
+
       // Only update state if component is still mounted
       if (isMounted.current) {
         // Replace with new transactions - we're getting everything in one go
         setTransactions(accountTxs);
-        
+
         if (accountTxs.length === 0) {
           setError('No transactions found for this account');
         }
@@ -265,22 +265,22 @@ export const AccountTransactionsList = observer(({
     // Don't reset to initial limit - keep the user's current view preference
     await fetchTransactions(false, false, false); // Use current limit for manual refresh
   };
-  
+
   // Handle load more button click
   const handleLoadMore = async () => {
     // Always allow loading more when button is clicked
     // Calculate the new limit first
     const newLimit = Math.min(currentLimit + 25, 100);
-    
+
     // Set loading state immediately
     setIsLoadingMore(true);
-    
+
     try {
       console.log(`Increasing fetch limit to ${newLimit}`);
-      
+
       // Update state with new limit
       setCurrentLimit(newLimit);
-      
+
       // Use fetchTransactions with the override limit to avoid race condition
       await fetchTransactions(true, false, false, newLimit);
       console.log(`Loaded transactions with new limit ${newLimit}`);
@@ -340,7 +340,7 @@ export const AccountTransactionsList = observer(({
         return parts[parts.length - 1];
       }
     }
-    
+
     // For transactions from REST API, check transaction structure
     if (item.transaction?.payload?.function) {
       const functionPath = item.transaction.payload.function;
@@ -371,25 +371,25 @@ export const AccountTransactionsList = observer(({
   const getFunctionPillColor = (type: string, functionName: string) => {
     // First check for special mappings from config
     const normalizedType = type.toLowerCase();
-    
+
     // Check for special cases from config
     for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
       if (normalizedType.includes(specialType)) {
         return `${colors.bg} ${colors.text}`;
       }
     }
-    
+
     // Use the functionName (which is from getFunctionLabel) for consistent alphabetical indexing
     const normalizedName = functionName.toLowerCase();
-    
+
     // Get alphabetical position and map to color
     const firstChar = normalizedName.charAt(0);
     const charCode = firstChar.charCodeAt(0) - 'a'.charCodeAt(0);
-    
+
     // Ensure positive index (in case of non-alphabetic characters)
     const index = Math.max(0, charCode) % appConfig.ui.functionPillColors.length;
     const colors = appConfig.ui.functionPillColors[index];
-    
+
     return `${colors.bg} ${colors.text}`;
   };
 
@@ -414,10 +414,10 @@ export const AccountTransactionsList = observer(({
     const hash = item.hash || item.transaction?.hash || '';
     const version = item.version || 0;
     const type = item.type || item.transaction?.type || '';
-    const timestamp = item.timestamp || 
-                      (item.transaction?.expiration_timestamp_secs ? item.transaction.expiration_timestamp_secs * 1000 : null) || 
-                      Date.now();
-    
+    const timestamp = item.timestamp ||
+      (item.transaction?.expiration_timestamp_secs ? item.transaction.expiration_timestamp_secs * 1000 : null) ||
+      Date.now();
+
     const functionLabel = getFunctionLabel(type, item);
     const functionPillColor = getFunctionPillColor(type, functionLabel);
 
@@ -430,22 +430,19 @@ export const AccountTransactionsList = observer(({
           onPress={() => handleTransactionPress(hash)}
           testID={`transaction-${hash}`}
         >
-          <View className="flex-row justify-between items-center mb-2">
-            <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
-              <Text className="text-xs font-medium">{functionLabel}</Text>
-            </View>
-            <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
-          </View>
-
-          <View className="flex-row mb-1">
-            <Text className="text-text-muted text-xs mr-2">Tx Hash:</Text>
-            <Text className="text-white text-xs font-data">{getSenderDisplay(hash)}</Text>
-          </View>
-
-          <View className="flex-row justify-between">
-            <View className="flex-row">
-              <Text className="text-text-muted text-xs mr-2">Version:</Text>
+          <View className="w-full space-y-2">
+            {/* First row */}
+            <View className="w-full flex-none flex-row items-center justify-between">
+              <View className={`rounded-full ${functionPillColor}`}>
+                <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+              </View>
               <Text className="text-white text-xs font-data">{formatNumber(version)}</Text>
+            </View>
+
+            {/* Second row */}
+            <View className="w-full flex-none flex-row items-center justify-between">
+              <Text className="text-white text-xs font-data">{getSenderDisplay(hash)}</Text>
+              <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -540,7 +537,7 @@ export const AccountTransactionsList = observer(({
         {transactions.length > 0 ? (
           <View className="w-full">
             {sortedTransactions.map(item => renderTransactionItem(item))}
-            
+
             {/* Load More Button - Only show if not at max limit */}
             <View className="items-center justify-center py-4">
               {isLoadingMore ? (

@@ -70,13 +70,15 @@ const MetricCard = ({ label, value, tooltip }: { label: string; value: string | 
   const isTimestamp = label === 'Ledger Time';
 
   return (
-    <View className={`bg-secondary/50 rounded-lg p-4 backdrop-blur-sm flex-1 ${isTimestamp ? 'min-w-[280px] max-w-[400px]' : 'min-w-[140px] max-w-[200px]'
-      }`}>
+    <View className={`
+      bg-secondary/50 rounded-lg p-3 backdrop-blur-sm
+      ${isTimestamp ? 'col-span-2 md:col-span-1' : 'col-span-1'}
+    `}>
       <TooltipWrapper tooltip={tooltip}>
         <View>
-          <Text className="text-text-muted text-xs mb-2">{label}</Text>
+          <Text className="text-text-muted text-xs mb-1">{label}</Text>
           <Text
-            className={`text-text-light font-bold ${isTimestamp ? 'text-lg' : 'text-xl'
+            className={`text-text-light font-bold ${isTimestamp ? 'text-base' : 'text-lg'
               }`}
             numberOfLines={1}
           >
@@ -86,6 +88,20 @@ const MetricCard = ({ label, value, tooltip }: { label: string; value: string | 
       </TooltipWrapper>
     </View>
   );
+};
+
+type MetricsValues = {
+  blockTimeMs: number;
+  tps: number;
+  lastBlockHeight: number;
+  currentLedgerTimestamp: number;
+  currentBlockHeight: number;
+  currentEpoch: number;
+  chainId: string;
+  highestVersion: number | null;
+  highestBlockHeight: number;
+  highestEpoch: number;
+  latestLedgerTime: number;
 };
 
 // Helper to get metric value
@@ -109,6 +125,28 @@ const getMetricValue = (key: string, values: any) => {
       return '-';
   }
 };
+
+// Render metrics rows
+const MetricsGrid = ({
+  metrics,
+  values
+}: {
+  metrics: MetricRowConfig;
+  values: MetricsValues;
+}) => (
+  <View className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+    {Object.entries(metrics)
+      .filter(([_, config]) => config.enabled)
+      .map(([key, config]) => (
+        <MetricCard
+          key={key}
+          label={config.label}
+          value={getMetricValue(key, values)}
+          tooltip={config.tooltip}
+        />
+      ))}
+  </View>
+);
 
 // Use the observer HOC to automatically handle observables
 export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
@@ -234,28 +272,12 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
     }
   }, [values.currentLedgerTimestamp, values.latestLedgerTime]);
 
-  // Render metrics rows
-  const renderMetricRow = (rowConfig: MetricRowConfig) => (
-    <View className="flex-row gap-4 justify-center">
-      {Object.entries(rowConfig)
-        .filter(([_, config]) => config.enabled)
-        .map(([key, config]) => (
-          <MetricCard
-            key={key}
-            label={config.label}
-            value={getMetricValue(key, values)}
-            tooltip={config.tooltip}
-          />
-        ))}
-    </View>
-  );
-
   return (
-    <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+    <View className="w-full px-2 md:px-4 mb-5">
       <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
         <View className="h-1 bg-primary/20" />
-        <View className="flex-row justify-between items-center p-4 border-b border-border/20">
-          <Text className="text-lg font-bold text-white">
+        <View className="flex-row justify-between items-center p-3 md:p-4 border-b border-border/20">
+          <Text className="text-base md:text-lg font-bold text-white">
             Blockchain Metrics
           </Text>
           {(loading || isAutoRefreshing || !isInitialized) ? (
@@ -267,9 +289,14 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
           )}
         </View>
 
-        <View className="p-4 space-y-4">
-          {renderMetricRow(appConfig.metrics.display.row1)}
-          {renderMetricRow(appConfig.metrics.display.row2)}
+        <View className="p-3 md:p-4 space-y-2 md:space-y-4">
+          <MetricsGrid
+            metrics={{
+              ...appConfig.metrics.display.row1,
+              ...appConfig.metrics.display.row2
+            }}
+            values={values}
+          />
         </View>
       </View>
     </View>
