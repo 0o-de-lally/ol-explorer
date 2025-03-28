@@ -280,13 +280,15 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
           <Text className="text-base md:text-lg font-bold text-white">
             Blockchain Metrics
           </Text>
-          {(loading || isAutoRefreshing || !isInitialized) ? (
-            <ActivityIndicator size="small" color="#E75A5C" />
-          ) : (
-            <TouchableOpacity onPress={handleAutoRefresh} className="p-2">
-              <Text className="text-primary">Refresh</Text>
-            </TouchableOpacity>
-          )}
+          <View className="w-8 h-8 justify-center items-center">
+            {(loading || isAutoRefreshing || !isInitialized) ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <TouchableOpacity onPress={handleAutoRefresh} className="p-2">
+                <Text className="text-primary">Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View className="p-3 md:p-4 space-y-2 md:space-y-4">

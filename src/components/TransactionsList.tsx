@@ -473,13 +473,15 @@ export const TransactionsList = observer(({
           <Text className="text-lg font-bold text-white">
             Recent Transactions ({transactions.length})
           </Text>
-          {(isRefreshing || isAutoRefreshing || isLoading) ? (
-            <ActivityIndicator size="small" color="#E75A5C" />
-          ) : (
-            <TouchableOpacity onPress={handleRefresh} className="p-2">
-              <Text className="text-primary">Refresh</Text>
-            </TouchableOpacity>
-          )}
+          <View className="w-8 h-8 justify-center items-center">
+            {(isRefreshing || isAutoRefreshing || isLoading) ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <TouchableOpacity onPress={handleRefresh} className="p-2">
+                <Text className="text-primary">Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {renderTableHeader()}

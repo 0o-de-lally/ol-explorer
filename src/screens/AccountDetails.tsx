@@ -229,7 +229,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       resourceParam,
       hasAccountData: !!accountData
     });
-    
+
     // Reset auto-refreshing state on mount
     setIsAutoRefreshing(false);
   }, []);
@@ -422,10 +422,10 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     // Only start polling if not already polling and we have the necessary data
     if (!refreshTimerRef.current && isFocused && addressFromParams) {
       console.log('Starting polling for account details');
-      
+
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
-      
+
       // Force an immediate refresh when starting polling
       setTimeout(() => {
         console.log('Initial account details refresh');
@@ -441,7 +441,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             });
         }
       }, 200);
-      
+
       refreshTimerRef.current = setInterval(() => {
         // Only refresh if we're not already refreshing and component is still visible
         if (!isAutoRefreshing && isFocused && isMounted.current) {
@@ -464,7 +464,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           });
         }
       }, AUTO_REFRESH_INTERVAL);
-      
+
       console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
     }
   };
@@ -475,7 +475,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       console.log('Stopping polling for account details');
       clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
-      
+
       // Ensure the auto-refresh state is reset when stopping polling
       setIsAutoRefreshing(false);
     }
@@ -710,18 +710,20 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
-              {(isLoading && !accountData) ? (
-                <ActivityIndicator size="small" color="#E75A5C" />
-              ) : (isAutoRefreshing) ? (
-                <ActivityIndicator size="small" color="#E75A5C" />
-              ) : (
-                <TouchableOpacity 
-                  onPress={handleRefresh}
-                  className="p-2"
-                >
-                  <Text className="text-primary">Refresh</Text>
-                </TouchableOpacity>
-              )}
+              <View className="w-8 h-8 justify-center items-center">
+                {(isLoading && !accountData) ? (
+                  <ActivityIndicator size="small" color="#E75A5C" />
+                ) : (isAutoRefreshing) ? (
+                  <ActivityIndicator size="small" color="#E75A5C" />
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleRefresh}
+                    className="p-2"
+                  >
+                    <Text className="text-primary">Refresh</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             <View className="flex-row items-center mb-4">
@@ -775,7 +777,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   }
 
                   // Find SlowWallet resource
-                  const slowWallet = resourcesArray.find(resource => 
+                  const slowWallet = resourcesArray.find(resource =>
                     resource?.type === '0x1::slow_wallet::SlowWallet'
                   );
 
@@ -1012,10 +1014,10 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               </View>
             );
           })()}
-          
+
           {/* Account Transactions Section - Add this at the end */}
           {accountData && getObservableValue(accountData.address, '') && (
-            <AccountTransactionsList 
+            <AccountTransactionsList
               accountAddress={getObservableValue(accountData.address, '')}
               initialLimit={appConfig.transactions.defaultLimit}
               onRefresh={() => {

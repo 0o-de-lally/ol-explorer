@@ -523,13 +523,15 @@ export const AccountTransactionsList = observer(({
           <Text className="text-lg font-bold text-white">
             Account Transactions ({transactions.length})
           </Text>
-          {(isLoading || isAutoRefreshing || !isInitialized) ? (
-            <ActivityIndicator size="small" color="#E75A5C" />
-          ) : (
-            <TouchableOpacity onPress={handleRefresh} className="p-2">
-              <Text className="text-primary">Refresh</Text>
-            </TouchableOpacity>
-          )}
+          <View className="w-8 h-8 justify-center items-center">
+            {(isLoading || isAutoRefreshing || !isInitialized) ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <TouchableOpacity onPress={handleRefresh} className="p-2">
+                <Text className="text-primary">Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {renderTableHeader()}
