@@ -11,19 +11,19 @@ export const appConfig = {
 
   // UI Configuration
   ui: {
-    // Color palette for transaction function pills
+    // Color palette for transaction function pills - darker pastels
     functionPillColors: [
-      { bg: 'bg-[#E6F7FF]', text: 'text-[#0072C6]' }, // blue
-      { bg: 'bg-[#F3ECFF]', text: 'text-[#6B46C1]' }, // purple
-      { bg: 'bg-[#E6F7F5]', text: 'text-[#047857]' }, // green
-      { bg: 'bg-[#FFF7E6]', text: 'text-[#B45309]' }, // orange
-      { bg: 'bg-[#FFECEC]', text: 'text-[#A73737]' }  // red
+      { bg: 'bg-[#CCE6FF]', text: 'text-[#0052A3]' }, // deep blue
+      { bg: 'bg-[#E6CCFF]', text: 'text-[#5B1B9E]' }, // deep purple
+      { bg: 'bg-[#CCFFCC]', text: 'text-[#1B5E20]' }, // deep green
+      { bg: 'bg-[#FFD9B3]', text: 'text-[#BF360C]' }, // deep orange
+      { bg: 'bg-[#FFCCCC]', text: 'text-[#B71C1C]' }  // deep red
     ],
     
     // Special function pill mappings (override the alphabetical index)
     specialFunctionPills: {
-      'state_checkpoint': { bg: 'bg-[#FFECEC]', text: 'text-[#A73737]' }, // red
-      'block_metadata': { bg: 'bg-[#E6F7FF]', text: 'text-[#0072C6]' }    // blue
+      'state_checkpoint': { bg: 'bg-[#FFCCCC]', text: 'text-[#B71C1C]' }, // deep red
+      'block_metadata': { bg: 'bg-[#CCE6FF]', text: 'text-[#0052A3]' }    // deep blue
     }
   }
 };
