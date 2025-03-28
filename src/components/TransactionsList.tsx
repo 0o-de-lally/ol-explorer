@@ -37,20 +37,27 @@ export const TransactionsList = observer(({
   // State for refresh indicator
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [currentLimit, setCurrentLimit] = useState(initialLimit);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  
+  // Use the store's currentLimit instead of local state
+  const currentLimit = blockchainStore.currentLimit.get();
+  
+  // Effect to notify parent component when limit changes - now uses a ref to track previous value
+  // to avoid unnecessary notifications
+  const previousLimitRef = useRef(currentLimit);
+  useEffect(() => {
+    // Only notify if the limit actually changed AND we have an onLimitChange handler
+    if (onLimitChange && currentLimit !== previousLimitRef.current) {
+      console.log(`Notifying parent of limit change: ${previousLimitRef.current} -> ${currentLimit}`);
+      onLimitChange(currentLimit);
+      previousLimitRef.current = currentLimit;
+    }
+  }, [currentLimit, onLimitChange]);
   
   // Add refs to track polling interval and app state
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const appState = useRef(AppState.currentState);
   const isMounted = useRef(true);
-  
-  // Effect to notify parent component when limit changes
-  useEffect(() => {
-    if (onLimitChange && currentLimit !== initialLimit) {
-      onLimitChange(currentLimit);
-    }
-  }, [currentLimit, initialLimit, onLimitChange]);
   
   const { isInitialized } = useSdkContext();
   const { width } = useWindowDimensions();
@@ -92,6 +99,8 @@ export const TransactionsList = observer(({
   useEffect(() => {
     // Create or destroy polling interval based on visibility
     if (isVisible) {
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
       startPolling();
     } else {
       stopPolling();
@@ -109,9 +118,12 @@ export const TransactionsList = observer(({
     if (!pollingIntervalRef.current && isVisible && isInitialized) {
       console.log('Starting polling for transactions list');
       
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
+      
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
-        if (!isRefreshing && !isLoadingMore && isVisible && isMounted.current) {
+        if (!isRefreshing && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
           console.log('Auto-refreshing transactions list');
           handleAutoRefresh();
         }
@@ -130,82 +142,92 @@ export const TransactionsList = observer(({
 
   // Handle auto-refresh
   const handleAutoRefresh = async () => {
-    if (isAutoRefreshing || isRefreshing || isLoadingMore) return;
-    
+    // Always allow manual refresh, even if auto-refresh is running
     try {
       setIsAutoRefreshing(true);
       
-      // Fetch transactions directly with current limit
-      const transactions = await sdk.getTransactions(currentLimit);
+      // Get the latest currentLimit from the store
+      const currentStoreLimit = blockchainStore.currentLimit.get();
+      
+      // Fetch transactions directly with current limit from store
+      const transactions = await sdk.getTransactions(currentStoreLimit);
       
       // Update the store directly with these transactions
       if (isMounted.current) {
         blockchainActions.setTransactions(transactions);
       }
       
-      console.log(`Auto-refreshed ${transactions.length} transactions with limit ${currentLimit}`);
+      console.log(`Auto-refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
     } catch (error) {
       console.error('Error during auto-refresh:', error);
     } finally {
       if (isMounted.current) {
-        setIsAutoRefreshing(false);
+        setTimeout(() => {
+          setIsAutoRefreshing(false);
+        }, 500); // Short delay to ensure the user sees the refresh indicator
       }
     }
   };
 
   // Handle refresh button click
   const handleRefresh = async () => {
-    if (onRefresh && !isRefreshing) {
-      setIsRefreshing(true);
-      
-      try {
-        // Don't reset to initial limit - keep the user's current view preference
-        // First, try to fetch using the SDK directly with the current limit
-        console.log(`Refreshing transactions with current limit: ${currentLimit}`);
-        
-        // Fetch transactions directly with current limit
-        const transactions = await sdk.getTransactions(currentLimit);
-        
-        // Update the store directly with these transactions
-        blockchainActions.setTransactions(transactions);
-        
-        console.log(`Refreshed ${transactions.length} transactions with limit ${currentLimit}`);
-      } catch (error) {
-        console.error('Error during direct refresh:', error);
-        // Fall back to the parent's refresh method
-        await onRefresh();
-      } finally {
-        setTimeout(() => {
-          setIsRefreshing(false);
-        }, 800); // Ensure animation completes
+    // Always handle manual refresh requests
+    setIsRefreshing(true);
+    
+    try {
+      if (onRefresh) {
+        onRefresh();
       }
+      
+      // Don't reset to initial limit - keep the user's current view preference
+      // First, try to fetch using the SDK directly with the current limit
+      const currentStoreLimit = blockchainStore.currentLimit.get();
+      console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
+      
+      // Fetch transactions directly with current limit
+      const transactions = await sdk.getTransactions(currentStoreLimit);
+      
+      // Update the store directly with these transactions
+      blockchainActions.setTransactions(transactions);
+      
+      console.log(`Refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
+    } catch (error) {
+      console.error('Error during direct refresh:', error);
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 800); // Ensure animation completes
     }
   };
   
   // Handle load more button click
   const handleLoadMore = async () => {
-    if (!isLoadingMore && isInitialized) {
-      try {
-        setIsLoadingMore(true);
-        
-        // Calculate the new limit with exact 25 increment
-        const newLimit = Math.min(currentLimit + 25, 100);
-        
-        // Update the current limit state - this will trigger the useEffect to notify parent
-        setCurrentLimit(newLimit);
-        
-        console.log(`Loading more transactions, new limit: ${newLimit}`);
-        
-        // Fetch transactions with the new limit
-        const transactions = await sdk.getTransactions(newLimit);
-        
-        // Update the store with the new transactions
+    // Always allow loading more when button is clicked
+    try {
+      // Set loading state immediately
+      setIsLoadingMore(true);
+      
+      // Calculate the new limit with exact 25 increment
+      const newLimit = Math.min(currentLimit + 25, 100);
+      console.log(`Loading more transactions, new limit: ${newLimit}`);
+      
+      // Update the currentLimit in the store
+      blockchainActions.setCurrentLimit(newLimit);
+      
+      // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
+      const transactions = await sdk.getTransactions(newLimit);  // Use newLimit directly, not currentLimit
+      console.log(`Fetched ${transactions.length} transactions with new limit ${newLimit}`);
+      
+      // Update the store with the new transactions if the component is still mounted
+      if (isMounted.current) {
         blockchainActions.setTransactions(transactions);
-        
-        console.log(`Loaded ${transactions.length} transactions`);
-      } catch (error) {
-        console.error('Error loading more transactions:', error);
-      } finally {
+        console.log(`Successfully loaded ${transactions.length} transactions with limit ${newLimit}`);
+      }
+    } catch (error) {
+      console.error('Error loading more transactions:', error);
+    } finally {
+      // Always reset loading state when finished
+      if (isMounted.current) {
         setIsLoadingMore(false);
       }
     }

@@ -126,7 +126,7 @@ export const AccountTransactionsList = observer(({
   // Load transactions on component mount
   useEffect(() => {
     if (accountAddress && isVisible) {
-      fetchTransactions();
+      fetchTransactions(false, false, true); // Initial fetch, use current limit
     }
   }, [accountAddress, isVisible]);
 
@@ -134,6 +134,8 @@ export const AccountTransactionsList = observer(({
   useEffect(() => {
     // Create or destroy polling interval based on visibility
     if (isVisible) {
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
       startPolling();
     } else {
       stopPolling();
@@ -143,7 +145,7 @@ export const AccountTransactionsList = observer(({
     return () => {
       stopPolling();
     };
-  }, [isVisible, isInitialized, isUsingMockData, accountAddress, isLoading, isLoadingMore]);
+  }, [isVisible, isInitialized, isUsingMockData, accountAddress]);
 
   // Start polling interval
   const startPolling = () => {
@@ -151,22 +153,47 @@ export const AccountTransactionsList = observer(({
     if (!pollingIntervalRef.current && isVisible && isInitialized && !isUsingMockData && accountAddress) {
       console.log('Starting polling for account transactions');
       
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
+      
+      // Force an immediate refresh when starting polling
+      setTimeout(() => {
+        console.log('Initial account transactions refresh');
+        setIsAutoRefreshing(true);
+        fetchTransactions(false, true)
+          .finally(() => {
+            if (isMounted.current) {
+              setTimeout(() => setIsAutoRefreshing(false), 500);
+            }
+          });
+      }, 200);
+      
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
-        if (!isLoading && !isLoadingMore && isVisible && isMounted.current) {
-          console.log('Auto-refreshing account transactions');
+        if (!isLoading && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
+          console.log('[POLL] Auto-refreshing account transactions');
           // Set auto-refreshing flag to true
           setIsAutoRefreshing(true);
-          // Fetch transactions with current limit
-          fetchTransactions(false, true)
+          // Fetch transactions with current limit - use auto-refresh flag, not initial fetch
+          // Use current limit directly to avoid race conditions
+          const limitToUse = currentLimit;
+          fetchTransactions(false, true, false, limitToUse)
             .finally(() => {
               // Reset auto-refreshing flag when done
               if (isMounted.current) {
-                setIsAutoRefreshing(false);
+                setTimeout(() => {
+                  setIsAutoRefreshing(false);
+                }, 500); // Short delay to ensure the user sees the refresh indicator
               }
             });
+        } else {
+          console.log('[POLL] Skipping transactions refresh, conditions not met:', {
+            isLoading, isLoadingMore, isAutoRefreshing, isVisible, isMounted: isMounted.current
+          });
         }
       }, AUTO_REFRESH_INTERVAL);
+      
+      console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
     }
   };
 
@@ -180,22 +207,28 @@ export const AccountTransactionsList = observer(({
   };
 
   // Function to fetch transactions
-  const fetchTransactions = async (isLoadMore = false, isAutoRefresh = false) => {
+  const fetchTransactions = async (isLoadMore = false, isAutoRefresh = false, isInitialFetch = false, overrideLimit?: number) => {
     try {
+      // For manual refreshes and initial loads, set loading state
       if (!isLoadMore && !isAutoRefresh) {
-        // Initial fetch - will show the latest transactions
         setIsLoading(true);
         setError(null);
-        setTransactions([]);
-      } else if (!isAutoRefresh) {
-        // Loading more
+        
+        // Only clear transactions on initial fetch, not on manual refresh
+        if (isInitialFetch) {
+          setTransactions([]);
+        }
+      } else if (isLoadMore) {
+        // For "load more", still show loading indicator
         setIsLoadingMore(true);
       }
-      // Note: if isAutoRefresh is true, we don't set isLoading or isLoadingMore
-      // to avoid UI flickering during auto-refresh
+      // For auto-refresh, we don't modify the loading state to avoid UI flickering
       
-      console.log(`Fetching transactions for account: ${accountAddress}, limit: ${currentLimit}, isAutoRefresh: ${isAutoRefresh}`);
-      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, currentLimit);
+      // Use override limit if provided (to avoid race conditions), otherwise use currentLimit
+      const limitToUse = overrideLimit !== undefined ? overrideLimit : currentLimit;
+      
+      console.log(`Fetching transactions for account: ${accountAddress}, limit: ${limitToUse}, isAutoRefresh: ${isAutoRefresh}`);
+      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, limitToUse);
       
       // Only update state if component is still mounted
       if (isMounted.current) {
@@ -212,10 +245,14 @@ export const AccountTransactionsList = observer(({
         setError(e.message || 'Failed to load transactions');
       }
     } finally {
-      if (!isAutoRefresh && isMounted.current) {
-        // Only reset these flags if it's not an auto-refresh
-        setIsLoading(false);
-        setIsLoadingMore(false);
+      if (isMounted.current) {
+        // Reset loading states based on the type of refresh
+        if (!isAutoRefresh) {
+          setIsLoading(false);
+        }
+        if (isLoadMore) {
+          setIsLoadingMore(false);
+        }
       }
     }
   };
@@ -226,17 +263,36 @@ export const AccountTransactionsList = observer(({
       onRefresh();
     }
     // Don't reset to initial limit - keep the user's current view preference
-    await fetchTransactions();
+    await fetchTransactions(false, false, false); // Use current limit for manual refresh
   };
   
   // Handle load more button click
   const handleLoadMore = async () => {
-    if (!isLoadingMore) {
-      // Increase the limit by exactly 25
-      const newLimit = Math.min(currentLimit + 25, 100);
-      setCurrentLimit(newLimit);
+    // Always allow loading more when button is clicked
+    // Calculate the new limit first
+    const newLimit = Math.min(currentLimit + 25, 100);
+    
+    // Set loading state immediately
+    setIsLoadingMore(true);
+    
+    try {
       console.log(`Increasing fetch limit to ${newLimit}`);
-      await fetchTransactions(true);
+      
+      // Update state with new limit
+      setCurrentLimit(newLimit);
+      
+      // Use fetchTransactions with the override limit to avoid race condition
+      await fetchTransactions(true, false, false, newLimit);
+      console.log(`Loaded transactions with new limit ${newLimit}`);
+    } catch (error) {
+      console.error('Error loading more transactions:', error);
+      if (isMounted.current) {
+        setError('Failed to load more transactions');
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsLoadingMore(false);
+      }
     }
   };
 

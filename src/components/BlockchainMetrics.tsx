@@ -1,12 +1,15 @@
-import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { observable } from '@legendapp/state';
-import { blockchainStore } from '../store/blockchainStore';
+import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { blockTimeStore } from '../store/blockTimeStore';
 import { formatTimestamp } from '../utils/formatters';
 import { useSdkContext } from '../context/SdkContext';
 import { useForceUpdate } from '../hooks/useForceUpdate';
+
+// Add polling interval constant to match other components
+const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds
 
 const formatBlockTime = (ms: number) => {
   return `${(ms / 1000).toFixed(2)}s`;
@@ -25,11 +28,24 @@ const metricsStore = observable({
   latestLedgerTime: 0,
 });
 
+// Add props type for BlockchainMetrics
+type BlockchainMetricsProps = {
+  isVisible?: boolean;
+};
+
 // Use the observer HOC to automatically handle observables
-export const BlockchainMetrics = observer(() => {
+export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
   // Force component to update on SDK changes
   const updateCounter = useForceUpdate();
   const { isInitialized } = useSdkContext();
+  
+  // Add state for auto-refreshing
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  
+  // Add refs for tracking polling and app state
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const appState = useRef(AppState.currentState);
+  const isMounted = useRef(true);
 
   // Access primitive values from observables
   const blockTimeMsValue = Number(blockTimeStore.blockTimeMs.get() ?? 0);
@@ -51,6 +67,100 @@ export const BlockchainMetrics = observer(() => {
   const transactions = blockchainStore.transactions.get();
   const currentLatestVersion = transactions && transactions.length > 0 ?
     Number(transactions[0].version) : null;
+
+  // Set isMounted ref on mount/unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Listen for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Handle app state changes
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to the foreground
+      console.log('App has come to the foreground, refreshing blockchain metrics');
+      if (isVisible && isInitialized) {
+        handleAutoRefresh();
+      }
+    }
+    appState.current = nextAppState;
+  };
+
+  // Set up and clean up polling based on visibility
+  useEffect(() => {
+    // Create or destroy polling interval based on visibility
+    if (isVisible) {
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Clean up polling on unmount
+    return () => {
+      stopPolling();
+    };
+  }, [isVisible, isInitialized]);
+
+  // Start polling interval
+  const startPolling = () => {
+    // Only start polling if not already polling and component is visible
+    if (!pollingIntervalRef.current && isVisible && isInitialized) {
+      console.log('Starting polling for blockchain metrics');
+      
+      // Reset any lingering auto-refresh state
+      setIsAutoRefreshing(false);
+      
+      pollingIntervalRef.current = setInterval(() => {
+        // Only poll if we're not already refreshing and component is still visible and mounted
+        if (!isAutoRefreshing && isVisible && isMounted.current) {
+          console.log('Auto-refreshing blockchain metrics');
+          handleAutoRefresh();
+        }
+      }, AUTO_REFRESH_INTERVAL);
+    }
+  };
+
+  // Stop polling interval
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      console.log('Stopping polling for blockchain metrics');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  // Handle auto-refresh
+  const handleAutoRefresh = async () => {
+    // Always allow manual refresh, even if auto-refresh is running
+    try {
+      setIsAutoRefreshing(true);
+      
+      // Trigger store updates using the blockchainActions
+      blockchainActions.forceUpdate();
+      
+      console.log('Auto-refreshed blockchain metrics');
+    } catch (error) {
+      console.error('Error during metrics auto-refresh:', error);
+    } finally {
+      if (isMounted.current) {
+        setTimeout(() => {
+          setIsAutoRefreshing(false);
+        }, 500); // Short delay to ensure the user sees the refresh indicator
+      }
+    }
+  };
 
   // Update highest values if current values are higher or initial values
   useEffect(() => {
@@ -90,7 +200,13 @@ export const BlockchainMetrics = observer(() => {
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">Blockchain Metrics</Text>
-          {loading && <ActivityIndicator size="small" color="#E75A5C" />}
+          {(loading || isAutoRefreshing) ? (
+            <ActivityIndicator size="small" color="#E75A5C" />
+          ) : (
+            <TouchableOpacity onPress={handleAutoRefresh} className="p-2">
+              <Text className="text-primary">Refresh</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View className="flex-row justify-around flex-wrap p-4">

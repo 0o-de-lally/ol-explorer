@@ -33,9 +33,14 @@ export const useBlockchain = () => {
     try {
       console.log('Refreshing blockchain data...');
 
-      // Fetch latest transactions using the configured default limit
-      const transactions = await sdk.getTransactions(appConfig.transactions.defaultLimit);
-      console.log(`Fetched ${transactions.length} transactions`);
+      // Get the current transaction limit from the store (or use default if not set)
+      const currentTransactionLimit = blockchainStore.currentLimit?.get() || appConfig.transactions.defaultLimit;
+      
+      console.log(`Using current transaction limit for refresh: ${currentTransactionLimit}`);
+      
+      // Fetch latest transactions using the current limit from the store
+      const transactions = await sdk.getTransactions(currentTransactionLimit);
+      console.log(`Fetched ${transactions.length} transactions with limit ${currentTransactionLimit}`);
 
       // Update transaction list in store
       blockchainActions.setTransactions(transactions);

@@ -23,8 +23,8 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   const dataFetchAttempted = useRef(false);
   // Track manual retry attempts
   const [retryCount, setRetryCount] = useState(0);
-  // Track the current transaction limit to respect user preferences
-  const [currentLimit, setCurrentLimit] = useState(appConfig.transactions.defaultLimit);
+  // Use the currentLimit from the blockchain store instead of local state
+  const currentLimit = blockchainStore.currentLimit.get();
   // Add refs for visibility tracking
   const isMounted = useRef(true);
   const appState = useRef(AppState.currentState);
@@ -123,8 +123,13 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
   // Handle transaction limit changes from the TransactionsList component
   const handleLimitChange = (newLimit: number) => {
-    console.log(`Transaction limit changed to ${newLimit}`);
-    setCurrentLimit(newLimit);
+    const currentStoreLimit = blockchainStore.currentLimit.get();
+    // Only update if the value actually changed to avoid unnecessary renders
+    if (newLimit !== currentStoreLimit) {
+      console.log(`Transaction limit changed to ${newLimit}`);
+      // Update the limit in the store
+      blockchainActions.setCurrentLimit(newLimit);
+    }
   };
 
   // Set up polling for data updates based on visibility
@@ -139,7 +144,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
     return () => {
       stopPolling();
     };
-  }, [isScreenVisible, isInitialized, isUsingMockData, currentLimit]);
+  }, [isScreenVisible, isInitialized, isUsingMockData]);
 
   // Start polling interval
   const startPolling = () => {

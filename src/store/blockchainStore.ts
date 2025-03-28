@@ -1,5 +1,6 @@
 import { observable } from '@legendapp/state';
 import { Transaction } from '../types/blockchain';
+import appConfig from '../config/appConfig';
 
 // Define the store structure
 export interface BlockchainStoreType {
@@ -12,6 +13,7 @@ export interface BlockchainStoreType {
   };
   error: string | null;
   lastUpdated: number; // Track the time of last update
+  currentLimit: number; // Track the current transaction limit
 }
 
 // Initialize the store with default values
@@ -24,7 +26,8 @@ export const blockchainStore = observable<BlockchainStoreType>({
     chainId: null
   },
   error: null,
-  lastUpdated: Date.now()
+  lastUpdated: Date.now(),
+  currentLimit: appConfig.transactions.defaultLimit // Default to config value
 });
 
 // Helper to notify UI that store has been updated
@@ -138,5 +141,11 @@ export const blockchainActions = {
 
     // Return true to indicate the update was triggered
     return true;
+  },
+  setCurrentLimit: (limit: number) => {
+    blockchainStore.currentLimit.set(limit);
+    
+    // Notify that store has been updated
+    notifyUpdate();
   }
 }; 

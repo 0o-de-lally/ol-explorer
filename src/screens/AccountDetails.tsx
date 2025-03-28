@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus } from 'react-native';
 import { AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { navigate } from '../navigation/navigationUtils';
@@ -188,6 +188,9 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
   return null;
 };
 
+// Add auto-refresh interval constant to match TransactionsList
+const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds for auto-refresh
+
 export const AccountDetailsScreen = observer(({ route, address: propAddress }: AccountDetailsScreenProps) => {
   const params = useLocalSearchParams();
   const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
@@ -201,9 +204,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  const appState = useRef(AppState.currentState);
 
   // Data loaded tracking
   const dataLoadedRef = useRef(false);
+  // Track if component is mounted
+  const isMounted = useRef(true);
 
   // Try to use navigation focus hook for determining if screen is visible
   let isFocused = true;
@@ -222,6 +229,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       resourceParam,
       hasAccountData: !!accountData
     });
+    
+    // Reset auto-refreshing state on mount
+    setIsAutoRefreshing(false);
   }, []);
 
   // Extract resource types from account data
@@ -357,25 +367,111 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   // Refs for scrolling
   const scrollViewRef = useRef(null);
 
-  // Set up periodic refresh
+  // Set isMounted ref on mount/unmount
   useEffect(() => {
-    // Set up refresh interval - only if data becomes stale
-    refreshTimerRef.current = setInterval(() => {
-      // Only refresh if data is stale
-      if (isStale) {
-        console.log('Periodic account refresh triggered (data is stale)');
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Listen for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Handle app state changes
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to the foreground
+      console.log('App has come to the foreground, refreshing account details');
+      if (isFocused && addressFromParams) {
         refreshAccount();
       }
-    }, ACCOUNT_DATA_CONFIG.REFRESH_INTERVAL_MS);
+    }
+    appState.current = nextAppState;
+  };
 
-    // Cleanup function
+  // Set up and clean up polling based on visibility
+  useEffect(() => {
+    if (isFocused && addressFromParams) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Clean up polling on unmount
     return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current);
-        refreshTimerRef.current = null;
-      }
+      stopPolling();
     };
-  }, [refreshAccount, isStale]);
+  }, [isFocused, addressFromParams]);
+
+  // Start polling interval
+  const startPolling = () => {
+    // Only start polling if not already polling and we have the necessary data
+    if (!refreshTimerRef.current && isFocused && addressFromParams) {
+      console.log('Starting polling for account details');
+      
+      // Make sure auto-refreshing is initially false
+      setIsAutoRefreshing(false);
+      
+      // Force an immediate refresh when starting polling
+      setTimeout(() => {
+        console.log('Initial account details refresh');
+        if (isMounted.current && isFocused) {
+          setIsAutoRefreshing(true);
+          refreshAccount()
+            .then(() => console.log('Initial account refresh completed'))
+            .catch(err => console.error('Initial account refresh error:', err))
+            .finally(() => {
+              if (isMounted.current) {
+                setTimeout(() => setIsAutoRefreshing(false), 500);
+              }
+            });
+        }
+      }, 200);
+      
+      refreshTimerRef.current = setInterval(() => {
+        // Only refresh if not already refreshing and component is still visible
+        if (!isLoading && !isAutoRefreshing && isFocused && isMounted.current) {
+          console.log('[POLL] Auto-refreshing account details - starting refresh');
+          setIsAutoRefreshing(true);
+          refreshAccount()
+            .then(() => console.log('[POLL] Account refresh completed'))
+            .catch(err => console.error('[POLL] Account refresh error:', err))
+            .finally(() => {
+              if (isMounted.current) {
+                setTimeout(() => {
+                  setIsAutoRefreshing(false);
+                  console.log('[POLL] Account refresh state reset');
+                }, 500);
+              }
+            });
+        } else {
+          console.log('[POLL] Skipping account refresh, conditions not met:', {
+            isLoading, isAutoRefreshing, isFocused, isMounted: isMounted.current
+          });
+        }
+      }, AUTO_REFRESH_INTERVAL);
+      
+      console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
+    }
+  };
+
+  // Stop polling interval
+  const stopPolling = () => {
+    if (refreshTimerRef.current) {
+      console.log('Stopping polling for account details');
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+      
+      // Ensure the auto-refresh state is reset when stopping polling
+      setIsAutoRefreshing(false);
+    }
+  };
 
   // Update active resources filtering to match the exact resource types
   const activeResources = useMemo(() => {
@@ -453,11 +549,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     } catch (err) {
       console.error('Clipboard operation failed:', err);
     }
-  };
-
-  const handleRefresh = () => {
-    // Force a refresh of the data
-    refreshAccount();
   };
 
   // Update the categorization with specific mappings and proper typing
@@ -541,7 +632,16 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
           <Text className="text-white text-base text-center mb-6">{error}</Text>
           <TouchableOpacity
             className="bg-primary rounded-lg py-3 px-6 mb-4"
-            onPress={handleRefresh}
+            onPress={() => {
+              console.log('Debug refresh triggered');
+              setIsAutoRefreshing(true);
+              refreshAccount()
+                .then(() => console.log('Debug refresh completed'))
+                .catch(err => console.error('Debug refresh error:', err))
+                .finally(() => {
+                  setTimeout(() => setIsAutoRefreshing(false), 500);
+                });
+            }}
           >
             <Text className="text-white font-bold text-base">Retry</Text>
           </TouchableOpacity>
@@ -581,14 +681,31 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               <Text className="text-primary text-base font-bold">← Back</Text>
             </TouchableOpacity>
             <Text className="text-white text-2xl font-bold flex-1 flex-wrap">Account Details</Text>
-            {isLoading && !accountData && ( /* Only show when initially loading */
-              <ActivityIndicator size="small" color="#E75A5C" className="ml-2" />
-            )}
           </View>
 
           <View className="bg-secondary rounded-lg p-4 mb-4">
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
+              {(isLoading === true || isAutoRefreshing === true) ? (
+                <ActivityIndicator size="small" color="#E75A5C" />
+              ) : (
+                <TouchableOpacity 
+                  onPress={() => {
+                    console.log('Account card refresh triggered');
+                    // Always allow manual refresh, even if auto-refresh is running
+                    setIsAutoRefreshing(true);
+                    refreshAccount()
+                      .then(() => console.log('Account card refresh completed'))
+                      .catch(err => console.error('Account card refresh error:', err))
+                      .finally(() => {
+                        setTimeout(() => setIsAutoRefreshing(false), 500);
+                      });
+                  }}
+                  className="p-2"
+                >
+                  <Text className="text-primary">Refresh</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View className="flex-row items-center mb-4">
@@ -825,7 +942,16 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             <AccountTransactionsList 
               accountAddress={getObservableValue(accountData.address, '')}
               initialLimit={appConfig.transactions.defaultLimit}
-              onRefresh={handleRefresh}
+              onRefresh={() => {
+                console.log('Manual refresh triggered');
+                setIsAutoRefreshing(true);
+                refreshAccount()
+                  .then(() => console.log('Manual refresh completed successfully'))
+                  .catch(err => console.error('Error during manual refresh:', err))
+                  .finally(() => {
+                    setTimeout(() => setIsAutoRefreshing(false), 500);
+                  });
+              }}
               isVisible={isFocused}
             />
           )}
