@@ -1,21 +1,32 @@
-import * as React from 'react';
+import React from 'react';
 import { render } from '@testing-library/react-native';
 import App from '../../App';
 
-// Mock the NavigationContainer to avoid navigation errors in tests
-jest.mock('@react-navigation/native', () => {
-  const actualNav = jest.requireActual('@react-navigation/native');
+// Mock Expo Router
+jest.mock('expo-router', () => ({
+  Stack: () => null,
+  useRouter: () => ({
+    navigate: jest.fn(),
+  }),
+}));
+
+// Mock the useWindowDimensions hook
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => {
   return {
-    ...actualNav,
-    NavigationContainer: ({ children }: { children: React.ReactNode }) => children,
+    __esModule: true,
+    default: () => ({
+      width: 1000,
+      height: 1000,
+      scale: 1,
+      fontScale: 1,
+    }),
   };
 });
 
 // Basic test for App component
 describe('App', () => {
   it('renders without crashing', () => {
-    // We're not asserting anything specific here,
-    // just making sure the component renders without throwing
     render(<App />);
+    // If we get here without errors, the test passes
   });
 }); 

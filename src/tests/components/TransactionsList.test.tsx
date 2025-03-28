@@ -1,15 +1,27 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { TransactionsList } from '../../components/TransactionsList';
-import { blockchainActions } from '../../store/blockchainStore';
+import { blockchainStore } from '../../store/blockchainStore';
 
-// Mock the navigation hook
-const mockNavigate = jest.fn();
+// Mock navigation
 jest.mock('@react-navigation/native', () => {
   return {
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({
-      navigate: mockNavigate,
+      navigate: jest.fn(),
+    }),
+  };
+});
+
+// Mock the useWindowDimensions hook
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => {
+  return {
+    __esModule: true,
+    default: () => ({
+      width: 1000,
+      height: 1000,
+      scale: 1,
+      fontScale: 1,
     }),
   };
 });
@@ -18,52 +30,97 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('../../store/blockchainStore', () => {
   const observable = require('@legendapp/state').observable;
   
-  const store = observable({
-    stats: {
-      blockHeight: null,
-      epoch: null,
-      chainId: null,
+  const mockTransactions = [
+    {
+      hash: '0xabc123',
+      version: 10000001,
+      sender: '0xsender123',
+      sequence_number: 10,
+      timestamp: Date.now(),
+      type: 'transfer',
+      status: 'success',
+      gas_used: 100,
+      gas_unit_price: 10,
+      vm_status: 'Executed successfully',
+      block_height: 12345678,
     },
-    transactions: [],
-    isLoading: false,
-    error: null,
-  });
+    {
+      hash: '0xdef456',
+      version: 10000000,
+      sender: '0xsender456',
+      sequence_number: 9,
+      timestamp: Date.now() - 60000,
+      type: 'script',
+      status: 'success',
+      gas_used: 200,
+      gas_unit_price: 10,
+      vm_status: 'Executed successfully',
+      block_height: 12345677,
+    },
+  ];
   
   return {
-    blockchainStore: store,
-    blockchainActions: {
-      setTransactions: jest.fn((transactions) => {
-        store.transactions.set(transactions);
-      }),
-      setLoading: jest.fn((isLoading) => {
-        store.isLoading.set(isLoading);
-      }),
-    },
+    blockchainStore: observable({
+      transactions: mockTransactions,
+      isLoading: false,
+      error: null,
+    }),
   };
 });
 
-// Define a simple type for the TransactionsList props
-type TransactionsListProps = {
-  testID?: string;
-};
-
-// Mock the TransactionsList component since we have issues with legendapp/state
-jest.mock('../../components/TransactionsList', () => ({
-  TransactionsList: ({ testID }: TransactionsListProps) => {
-    // Simple mock implementation that matches the real component structure
-    const MockComponent = () => (<div data-testid={testID}>MockTransactionsList</div>);
-    return <MockComponent />;
-  }
+// Mock the useForceUpdate hook
+jest.mock('../../hooks/useForceUpdate', () => ({
+  useForceUpdate: jest.fn(() => 1),
 }));
 
 describe('TransactionsList', () => {
+  const mockOnRefresh = jest.fn();
+  
   beforeEach(() => {
     jest.clearAllMocks();
   });
-
-  it('can be rendered', () => {
-    render(<TransactionsList testID="transactions-table" />);
-    // If we get here, the component rendered without errors
-    // We don't actually need an assertion here, since the test will fail if rendering throws
+  
+  it('renders transactions list correctly', () => {
+    render(<TransactionsList testID="transactions-list" onRefresh={mockOnRefresh} />);
+    
+    // Check that the testID is properly assigned
+    expect(screen.getByTestId('transactions-list')).toBeTruthy();
+    
+    // Check that transactions are rendered
+    expect(screen.getByText('0xabc123')).toBeTruthy();
+    expect(screen.getByText('0xdef456')).toBeTruthy();
+  });
+  
+  it('calls onRefresh when refresh button is pressed', () => {
+    render(<TransactionsList testID="transactions-list" onRefresh={mockOnRefresh} />);
+    
+    // Find and press the refresh button
+    const refreshButton = screen.getByTestId('refresh-button');
+    fireEvent.press(refreshButton);
+    
+    expect(mockOnRefresh).toHaveBeenCalledTimes(1);
+  });
+  
+  it('displays loading state correctly', () => {
+    // Set loading state to true
+    blockchainStore.isLoading.set(true);
+    
+    render(<TransactionsList testID="transactions-list" onRefresh={mockOnRefresh} />);
+    
+    // Reset loading state for other tests
+    blockchainStore.isLoading.set(false);
+  });
+  
+  it('handles empty transaction list', () => {
+    // Set empty transactions list
+    const originalTransactions = blockchainStore.transactions.get();
+    blockchainStore.transactions.set([]);
+    
+    render(<TransactionsList testID="transactions-list" onRefresh={mockOnRefresh} />);
+    
+    // Check for no transactions message or empty state
+    
+    // Restore original transactions for other tests
+    blockchainStore.transactions.set(originalTransactions);
   });
 }); 

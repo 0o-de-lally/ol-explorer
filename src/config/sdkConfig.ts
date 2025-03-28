@@ -31,12 +31,28 @@ export interface SdkConfig {
     };
 }
 
+// Get RPC URL from environment variable if available
+const getRpcUrl = (): string => {
+    // Check for Node.js environment variables
+    if (typeof process !== 'undefined' && process.env && process.env.LIBRA_RPC_URL) {
+        return process.env.LIBRA_RPC_URL;
+    }
+    
+    // Check for Expo/React Native environment variables
+    if (typeof global !== 'undefined' && global.process && global.process.env && global.process.env.EXPO_PUBLIC_RPC_URL) {
+        return global.process.env.EXPO_PUBLIC_RPC_URL;
+    }
+    
+    // Default RPC URL
+    return 'https://rpc.openlibra.space:8080/v1';
+};
+
 /**
  * Default SDK configuration
  */
 const sdkConfig: SdkConfig = {
     // RPC Connection Settings
-    rpcUrl: 'https://rpc.openlibra.space:8080/v1',
+    rpcUrl: getRpcUrl(),
     network: 'mainnet',
 
     // Data Freshness Settings (all in milliseconds)
@@ -60,4 +76,4 @@ const sdkConfig: SdkConfig = {
     }
 };
 
-export default sdkConfig; 
+export default sdkConfig;
