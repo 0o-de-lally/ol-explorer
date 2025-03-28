@@ -49,6 +49,7 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
 
   // Access primitive values from observables
   const blockTimeMsValue = Number(blockTimeStore.blockTimeMs.get() ?? 0);
+  const tpsValue = Number(blockTimeStore.tps.get() ?? 0);
   const lastBlockHeightValue = Number(blockTimeStore.lastBlockHeight.get() ?? 0);
   const currentLedgerTimestamp = Number(blockTimeStore.lastBlockTimestamp.get() ?? 0);
   const currentBlockHeight = Number(blockchainStore.stats.blockHeight.get() ?? 0);
@@ -237,6 +238,20 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
             <Text className="text-text-muted text-xs mb-1">Chain ID</Text>
             <Text className="text-text-light text-base font-bold text-center">
               {chainIdValue}
+            </Text>
+          </View>
+
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">Block Time</Text>
+            <Text className="text-text-light text-base font-bold text-center" testID="block-time-value">
+              {blockTimeMsValue > 0 ? formatBlockTime(blockTimeMsValue) : 'Calculating...'}
+            </Text>
+          </View>
+
+          <View className="items-center p-2 min-w-[120px]">
+            <Text className="text-text-muted text-xs mb-1">TPS</Text>
+            <Text className="text-text-light text-base font-bold text-center" testID="tps-value">
+              {tpsValue > 0 ? tpsValue.toFixed(2) : 'Calculating...'}
             </Text>
           </View>
 
