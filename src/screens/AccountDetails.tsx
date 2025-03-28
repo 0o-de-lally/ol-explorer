@@ -37,10 +37,160 @@ const getObservableValue = <T,>(value: any, defaultValue: T): T => {
   }
 };
 
+// Helper function to convert camelCase to Space Case for display
+const formatDisplayName = (typeName: string): string => {
+  // First handle special cases like "ValidatorConfig"
+  if (!typeName) return '';
+
+  // Split by :: to get the last part (e.g., "stake::ValidatorConfig" → "ValidatorConfig")
+  const parts = typeName.split('::');
+  const lastPart = parts[parts.length - 1];
+
+  // Convert camelCase or PascalCase to space-separated words
+  // Insert space before capital letters and uppercase the first letter of each word
+  return lastPart
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/^./, (str) => str.toUpperCase()) // Uppercase first letter
+    .trim(); // Remove any leading/trailing spaces
+};
+
+// Helper function to convert camelCase to kebab-case for URL slugs
+const formatUrlSlug = (typeName: string): string => {
+  if (!typeName) return '';
+
+  // Split by :: to get the last part
+  const parts = typeName.split('::');
+  const lastPart = parts[parts.length - 1];
+
+  // Convert camelCase or PascalCase to kebab-case
+  return lastPart
+    .replace(/([A-Z])/g, '-$1') // Add hyphen before capital letters
+    .toLowerCase() // Convert to lowercase
+    .replace(/^-/, '') // Remove leading hyphen if present
+    .trim(); // Remove any leading/trailing spaces
+};
+
+// Helper function to extract simplified resource type for URL paths - completely revised
+const getSimplifiedType = (fullType: string) => {
+  if (!fullType) return '';
+
+  // Extract the module and type name from the full type
+  const parts = fullType.split('::');
+  if (parts.length < 2) return formatUrlSlug(fullType);
+
+  // For standard types, use module-type format
+  const module = parts[parts.length - 2].toLowerCase();
+  const typeName = parts[parts.length - 1];
+
+  // Create a consistent slug pattern that uniquely identifies this resource type
+  return `${module}-${formatUrlSlug(typeName)}`;
+};
+
+// Helper function to convert resource type to URL slug - deterministic mapping
+const resourceTypeToSlug = (type: string): string => {
+  if (!type) return '';
+
+  // Extract the module and type parts
+  const parts = type.split('::');
+  if (parts.length < 2) return '';
+
+  const module = parts[parts.length - 2].toLowerCase();
+  const typeName = parts[parts.length - 1];
+
+  // Create kebab-case from typeName
+  const typeNameKebab = typeName
+    .replace(/([A-Z])/g, '-$1')
+    .toLowerCase()
+    .replace(/^-/, '');
+
+  return `${module}-${typeNameKebab}`;
+};
+
+// Helper function to find resource type from slug - deterministic inverse mapping
+const slugToResourceType = (types: string[], slug: string): string | null => {
+  if (!slug || !types || types.length === 0) return null;
+
+  console.log(`Attempting to match slug: '${slug}' to available resource types`);
+
+  // Special case for repeated segments like "ancestry-ancestry"
+  if (slug.includes('-')) {
+    const segments = slug.split('-');
+    // Check if there's a repeated segment (like ancestry-ancestry)
+    const uniqueSegments = Array.from(new Set(segments));
+    if (uniqueSegments.length < segments.length) {
+      // We have repeated segments - handle specially
+      console.log(`Detected repeated segments in slug: ${slug}`);
+
+      // Try to find a resource type that contains the unique segment(s)
+      for (const segment of uniqueSegments) {
+        const matchingType = types.find(type =>
+          type.toLowerCase().includes(segment.toLowerCase())
+        );
+        if (matchingType) {
+          console.log(`✓ Found match for repeated segment '${segment}': ${matchingType}`);
+          return matchingType;
+        }
+      }
+    }
+  }
+
+  // First try: exact match on module-type pattern
+  for (const type of types) {
+    const typeSlug = resourceTypeToSlug(type);
+    console.log(`Comparing: type='${type}', generated slug='${typeSlug}', requested='${slug}'`);
+    if (typeSlug === slug) {
+      console.log(`✓ Found exact slug match: ${type}`);
+      return type;
+    }
+  }
+
+  // Legacy mappings - handle special URL segments for backward compatibility
+  if (slug === 'my-pledges') {
+    // Find pledge-related resources
+    return types.find(type =>
+      type.toLowerCase().includes('pledge') ||
+      type.toLowerCase().includes('vouch')
+    ) || null;
+  }
+
+  if (slug === 'fee-maker') {
+    // Find fee maker resources
+    return types.find(type =>
+      type.toLowerCase().includes('fee') &&
+      type.toLowerCase().includes('maker')
+    ) || null;
+  }
+
+  // Try keyword matching as fallback
+  const keywords = slug.split('-');
+  const matchingType = types.find(type =>
+    keywords.every(kw => type.toLowerCase().includes(kw))
+  );
+
+  if (matchingType) {
+    console.log(`✓ Found keyword match: ${matchingType}`);
+    return matchingType;
+  }
+
+  // Final fallback: partial matching on any segment
+  for (const type of types) {
+    if (type.toLowerCase().includes(slug) ||
+      slug.includes(type.toLowerCase())) {
+      console.log(`✓ Found partial match: ${type}`);
+      return type;
+    }
+  }
+
+  console.log(`✗ No match found for slug: ${slug}`);
+  return null;
+};
+
 export const AccountDetailsScreen = observer(({ route, address: propAddress }: AccountDetailsScreenProps) => {
   const params = useLocalSearchParams();
   const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
-  const resourceFromParams = (route?.params?.resource || params?.resource) as string | undefined;
+
+  // Get the resource parameter from URL, ensuring consistency
+  const resourceParam = route?.params?.resource || params?.resource as string | undefined;
 
   // Use our custom hook to get account data
   const { account: accountData, isLoading, error, refresh: refreshAccount, isStale } = useAccount(addressFromParams);
@@ -49,125 +199,150 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Add debug logging for the whole accountData structure
+  // Data loaded tracking
+  const dataLoadedRef = useRef(false);
+
+  // Debug log the parameters
   useEffect(() => {
-    if (accountData) {
-      console.log('AccountData structure:', accountData);
+    console.log('AccountDetailsScreen mounted with params:', {
+      addressFromParams,
+      resourceParam,
+      hasAccountData: !!accountData
+    });
+  }, []);
 
-      // Check if accountData is an observable with a get method
-      if (typeof accountData?.get === 'function') {
-        console.log('AccountData is an observable, getting value');
-        const rawData = accountData.get();
-        console.log('Raw data from observable:', rawData);
-
-        if (rawData?.resources) {
-          console.log('Resources found in raw data:', {
-            type: typeof rawData.resources,
-            isArray: Array.isArray(rawData.resources),
-            length: Array.isArray(rawData.resources) ? rawData.resources.length : Object.keys(rawData.resources).length,
-            keys: Object.keys(rawData.resources).slice(0, 5) // Show first 5 keys for debugging
-          });
-        }
-      } else {
-        console.log('AccountData is not an observable');
-      }
-    }
-  }, [accountData]);
-
-  // Fix resourceTypes extraction to match the exact account data structure
+  // Extract resource types from account data
   const resourceTypes = useMemo(() => {
-    // Account might be null initially
+    console.log('Extracting resource types, accountData present:', !!accountData);
+
+    // Reset data loaded flag when data changes
+    dataLoadedRef.current = false;
+
     if (!accountData) return [];
 
-    // Extract raw account data from observable if needed
-    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
-    if (!rawAccount) return [];
-
-    // Extract resources - must be an array of {type, data} objects
-    let resourcesArray = [];
-
-    if (rawAccount.resources) {
-      // If resources is an observable
-      const rawResources = typeof rawAccount.resources?.get === 'function'
-        ? rawAccount.resources.get()
-        : rawAccount.resources;
-
-      // Convert to array if necessary
-      if (Array.isArray(rawResources)) {
-        resourcesArray = rawResources;
-      } else if (typeof rawResources === 'object' && rawResources !== null) {
-        // Try to extract values if it's an object with numeric keys
-        resourcesArray = Object.values(rawResources);
-      }
-    }
-
-    // No resources found
-    if (!resourcesArray.length) return [];
-
-    // Extract unique module::type pairs from full resource type paths
-    const types = new Set<string>();
-    resourcesArray.forEach(resource => {
-      if (resource && typeof resource === 'object' && 'type' in resource) {
-        const typeStr = resource.type.toString();
-
-        // Extract just the module and type (e.g., "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>" -> "coin::CoinStore")
-        const matches = typeStr.match(/::([^:]+)::([^<]+)/);
-        if (matches && matches.length >= 3) {
-          const module = matches[1];
-          const typeName = matches[2];
-          const mainType = `${module}::${typeName}`;
-          types.add(mainType);
-        } else {
-          // Fallback to the last two parts if the regex doesn't match
-          const parts = typeStr.split('::');
-          if (parts.length >= 2) {
-            const mainType = `${parts[parts.length - 2]}::${parts[parts.length - 1]}`;
-            types.add(mainType);
-          }
-        }
-      }
-    });
-
-    // Convert to sorted array
-    const typesArray = Array.from(types).sort();
-    return typesArray;
-  }, [accountData]);
-
-  // Update active resources filtering to match the exact resource types
-  const activeResources = useMemo(() => {
-    if (!activeResourceType || !accountData) return [];
-
-    // Extract raw account data from observable if needed
+    // Extract raw account data
     const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
     if (!rawAccount) return [];
 
     // Extract resources array
     let resourcesArray = [];
-
     if (rawAccount.resources) {
-      // If resources is an observable
       const rawResources = typeof rawAccount.resources?.get === 'function'
         ? rawAccount.resources.get()
         : rawAccount.resources;
 
-      // Convert to array if necessary
       if (Array.isArray(rawResources)) {
         resourcesArray = rawResources;
       } else if (typeof rawResources === 'object' && rawResources !== null) {
-        // Try to extract values if it's an object with numeric keys
         resourcesArray = Object.values(rawResources);
       }
     }
 
-    // Filter resources by active type
-    return resourcesArray.filter(resource => {
-      if (!resource || typeof resource !== 'object' || !('type' in resource)) return false;
+    if (!resourcesArray.length) {
+      console.log('No resources found in account data');
+      return [];
+    }
 
-      const typeStr = resource.type.toString();
-      // We need to check if the simplified type (like "coin::CoinStore") is contained in the full type
-      return typeStr.includes(activeResourceType);
+    // Track pledge-related resources for debugging
+    const pledgeResources = resourcesArray.filter(resource => {
+      if (resource && typeof resource === 'object' && 'type' in resource) {
+        const typeStr = resource.type.toString().toLowerCase();
+        return typeStr.includes('pledge') || typeStr.includes('vouch');
+      }
+      return false;
     });
-  }, [accountData, activeResourceType]);
+
+    if (pledgeResources.length > 0) {
+      console.log('Found pledge-related resources:',
+        pledgeResources.map(r => r.type));
+    }
+
+    // Extract unique resource types
+    const types = new Set<string>();
+    resourcesArray.forEach(resource => {
+      if (resource && typeof resource === 'object' && 'type' in resource) {
+        const typeStr = resource.type.toString();
+        const matches = typeStr.match(/::([^:]+)::([^<]+)/);
+        if (matches && matches.length >= 3) {
+          const module = matches[1];
+          const typeName = matches[2];
+          types.add(`${module}::${typeName}`);
+        } else {
+          const parts = typeStr.split('::');
+          if (parts.length >= 2) {
+            types.add(`${parts[parts.length - 2]}::${parts[parts.length - 1]}`);
+          }
+        }
+      }
+    });
+
+    const typesArray = Array.from(types).sort();
+
+    // Mark data as loaded
+    dataLoadedRef.current = true;
+    console.log('Resource types extracted:', typesArray.length, 'types');
+
+    // Map types to slugs for debugging
+    typesArray.forEach(type => {
+      console.log(`Type: ${type} → Slug: ${resourceTypeToSlug(type)}`);
+    });
+
+    return typesArray;
+  }, [accountData]);
+
+  // Set active resource type based on URL parameter or default
+  useEffect(() => {
+    if (!dataLoadedRef.current || resourceTypes.length === 0) {
+      console.log('Waiting for data to load before selecting resource type');
+      return;
+    }
+
+    console.log('Data loaded, selecting resource type from param:', resourceParam);
+    console.log('Available resource types:', resourceTypes.map(t =>
+      `${t} → ${resourceTypeToSlug(t)}`
+    ).join(', '));
+
+    if (resourceParam) {
+      // Try to find matching resource type
+      const matchingType = slugToResourceType(resourceTypes, resourceParam);
+
+      if (matchingType) {
+        console.log(`Found matching resource type: ${matchingType} for URL param: ${resourceParam}`);
+        console.log(`Setting active resource type to: ${matchingType}`);
+        setActiveResourceType(matchingType);
+      } else {
+        console.log(`No matching resource type found for URL param: ${resourceParam}, using default`);
+        console.log(`Setting active resource type to: ${resourceTypes[0]}`);
+        setActiveResourceType(resourceTypes[0]);
+      }
+    } else {
+      // No resource parameter, use first available type
+      console.log('No resource parameter, using first type:', resourceTypes[0]);
+      console.log(`Setting active resource type to: ${resourceTypes[0]}`);
+      setActiveResourceType(resourceTypes[0]);
+    }
+  }, [resourceTypes, resourceParam, dataLoadedRef.current]);
+
+  // Handle resource type selection and URL updates
+  const handleResourceTypeChange = (resourceType: string) => {
+    console.log(`Changing resource type to: ${resourceType}`);
+
+    // Set active resource type
+    setActiveResourceType(resourceType);
+
+    // Update URL path using Expo Router
+    if (addressFromParams) {
+      const slug = resourceTypeToSlug(resourceType);
+      const newPath = `/account/${addressFromParams}/${slug}`;
+      console.log(`Navigating to: ${newPath}`);
+
+      // Use router.replace to update URL without navigation animation
+      router.replace(newPath);
+    }
+  };
+
+  // Refs for scrolling
+  const scrollViewRef = useRef(null);
 
   // Set up periodic refresh
   useEffect(() => {
@@ -189,29 +364,38 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     };
   }, [refreshAccount, isStale]);
 
-  // Set active resource type when resourceTypes changes or from URL params
-  useEffect(() => {
-    if (resourceTypes.length > 0) {
-      // First check if we have a resource from params
-      if (resourceFromParams) {
-        const matchingType = resourceTypes.find(
-          type => type.toLowerCase() === resourceFromParams.toLowerCase()
-        );
-        if (matchingType) {
-          setActiveResourceType(matchingType);
-          return;
-        }
-      }
+  // Update active resources filtering to match the exact resource types
+  const activeResources = useMemo(() => {
+    if (!activeResourceType || !accountData) return [];
 
-      // If no matching resource or no resource param, default to first type and redirect
-      setActiveResourceType(resourceTypes[0]);
+    // Extract raw account data
+    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+    if (!rawAccount) return [];
 
-      // Only redirect if we're on the base account page (no resource in URL)
-      if (!resourceFromParams && addressFromParams) {
-        router.replace(`/account/${addressFromParams}/${resourceTypes[0].toLowerCase()}`);
+    // Extract resources array
+    let resourcesArray = [];
+
+    if (rawAccount.resources) {
+      const rawResources = typeof rawAccount.resources?.get === 'function'
+        ? rawAccount.resources.get()
+        : rawAccount.resources;
+
+      if (Array.isArray(rawResources)) {
+        resourcesArray = rawResources;
+      } else if (typeof rawResources === 'object' && rawResources !== null) {
+        resourcesArray = Object.values(rawResources);
       }
     }
-  }, [resourceTypes, resourceFromParams, addressFromParams]);
+
+    // Filter resources by active type
+    return resourcesArray.filter(resource => {
+      if (!resource || typeof resource !== 'object' || !('type' in resource)) return false;
+
+      const typeStr = resource.type.toString();
+      // Check if the simplified type is contained in the full type
+      return typeStr.includes(activeResourceType);
+    });
+  }, [accountData, activeResourceType]);
 
   const handleBackPress = () => {
     navigate('Home');
@@ -258,21 +442,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     }
   };
 
-  const handleResourceTypeChange = (resourceType: string) => {
-    setActiveResourceType(resourceType);
-    // Update the URL to reflect the active resource type
-    router.replace(`/account/${addressFromParams}/${resourceType.toLowerCase()}`);
-  };
-
   const handleRefresh = () => {
     // Force a refresh of the data
     refreshAccount();
   };
 
-  // Update the categorization with specific mappings
-  const categorizeResourceTypes = (types) => {
+  // Update the categorization with specific mappings and proper typing
+  const categorizeResourceTypes = (types: string[]): Record<string, string[]> => {
     // Create a mapping of types to their categories
-    const categoryMapping = new Map();
+    const categoryMapping = new Map<string, string>();
 
     // Assign each type to exactly one category using specific mappings and fallbacks
     types.forEach(type => {
@@ -292,15 +470,18 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
         categoryMapping.set(type, 'Validating');
       } else if (lowerType.includes('pledge') ||
         lowerType.includes('vouch') ||
-        lowerType.includes('ancestry')) {
+        lowerType.includes('ancestry') ||
+        lowerType.includes('pledge_accounts')) {
+        // Ensure all pledge and vouch related resources are categorized as Social
         categoryMapping.set(type, 'Social');
+        console.log(`Categorized as Social: ${type}`);
       } else {
         categoryMapping.set(type, 'Other');
       }
     });
 
     // Group types by category
-    const categories = {};
+    const categories: Record<string, string[]> = {};
     categoryMapping.forEach((category, type) => {
       if (!categories[category]) {
         categories[category] = [];
@@ -314,15 +495,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     });
 
     // Remove the "Other" category if it's empty
-    if (categories.Other && categories.Other.length === 0) {
-      delete categories.Other;
+    if (categories['Other'] && categories['Other'].length === 0) {
+      delete categories['Other'];
     }
 
     // Ensure "Other" is always at the end if it exists
-    if (categories.Other && Object.keys(categories).length > 1) {
-      const otherTypes = categories.Other;
-      delete categories.Other;
-      categories.Other = otherTypes;
+    if (categories['Other'] && Object.keys(categories).length > 1) {
+      const otherTypes = categories['Other'];
+      delete categories['Other'];
+      categories['Other'] = otherTypes;
     }
 
     return categories;
@@ -374,7 +555,10 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
   return (
     <View className="bg-background flex-1">
-      <ScrollView>
+      <ScrollView
+        ref={scrollViewRef}
+        scrollEventThrottle={16}
+      >
         <View className="mx-auto w-full max-w-screen-lg px-4 py-4">
           <View className="flex-row items-center mb-5 flex-wrap">
             <TouchableOpacity
@@ -518,18 +702,27 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
                 {/* Resource Type Navigation */}
                 <View className="mb-6">
-                  {Object.entries(categorizeResourceTypes(typesList)).map(([category, categoryTypes]) => (
+                  {Object.entries(categorizeResourceTypes(typesList as string[])).map(([category, categoryTypes]) => (
                     <View key={category} className="mb-4">
                       {/* Category Header with Background */}
                       <View className="mb-2 bg-secondary/40 py-1.5 px-2 rounded-md">
                         <Text className="text-white text-sm font-bold uppercase">{category}</Text>
                       </View>
 
-                      {/* Resource Type Buttons - Using grid layout */}
+                      {/* Resource Type Buttons - Using grid layout with proper typing */}
                       <View className="flex-row flex-wrap">
-                        {categoryTypes.map((type) => {
-                          // Extract a shorter display name for mobile
-                          const shortName = type.split('::').pop() || type;
+                        {(categoryTypes as string[]).map((type: string) => {
+                          // Use our formatter for display names
+                          let shortName = formatDisplayName(type);
+
+                          // Keep special cases for validator resources for better display
+                          if (type.toLowerCase().includes('validatorconfig')) {
+                            shortName = 'Validator Config';
+                          } else if (type.toLowerCase().includes('validatorstate')) {
+                            shortName = 'Validator State';
+                          } else if (type.toLowerCase().includes('validatorset')) {
+                            shortName = 'Validator Set';
+                          }
 
                           // Define colors based on category
                           let bgColor = 'bg-gray-700';
@@ -545,13 +738,11 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           return (
                             <TouchableOpacity
                               key={type}
-                              onPress={() => setActiveResourceType(type)}
-                              className={`px-3 py-2 rounded-md m-1 min-w-[110px] ${isActive ? activeBgColor : bgColor
-                                }`}
+                              onPress={() => handleResourceTypeChange(type)}
+                              className={`px-3 py-2 rounded-md m-1 min-w-[110px] ${isActive ? activeBgColor : bgColor}`}
                             >
                               <Text
-                                className={`text-sm font-medium text-center ${isActive ? 'text-white' : 'text-gray-300'
-                                  }`}
+                                className={`text-sm font-medium text-center ${isActive ? 'text-white' : 'text-gray-300'}`}
                                 numberOfLines={1}
                               >
                                 {shortName}
