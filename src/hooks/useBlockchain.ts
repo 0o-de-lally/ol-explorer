@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { blockchainStore, blockchainActions } from '../store/blockchainStore';
 import { useSdk } from './useSdk';
 import { useSdkContext } from '../context/SdkContext';
+import appConfig from '../config/appConfig';
 
 export const useBlockchain = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,8 +33,8 @@ export const useBlockchain = () => {
     try {
       console.log('Refreshing blockchain data...');
 
-      // Fetch latest transactions
-      const transactions = await sdk.getTransactions(25);
+      // Fetch latest transactions using the configured default limit
+      const transactions = await sdk.getTransactions(appConfig.transactions.defaultLimit);
       console.log(`Fetched ${transactions.length} transactions`);
 
       // Update transaction list in store

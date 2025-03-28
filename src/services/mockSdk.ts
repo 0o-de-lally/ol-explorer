@@ -141,7 +141,7 @@ export class MockLibraClient {
     };
   }
   
-  async getTransactions({ limit = 10 }) {
+  async getTransactions({ limit = 25 }) {
     // Return the transactions directly in the format expected by our SDK wrapper
     return this._transactions.slice(0, limit);
   }

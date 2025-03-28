@@ -4,8 +4,8 @@
 export const appConfig = {
   // Transaction display limits
   transactions: {
-    defaultLimit: 20,       // Initial number of transactions to load
-    incrementSize: 20,      // How many more to load when clicking "Load More"
+    defaultLimit: 25,       // Initial number of transactions to load
+    incrementSize: 25,      // How many more to load when clicking "Load More"
     maxLimit: 100           // Maximum number of transactions that can be loaded (API limit)
   },
 

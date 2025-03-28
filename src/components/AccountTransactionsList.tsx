@@ -17,7 +17,7 @@ import appConfig from '../config/appConfig';
 import { useSdkContext } from '../context/SdkContext';
 
 // Polling interval in milliseconds - could be moved to appConfig
-const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds (changed from 30 seconds)
 
 type AccountTransactionsListProps = {
   accountAddress: string;
@@ -31,7 +31,7 @@ type AccountTransactionsListProps = {
 // Use observer pattern to correctly handle observables
 export const AccountTransactionsList = observer(({
   accountAddress,
-  initialLimit = appConfig.transactions.defaultLimit,
+  initialLimit = 25, // Changed from appConfig.transactions.defaultLimit to hardcoded 25
   testID,
   onRefresh,
   onLimitChange,
@@ -232,8 +232,8 @@ export const AccountTransactionsList = observer(({
   // Handle load more button click
   const handleLoadMore = async () => {
     if (!isLoadingMore) {
-      // Increase the limit by the configured increment size
-      const newLimit = Math.min(currentLimit + appConfig.transactions.incrementSize, appConfig.transactions.maxLimit);
+      // Increase the limit by exactly 25
+      const newLimit = Math.min(currentLimit + 25, 100);
       setCurrentLimit(newLimit);
       console.log(`Increasing fetch limit to ${newLimit}`);
       await fetchTransactions(true);
@@ -492,16 +492,16 @@ export const AccountTransactionsList = observer(({
             <View className="items-center justify-center py-4">
               {isLoadingMore ? (
                 <ActivityIndicator size="small" color="#E75A5C" />
-              ) : currentLimit >= appConfig.transactions.maxLimit ? (
+              ) : currentLimit >= 100 ? (
                 <Text className="text-text-muted text-sm py-2">
-                  Maximum of {appConfig.transactions.maxLimit} transactions reached (API limit)
+                  Maximum of 100 transactions reached
                 </Text>
               ) : (
                 <TouchableOpacity
                   onPress={handleLoadMore}
                   className="bg-secondary border border-primary rounded-lg py-2 px-4"
                 >
-                  <Text className="text-primary">Load More ({transactions.length} shown)</Text>
+                  <Text className="text-primary">Load More ({currentLimit} → {Math.min(currentLimit + 25, 100)})</Text>
                 </TouchableOpacity>
               )}
             </View>

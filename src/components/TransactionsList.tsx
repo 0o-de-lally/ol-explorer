@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions
+  useWindowDimensions,
+  AppState,
+  AppStateStatus
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { blockchainStore, blockchainActions } from '../store/blockchainStore';
@@ -21,19 +23,27 @@ type TransactionsListProps = {
   onRefresh?: () => void;
   initialLimit?: number;
   onLimitChange?: (newLimit: number) => void;
+  isVisible?: boolean;
 };
 
 // Use observer pattern to correctly handle observables
 export const TransactionsList = observer(({
   testID,
   onRefresh,
-  initialLimit = appConfig.transactions.defaultLimit,
-  onLimitChange
+  initialLimit = 25,
+  onLimitChange,
+  isVisible = true
 }: TransactionsListProps) => {
   // State for refresh indicator
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentLimit, setCurrentLimit] = useState(initialLimit);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  
+  // Add refs to track polling interval and app state
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const appState = useRef(AppState.currentState);
+  const isMounted = useRef(true);
   
   // Effect to notify parent component when limit changes
   useEffect(() => {
@@ -46,6 +56,102 @@ export const TransactionsList = observer(({
   const { width } = useWindowDimensions();
   const updateCounter = useForceUpdate();
   const sdk = useSdk();
+
+  // Set isMounted ref on mount/unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Listen for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Handle app state changes
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to the foreground
+      console.log('App has come to the foreground, refreshing transactions');
+      if (isVisible && isInitialized) {
+        handleAutoRefresh();
+      }
+    }
+    appState.current = nextAppState;
+  };
+
+  // Auto-refresh polling
+  const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds
+
+  // Set up and clean up polling based on visibility
+  useEffect(() => {
+    // Create or destroy polling interval based on visibility
+    if (isVisible) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Clean up polling on unmount
+    return () => {
+      stopPolling();
+    };
+  }, [isVisible, isInitialized]);
+
+  // Start polling interval
+  const startPolling = () => {
+    // Only start polling if not already polling and component is visible
+    if (!pollingIntervalRef.current && isVisible && isInitialized) {
+      console.log('Starting polling for transactions list');
+      
+      pollingIntervalRef.current = setInterval(() => {
+        // Only poll if we're not already loading and component is still visible and mounted
+        if (!isRefreshing && !isLoadingMore && isVisible && isMounted.current) {
+          console.log('Auto-refreshing transactions list');
+          handleAutoRefresh();
+        }
+      }, AUTO_REFRESH_INTERVAL);
+    }
+  };
+
+  // Stop polling interval
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      console.log('Stopping polling for transactions list');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  // Handle auto-refresh
+  const handleAutoRefresh = async () => {
+    if (isAutoRefreshing || isRefreshing || isLoadingMore) return;
+    
+    try {
+      setIsAutoRefreshing(true);
+      
+      // Fetch transactions directly with current limit
+      const transactions = await sdk.getTransactions(currentLimit);
+      
+      // Update the store directly with these transactions
+      if (isMounted.current) {
+        blockchainActions.setTransactions(transactions);
+      }
+      
+      console.log(`Auto-refreshed ${transactions.length} transactions with limit ${currentLimit}`);
+    } catch (error) {
+      console.error('Error during auto-refresh:', error);
+    } finally {
+      if (isMounted.current) {
+        setIsAutoRefreshing(false);
+      }
+    }
+  };
 
   // Handle refresh button click
   const handleRefresh = async () => {
@@ -82,8 +188,8 @@ export const TransactionsList = observer(({
       try {
         setIsLoadingMore(true);
         
-        // Calculate the new limit
-        const newLimit = Math.min(currentLimit + appConfig.transactions.incrementSize, appConfig.transactions.maxLimit);
+        // Calculate the new limit with exact 25 increment
+        const newLimit = Math.min(currentLimit + 25, 100);
         
         // Update the current limit state - this will trigger the useEffect to notify parent
         setCurrentLimit(newLimit);
@@ -342,6 +448,9 @@ export const TransactionsList = observer(({
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
             Recent Transactions ({transactions.length})
+            {isAutoRefreshing && (
+              <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
+            )}
           </Text>
           {isRefreshing ? (
             <ActivityIndicator size="small" color="#E75A5C" />
@@ -362,16 +471,16 @@ export const TransactionsList = observer(({
             <View className="items-center justify-center py-4">
               {isLoadingMore ? (
                 <ActivityIndicator size="small" color="#E75A5C" />
-              ) : currentLimit >= appConfig.transactions.maxLimit ? (
+              ) : currentLimit >= 100 ? (
                 <Text className="text-text-muted text-sm py-2">
-                  Maximum of {appConfig.transactions.maxLimit} transactions reached (API limit)
+                  Maximum of 100 transactions reached
                 </Text>
               ) : (
                 <TouchableOpacity
                   onPress={handleLoadMore}
                   className="bg-secondary border border-primary rounded-lg py-2 px-4"
                 >
-                  <Text className="text-primary">Load More Transactions ({transactions.length} shown)</Text>
+                  <Text className="text-primary">Load More Transactions ({currentLimit} → {Math.min(currentLimit + 25, 100)})</Text>
                 </TouchableOpacity>
               )}
             </View>
