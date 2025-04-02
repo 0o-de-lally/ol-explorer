@@ -8,9 +8,6 @@ import '../utils/bufferPolyfill';
 // Import the SDK directly to avoid dynamic imports
 import * as LibraSDK from 'open-libra-sdk';
 
-// Constants - use environment variable if available, fall back to default
-const OPENLIBRA_RPC_URL = process.env.LIBRA_RPC_URL || 'https://rpc.openlibra.space:8080/v1';
-
 // Create a context for the SDK
 interface SdkContextType {
     sdk: BlockchainSDK | null;

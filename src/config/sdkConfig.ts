@@ -3,6 +3,9 @@
  * Contains all centralized settings for blockchain SDK interaction
  */
 
+// const RPC_URL = 'https://rpc.openlibra.space:8080/v1';
+const RPC_URL = 'https://testnet-rpc.openlibra.space:8081/v1';
+
 export interface SdkConfig {
     // RPC Connection Settings
     rpcUrl: string;
@@ -37,14 +40,14 @@ const getRpcUrl = (): string => {
     if (typeof process !== 'undefined' && process.env && process.env.LIBRA_RPC_URL) {
         return process.env.LIBRA_RPC_URL;
     }
-    
+
     // Check for Expo/React Native environment variables
     if (typeof global !== 'undefined' && global.process && global.process.env && global.process.env.EXPO_PUBLIC_RPC_URL) {
         return global.process.env.EXPO_PUBLIC_RPC_URL;
     }
-    
+
     // Default RPC URL
-    return 'https://rpc.openlibra.space:8080/v1';
+    return RPC_URL;
 };
 
 /**

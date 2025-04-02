@@ -283,17 +283,23 @@ ol-explorer/
 
 ### Web Deployment with Nginx
 
-1. Build the application:
+1. Set the appropriate RPC_URL in `src/config/sdkConfig.ts` for your target environment:
+   ```typescript
+   // In src/config/sdkConfig.ts
+   const RPC_URL = 'https://production-rpc.openlibra.space:8080/v1';
+   ```
+
+2. Build the application:
    ```bash
    npm run build
    ```
 
-2. Copy the build to your server:
+3. Copy the build to your server:
    ```bash
    scp -r web-build/* user@server:/var/www/ol-explorer/
    ```
 
-3. Configure Nginx:
+4. Configure Nginx:
    ```nginx
    server {
        listen 80;
@@ -308,7 +314,7 @@ ol-explorer/
    }
    ```
 
-4. Set up SSL with Certbot:
+5. Set up SSL with Certbot:
    ```bash
    sudo certbot --nginx -d explorer.openlibra.space
    ```
@@ -344,11 +350,21 @@ The project uses GitHub Actions for continuous integration and deployment. The w
 
 ### SDK Configuration
 
-Configure the Open Libra SDK in `src/config/sdkConfig.ts`:
+The main RPC URL is defined as a constant at the top of `src/config/sdkConfig.ts`:
+
+```typescript
+// Change this value to point to your preferred RPC endpoint
+const RPC_URL = 'https://testnet-rpc.openlibra.space:8081/v1';
+```
+
+When deploying, modify this constant to point to your preferred RPC endpoint. The application uses a centralized configuration approach, so this is the only place you need to change the RPC URL.
+
+The full SDK configuration is also in this file:
 
 ```typescript
 export default {
-  rpcUrl: 'https://rpc.openlibra.space:8080/v1',
+  // RPC URL is determined from environment variables or falls back to default
+  // See getRpcUrl() in sdkConfig.ts for the complete resolution logic
   // ... other SDK configuration options
 };
 ```
@@ -358,8 +374,31 @@ export default {
 For local development, create a `.env.local` file:
 
 ```
-EXPO_PUBLIC_RPC_URL=https://rpc.openlibra.space:8080/v1
+EXPO_PUBLIC_RPC_URL=https://your-rpc-endpoint.example/v1
 ```
+
+The application will use the environment variable if available, or fall back to the default configuration.
+
+### Running with Different Environments
+
+For different deployment environments, you can:
+
+1. **Development**: Use local environment variables
+   ```bash
+   EXPO_PUBLIC_RPC_URL=https://development-rpc.example/v1 npm run dev
+   ```
+
+2. **Staging**: Modify the RPC_URL constant or use build-time environment variables
+   ```bash
+   EXPO_PUBLIC_RPC_URL=https://staging-rpc.example/v1 npm run build
+   ```
+
+3. **Production**: For production deployments, directly edit the `RPC_URL` constant in `src/config/sdkConfig.ts` before building
+   ```typescript
+   const RPC_URL = 'https://production-rpc.openlibra.space:8080/v1';
+   ```
+
+This centralized approach ensures all components use the same RPC endpoint throughout the application.
 
 ## Troubleshooting
 

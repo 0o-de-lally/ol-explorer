@@ -14,6 +14,7 @@ import { formatTimestamp } from '../src/utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../src/utils/addressUtils';
 import { router } from 'expo-router';
 import { useForceUpdate } from '../src/hooks/useForceUpdate';
+import sdkConfig from '../src/config/sdkConfig';
 
 // Define Transaction and TransactionDetail types for type safety
 interface Transaction {
@@ -61,7 +62,7 @@ const TestAccountTransactionsPage = observer(() => {
   const [usingFallbackMethod, setUsingFallbackMethod] = useState<boolean>(false);
   const { width } = useWindowDimensions();
   const updateCounter = useForceUpdate();
-  
+
   // Check if we should use mobile layout
   const isMobile = width < 768;
 
@@ -79,33 +80,33 @@ const TestAccountTransactionsPage = observer(() => {
     setIsLoading(true);
     setError(null);
     setUsingFallbackMethod(false);
-    
+
     try {
       // Normalize address format
       const normalizedAddress = address.startsWith('0x') ? address : `0x${address}`;
       const addressWithoutPrefix = normalizedAddress.replace('0x', '');
-      
+
       // Calculate limit
       const limitNum = parseInt(limit) || 25;
 
       try {
         // Try using the REST API endpoint first
-        const restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${addressWithoutPrefix}/transactions?limit=${limitNum}`;
-        
+        const restUrl = `${sdkConfig.rpcUrl}/accounts/${addressWithoutPrefix}/transactions?limit=${limitNum}`;
+
         console.log(`Fetching from REST endpoint: ${restUrl}`);
         const response = await fetch(restUrl);
-        
+
         if (!response.ok) {
           throw new Error(`REST API responded with status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Check if we got valid transactions data
         if (Array.isArray(data)) {
           console.log(`Found ${data.length} transactions for account ${normalizedAddress} via REST API`);
           setTransactions(data);
-          
+
           if (data.length === 0) {
             setError('No transactions found for this account');
           }
@@ -117,19 +118,19 @@ const TestAccountTransactionsPage = observer(() => {
         console.error('Error using REST API:', restError);
         console.log('Falling back to SDK method');
         setUsingFallbackMethod(true);
-        
+
         // Get all transactions and filter client-side
         const allTxs = await sdk.getTransactions(limitNum * 2, true);
-        
+
         // Filter transactions where the sender matches our address
-        const filteredTxs = allTxs.filter(tx => 
-          tx.sender && 
+        const filteredTxs = allTxs.filter(tx =>
+          tx.sender &&
           tx.sender.toLowerCase() === normalizedAddress.toLowerCase()
         ).slice(0, limitNum); // Apply the limit after filtering
-        
+
         console.log(`Found ${filteredTxs.length} transactions for account ${normalizedAddress} via SDK filtering`);
         setTransactions(filteredTxs as unknown as TransactionDetail[]);
-        
+
         if (filteredTxs.length === 0) {
           setError('No transactions found for this account');
         }
@@ -147,7 +148,7 @@ const TestAccountTransactionsPage = observer(() => {
   const handleTransactionPress = (tx: TransactionDetail) => {
     // Handle different transaction formats (direct RPC vs SDK)
     const hash = tx.hash || tx.transaction?.hash || '';
-    
+
     // Normalize the hash using our utility function
     const normalizedHash = normalizeTransactionHash(hash);
 
@@ -170,7 +171,7 @@ const TestAccountTransactionsPage = observer(() => {
   // Get display text for the hash
   const getSenderDisplay = (tx: TransactionDetail) => {
     // Get hash based on the format of the transaction data
-    const hash = usingFallbackMethod 
+    const hash = usingFallbackMethod
       ? tx.hash // SDK format
       : tx.transaction?.hash || tx.hash || ''; // REST API format or fallback to hash
     return formatHash(hash);
@@ -184,10 +185,10 @@ const TestAccountTransactionsPage = observer(() => {
   // Determine function label based on transaction type
   const getFunctionLabel = (tx: TransactionDetail) => {
     // Get type based on the format of the transaction data
-    const type = usingFallbackMethod 
+    const type = usingFallbackMethod
       ? tx.type // SDK format
       : tx.transaction?.type || tx.type || ''; // REST API format
-    
+
     // Remove "_transaction" suffix if present
     if (type.endsWith('_transaction')) {
       return type.replace('_transaction', '');
@@ -208,10 +209,10 @@ const TestAccountTransactionsPage = observer(() => {
   // Get color for function pill based on function type
   const getFunctionPillColor = (tx: TransactionDetail) => {
     // Get type based on the format of the transaction data
-    const type = usingFallbackMethod 
+    const type = usingFallbackMethod
       ? tx.type // SDK format
       : tx.transaction?.type || tx.type || ''; // REST API format
-    
+
     // Map function types to pastel colors
     if (type.includes('state_checkpoint')) return 'bg-[#FFECEC] text-[#A73737]';
     if (type.includes('block_metadata')) return 'bg-[#E6F7FF] text-[#0072C6]';
@@ -251,19 +252,19 @@ const TestAccountTransactionsPage = observer(() => {
   const renderTransactionItem = (tx: TransactionDetail, index: number) => {
     const functionLabel = getFunctionLabel(tx);
     const functionPillColor = getFunctionPillColor(tx);
-    
+
     // Get transaction data based on the format (SDK vs REST API)
-    const version = usingFallbackMethod 
+    const version = usingFallbackMethod
       ? tx.version // SDK format
       : tx.version || 0; // REST API format
-      
-    const timestamp = usingFallbackMethod 
+
+    const timestamp = usingFallbackMethod
       ? tx.timestamp // SDK format
-      : (tx.transaction?.expiration_timestamp_secs ? tx.transaction.expiration_timestamp_secs * 1000 : null) || 
-        tx.timestamp || 
-        Date.now(); // Try different timestamp sources
-      
-    const sender = usingFallbackMethod 
+      : (tx.transaction?.expiration_timestamp_secs ? tx.transaction.expiration_timestamp_secs * 1000 : null) ||
+      tx.timestamp ||
+      Date.now(); // Try different timestamp sources
+
+    const sender = usingFallbackMethod
       ? tx.sender // SDK format
       : tx.transaction?.sender || tx.sender || ''; // REST API format
 
@@ -325,13 +326,13 @@ const TestAccountTransactionsPage = observer(() => {
       <View className="mx-auto w-full max-w-screen-lg px-4 my-5">
         <View className="bg-secondary rounded-lg p-4 mb-4">
           <Text className="text-lg text-white font-bold mb-4">Account Transactions</Text>
-          
+
           {isUsingMockData && (
             <View className="bg-yellow-800 p-3 rounded-md mb-4">
               <Text className="text-white">Using mock data. This feature may not work correctly in mock mode.</Text>
             </View>
           )}
-          
+
           <View className="mb-4">
             <Text className="text-white mb-2">Account Address:</Text>
             <TextInput
@@ -342,7 +343,7 @@ const TestAccountTransactionsPage = observer(() => {
               onChangeText={setAddress}
             />
           </View>
-          
+
           <View className="mb-4">
             <Text className="text-white mb-2">Limit (max transactions):</Text>
             <TextInput
@@ -354,7 +355,7 @@ const TestAccountTransactionsPage = observer(() => {
               keyboardType="numeric"
             />
           </View>
-          
+
           <TouchableOpacity
             className="bg-primary p-3 rounded-md"
             onPress={fetchAccountTransactions}
@@ -364,21 +365,21 @@ const TestAccountTransactionsPage = observer(() => {
               {isLoading ? 'Loading...' : 'Get Account Transactions'}
             </Text>
           </TouchableOpacity>
-          
+
           {error && (
             <View className="bg-red-900 p-3 rounded-md mt-4">
               <Text className="text-white">{error}</Text>
             </View>
           )}
         </View>
-        
+
         {isLoading && (
           <View className="bg-secondary rounded-lg p-8 flex items-center justify-center">
             <ActivityIndicator size="large" color="#E75A5C" />
             <Text className="mt-4 text-base text-white">Loading transactions...</Text>
           </View>
         )}
-        
+
         {!isLoading && transactions.length > 0 && (
           <View className="bg-secondary rounded-lg overflow-hidden">
             <View className="h-1 bg-white/10" />
@@ -390,9 +391,9 @@ const TestAccountTransactionsPage = observer(() => {
                 )}
               </Text>
             </View>
-            
+
             {renderTableHeader()}
-            
+
             <View className="w-full">
               {transactions.map((tx, index) => renderTransactionItem(tx, index))}
             </View>

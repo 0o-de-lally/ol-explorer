@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BlockchainSDK, LedgerInfo } from '../types/blockchain';
 import { useSdkContext } from '../context/SdkContext';
 import { normalizeAddress } from '../utils/addressUtils';
+import sdkConfig from '../config/sdkConfig';
 
 /**
  * Hook for accessing the SDK instance.
@@ -24,62 +25,62 @@ export const useSdk = (): BlockchainSDK & {
 
   // Extension function to get account transactions
   const ext_getAccountTransactions = async (
-    address: string, 
-    limit: number = 25, 
+    address: string,
+    limit: number = 25,
     start?: string
   ): Promise<any[]> => {
     console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}, start: ${start || 'none'}`);
-    
+
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get account transactions');
       return [];
     }
-    
+
     try {
       // Normalize the address for consistency
       const normalizedAddress = normalizeAddress(address);
-      
+
       // Build the REST API endpoint URL with pagination parameters
-      let restUrl = `https://rpc.openlibra.space:8080/v1/accounts/${normalizedAddress}/transactions?limit=${limit}`;
+      let restUrl = `${sdkConfig.rpcUrl}/accounts/${normalizedAddress}/transactions?limit=${limit}`;
       if (start) {
         restUrl += `&start=${start}`;
       }
       console.log(`Fetching from REST endpoint: ${restUrl}`);
-      
+
       const response = await fetch(restUrl);
-      
+
       if (!response.ok) {
         throw new Error(`REST API responded with status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Check if we got valid transactions data
       if (Array.isArray(data)) {
         console.log(`Found ${data.length} transactions for account ${normalizedAddress}`);
         return data;
       }
-      
+
       console.warn('Unexpected response format from REST API');
       return [];
     } catch (error) {
       console.error('Error fetching account transactions:', error);
-      
+
       // Fall back to SDK filtering method if REST API fails
       console.log('Falling back to client-side filtering approach');
-      
+
       try {
         // Note: This fallback method doesn't support proper pagination
         // For a production app, we might want to implement more sophisticated fallback
         const allTxs = await sdk.getTransactions(limit * 2, true);
-        
+
         // Filter transactions where the sender matches our address
         const normalizedAddress = normalizeAddress(address);
-        const filteredTxs = allTxs.filter(tx => 
-          tx.sender && 
+        const filteredTxs = allTxs.filter(tx =>
+          tx.sender &&
           tx.sender.toLowerCase() === normalizedAddress.toLowerCase()
         ).slice(0, limit);
-        
+
         console.log(`Found ${filteredTxs.length} transactions for account ${normalizedAddress} via filtering`);
         return filteredTxs;
       } catch (sdkError) {

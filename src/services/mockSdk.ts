@@ -1,10 +1,11 @@
 import { Transaction, TransactionDetail, Account, TransactionEvent, StateChange } from '../types/blockchain';
+import sdkConfig from '../config/sdkConfig';
 
 // Mock transaction data
 const generateMockTransactions = (count: number): Transaction[] => {
   const transactions: Transaction[] = [];
   const now = Date.now();
-  
+
   for (let i = 0; i < count; i++) {
     const tx: Transaction = {
       hash: `0x${Math.random().toString(16).substring(2, 42)}`,
@@ -26,14 +27,14 @@ const generateMockTransactions = (count: number): Transaction[] => {
     };
     transactions.push(tx);
   }
-  
+
   return transactions;
 };
 
 // Mock transaction events
 const generateMockEvents = (count: number): TransactionEvent[] => {
   const events: TransactionEvent[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     events.push({
       type: `0x1::coin::DepositEvent`,
@@ -43,14 +44,14 @@ const generateMockEvents = (count: number): TransactionEvent[] => {
       }
     });
   }
-  
+
   return events;
 };
 
 // Mock state changes
 const generateMockStateChanges = (count: number): StateChange[] => {
   const changes: StateChange[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     changes.push({
       type: 'write_resource',
@@ -62,7 +63,7 @@ const generateMockStateChanges = (count: number): StateChange[] => {
       }
     });
   }
-  
+
   return changes;
 };
 
@@ -113,19 +114,19 @@ export class MockLibraClient {
   private _chainId: string;
   private _nodeUrl: string;
   private _network: string;
-  
+
   // Match the real SDK's constructor pattern
   constructor(network = 'mainnet', nodeUrl?: string) {
     this._network = network;
-    this._nodeUrl = nodeUrl || 'https://rpc.openlibra.space:8080/v1';
+    this._nodeUrl = nodeUrl || 'http://mock-rpc-endpoint.example';
     this._transactions = generateMockTransactions(50);
     this._blockHeight = 500000;
     this._epoch = 20;
     this._chainId = network === 'mainnet' ? '1' : 'testnet';
-    
+
     console.log(`Mock client initialized with network: ${network}, endpoint: ${this._nodeUrl}`);
   }
-  
+
   // API methods that mimic the real SDK
   async getLedgerInfo() {
     return {
@@ -140,17 +141,17 @@ export class MockLibraClient {
       git_hash: "416d1ca75fa07ca82e75ffe02ef276e066e3f14a"
     };
   }
-  
+
   async getTransactions({ limit = 25 }) {
     // Return the transactions directly in the format expected by our SDK wrapper
     return this._transactions.slice(0, limit);
   }
-  
+
   async getTransactionByHash(hash: string) {
     const tx = this._transactions.find(t => t.hash === hash);
-    
+
     if (!tx) return null;
-    
+
     // Return a detailed version of the transaction
     return {
       ...tx,
@@ -174,7 +175,7 @@ export class MockLibraClient {
       }
     };
   }
-  
+
   async getAccount(address: string) {
     // Basic account info
     return {
@@ -182,7 +183,7 @@ export class MockLibraClient {
       authentication_key: address
     };
   }
-  
+
   async getAccountResources(address: string) {
     return generateMockResources();
   }
@@ -190,7 +191,8 @@ export class MockLibraClient {
 
 // Factory function to create a mock client
 export const createMockLibraClient = () => {
-  const NETWORK = 'mainnet';
-  const OPENLIBRA_RPC_URL = 'https://rpc.openlibra.space:8080/v1';
-  return new MockLibraClient(NETWORK, OPENLIBRA_RPC_URL);
+  const NETWORK = sdkConfig.network;
+  // Use a mock URL to avoid real API calls in tests
+  const MOCK_RPC_URL = 'http://mock-rpc-endpoint.example';
+  return new MockLibraClient(NETWORK, MOCK_RPC_URL);
 }; 
