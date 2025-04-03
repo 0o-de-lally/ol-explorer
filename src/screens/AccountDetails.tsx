@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus, ScrollViewProps, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions } from 'react-native';
 import { AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { navigate } from '../navigation/navigationUtils';
@@ -11,6 +11,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AccountTransactionsList } from '../components/AccountTransactionsList';
 import appConfig from '../config/appConfig';
 import { useIsFocused } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ExtendedAccountData } from '../store/accountStore';
+import { Container, Row, Column, Card, TwoColumn } from '../components';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -191,6 +194,26 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
 // Add auto-refresh interval constant to match TransactionsList
 const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds for auto-refresh
 
+// Fix instances where resources.get() is used to extract raw resources
+// This function properly extracts resources in multiple ways
+const extractResources = (accountData: any): any[] => {
+  if (!accountData) return [];
+
+  if (!accountData.resources) return [];
+
+  // If resources is an array, return it directly
+  if (Array.isArray(accountData.resources)) {
+    return accountData.resources;
+  }
+
+  // If resources is an object, convert to array
+  if (typeof accountData.resources === 'object' && accountData.resources !== null) {
+    return Object.values(accountData.resources);
+  }
+
+  return [];
+};
+
 export const AccountDetailsScreen = observer(({ route, address: propAddress }: AccountDetailsScreenProps) => {
   const params = useLocalSearchParams();
   const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
@@ -199,13 +222,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const resourceParam = route?.params?.resource || params?.resource as string | undefined;
 
   // Use our custom hook to get account data
-  const { account: accountData, isLoading, error, refresh: refreshAccount, isStale } = useAccount(addressFromParams);
+  const { account: accountData, extendedData, isLoading, error, refresh: refreshAccount, isStale } = useAccount(addressFromParams);
 
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const appState = useRef(AppState.currentState);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   // Data loaded tracking
   const dataLoadedRef = useRef(false);
@@ -244,21 +269,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     if (!accountData) return [];
 
     // Extract raw account data
-    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+    const rawAccount = accountData;
     if (!rawAccount) return [];
 
     // Extract resources array
     let resourcesArray = [];
     if (rawAccount.resources) {
-      const rawResources = typeof rawAccount.resources?.get === 'function'
-        ? rawAccount.resources.get()
-        : rawAccount.resources;
-
-      if (Array.isArray(rawResources)) {
-        resourcesArray = rawResources;
-      } else if (typeof rawResources === 'object' && rawResources !== null) {
-        resourcesArray = Object.values(rawResources);
-      }
+      resourcesArray = extractResources(rawAccount);
     }
 
     if (!resourcesArray.length) {
@@ -346,26 +363,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     }
   }, [resourceTypes, resourceParam, dataLoadedRef.current]);
 
-  // Handle resource type selection and URL updates
-  const handleResourceTypeChange = (resourceType: string) => {
-    console.log(`Changing resource type to: ${resourceType}`);
-
-    // Set active resource type
-    setActiveResourceType(resourceType);
-
-    // Update URL path using Expo Router
-    if (addressFromParams) {
-      const slug = resourceTypeToSlug(resourceType);
-      const newPath = `/account/${addressFromParams}/${slug}`;
-      console.log(`Navigating to: ${newPath}`);
-
-      // Use router.replace to update URL without navigation animation
-      router.replace(newPath);
-    }
-  };
-
   // Refs for scrolling
-  const scrollViewRef = useRef(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
   // Set isMounted ref on mount/unmount
   useEffect(() => {
@@ -486,22 +486,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     if (!activeResourceType || !accountData) return [];
 
     // Extract raw account data
-    const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+    const rawAccount = accountData;
     if (!rawAccount) return [];
 
     // Extract resources array
     let resourcesArray = [];
-
     if (rawAccount.resources) {
-      const rawResources = typeof rawAccount.resources?.get === 'function'
-        ? rawAccount.resources.get()
-        : rawAccount.resources;
-
-      if (Array.isArray(rawResources)) {
-        resourcesArray = rawResources;
-      } else if (typeof rawResources === 'object' && rawResources !== null) {
-        resourcesArray = Object.values(rawResources);
-      }
+      resourcesArray = extractResources(rawAccount);
     }
 
     // Filter resources by active type
@@ -513,6 +504,16 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       return typeStr.includes(activeResourceType);
     });
   }, [accountData, activeResourceType]);
+
+  // Handle resource type selection - only update state without URL changes
+  const handleResourceTypeChange = (resourceType: string) => {
+    console.log(`Changing resource type to: ${resourceType}`);
+
+    // Simply update the state without changing the URL
+    setActiveResourceType(resourceType);
+
+    // No router navigation - preventing scroll reset
+  };
 
   const handleBackPress = () => {
     navigate('Home');
@@ -638,10 +639,12 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   if (isLoading && !accountData) {
     return (
       <View className="bg-background flex-1">
-        <View className="items-center justify-center p-16">
-          <ActivityIndicator size="large" color="#E75A5C" />
-          <Text className="mt-4 text-white text-lg text-center">Loading account details...</Text>
-        </View>
+        <Container>
+          <View className="items-center justify-center p-16">
+            <ActivityIndicator size="large" color="#E75A5C" />
+            <Text className="mt-4 text-white text-lg text-center">Loading account details...</Text>
+          </View>
+        </Container>
       </View>
     );
   }
@@ -649,28 +652,30 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   if (error && !accountData) {
     return (
       <View className="bg-background flex-1">
-        <View className="items-center justify-center p-16">
-          <Text className="text-primary text-2xl font-bold mb-4">Error Loading Account</Text>
-          <Text className="text-white text-base text-center mb-6">{error}</Text>
-          <TouchableOpacity
-            className="bg-primary rounded-lg py-3 px-6 mb-4"
-            onPress={() => {
-              console.log('Debug refresh triggered');
-              setIsAutoRefreshing(true);
-              refreshAccount()
-                .then(() => console.log('Debug refresh completed'))
-                .catch(err => console.error('Debug refresh error:', err))
-                .finally(() => {
-                  setTimeout(() => setIsAutoRefreshing(false), 500);
-                });
-            }}
-          >
-            <Text className="text-white font-bold text-base">Retry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity className="mt-2" onPress={handleBackPress}>
-            <Text className="text-primary text-base font-bold">← Back</Text>
-          </TouchableOpacity>
-        </View>
+        <Container>
+          <Column alignItems="center" justifyContent="center" className="p-16">
+            <Text className="text-primary text-2xl font-bold mb-4">Error Loading Account</Text>
+            <Text className="text-white text-base text-center mb-6">{error}</Text>
+            <TouchableOpacity
+              className="bg-primary rounded-lg py-3 px-6 mb-4"
+              onPress={() => {
+                console.log('Debug refresh triggered');
+                setIsAutoRefreshing(true);
+                refreshAccount()
+                  .then(() => console.log('Debug refresh completed'))
+                  .catch(err => console.error('Debug refresh error:', err))
+                  .finally(() => {
+                    setTimeout(() => setIsAutoRefreshing(false), 500);
+                  });
+              }}
+            >
+              <Text className="text-white font-bold text-base">Retry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="mt-2" onPress={handleBackPress}>
+              <Text className="text-primary text-base font-bold">← Back</Text>
+            </TouchableOpacity>
+          </Column>
+        </Container>
       </View>
     );
   }
@@ -678,12 +683,14 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   if (!accountData) {
     return (
       <View className="bg-background flex-1">
-        <View className="items-center justify-center p-16">
-          <Text className="text-primary text-2xl font-bold mb-4">Account Not Found</Text>
-          <TouchableOpacity className="mt-2" onPress={handleBackPress}>
-            <Text className="text-primary text-base font-bold">← Back</Text>
-          </TouchableOpacity>
-        </View>
+        <Container>
+          <Column alignItems="center" justifyContent="center" className="p-16">
+            <Text className="text-primary text-2xl font-bold mb-4">Account Not Found</Text>
+            <TouchableOpacity className="mt-2" onPress={handleBackPress}>
+              <Text className="text-primary text-base font-bold">← Back</Text>
+            </TouchableOpacity>
+          </Column>
+        </Container>
       </View>
     );
   }
@@ -693,9 +700,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       <ScrollView
         ref={scrollViewRef}
         scrollEventThrottle={16}
+        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = event.nativeEvent.contentOffset.y;
+          setScrollPosition(y);
+        }}
       >
-        <View className="mx-auto w-full max-w-screen-lg px-4 py-4">
-          <View className="flex-row items-center mb-5 flex-wrap">
+        <Container>
+          <Row alignItems="center" className="mb-5 flex-wrap">
             <TouchableOpacity
               className="mr-4 mb-2"
               onPress={handleBackPress}
@@ -705,10 +716,11 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             <Text className="text-white text-2xl font-bold flex-1 flex-wrap">
               Account Details
             </Text>
-          </View>
+          </Row>
 
-          <View className="bg-secondary rounded-lg p-4 mb-4">
-            <View className="flex-row justify-between items-center mb-3">
+          <Card className="mb-4">
+            {/* Account Address section */}
+            <Row justifyContent="between" alignItems="center" className="mb-3">
               <Text className="text-text-light text-base font-bold">Account Address</Text>
               <View className="w-8 h-8 justify-center items-center">
                 {(isLoading && !accountData) ? (
@@ -724,9 +736,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
+            </Row>
 
-            <View className="flex-row items-center mb-4">
+            <Row alignItems="center" className="mb-4">
               <View className="bg-background rounded px-3 py-2 flex-1">
                 <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.address, '')}</Text>
               </View>
@@ -741,101 +753,311 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   <Text className="text-white text-xs">{copySuccess}</Text>
                 </View>
               )}
-            </View>
+            </Row>
 
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-text-light text-base font-bold">Balance</Text>
-            </View>
+            {/* Main content with responsive layout */}
+            <TwoColumn
+              leftWidth="w-1/2"
+              rightWidth="w-1/2"
+              stackOnMobile={true}
+            >
+              {/* Left Column - Basic Account Info */}
+              <Column>
+                <Row justifyContent="between" alignItems="center" className="mb-3">
+                  <Text className="text-text-light text-base font-bold">Balance</Text>
+                </Row>
 
-            <View className="bg-background rounded px-3 py-2 mb-4">
-              <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} LIBRA</Text>
-            </View>
+                <View className="bg-background rounded px-3 py-2 mb-4">
+                  <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} LIBRA</Text>
+                </View>
 
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-text-light text-base font-bold">Unlocked Balance</Text>
-            </View>
+                <Row justifyContent="between" alignItems="center" className="mb-3">
+                  <Text className="text-text-light text-base font-bold">Unlocked Balance</Text>
+                </Row>
 
-            <View className="bg-background rounded px-3 py-2 mb-4">
-              <Text className="text-text-light font-mono text-sm">
-                {(() => {
-                  // Get resources directly using our helper
-                  const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
-                  if (!rawAccount?.resources) return '0';
+                <View className="bg-background rounded px-3 py-2 mb-4">
+                  <Text className="text-text-light font-mono text-sm">
+                    {(() => {
+                      // Get resources directly using our helper
+                      const rawAccount = accountData;
+                      if (!rawAccount?.resources) return '0';
 
-                  // Extract resources array
-                  let resourcesArray = [];
-                  if (rawAccount.resources) {
-                    const rawResources = typeof rawAccount.resources?.get === 'function'
-                      ? rawAccount.resources.get()
-                      : rawAccount.resources;
+                      // Extract resources array
+                      let resourcesArray = [];
+                      if (rawAccount.resources) {
+                        resourcesArray = extractResources(rawAccount);
+                      }
 
-                    if (Array.isArray(rawResources)) {
-                      resourcesArray = rawResources;
-                    } else if (typeof rawResources === 'object' && rawResources !== null) {
-                      resourcesArray = Object.values(rawResources);
-                    }
-                  }
+                      // Find SlowWallet resource
+                      const slowWallet = resourcesArray.find(resource =>
+                        resource?.type === '0x1::slow_wallet::SlowWallet'
+                      );
 
-                  // Find SlowWallet resource
-                  const slowWallet = resourcesArray.find(resource =>
-                    resource?.type === '0x1::slow_wallet::SlowWallet'
-                  );
+                      if (slowWallet?.data?.unlocked) {
+                        // Calculate whole and fractional parts based on LIBRA_DECIMALS
+                        const balance = Number(slowWallet.data.unlocked);
+                        const divisor = Math.pow(10, LIBRA_DECIMALS);
+                        const wholePart = Math.floor(balance / divisor);
+                        const fractionalPart = balance % divisor;
 
-                  if (slowWallet?.data?.unlocked) {
-                    // Calculate whole and fractional parts based on LIBRA_DECIMALS
-                    const balance = Number(slowWallet.data.unlocked);
-                    const divisor = Math.pow(10, LIBRA_DECIMALS);
-                    const wholePart = Math.floor(balance / divisor);
-                    const fractionalPart = balance % divisor;
+                        // Format with proper decimal places
+                        const wholePartFormatted = wholePart.toLocaleString();
 
-                    // Format with proper decimal places
-                    const wholePartFormatted = wholePart.toLocaleString();
+                        // Convert fractional part to string with proper padding
+                        const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
 
-                    // Convert fractional part to string with proper padding
-                    const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
+                        // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
+                        const trimmedFractional = fractionalPart > 0
+                          ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
+                          : '00';
 
-                    // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
-                    const trimmedFractional = fractionalPart > 0
-                      ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
-                      : '00';
+                        // Only show decimal part if it's non-zero
+                        const formattedBalance = trimmedFractional === '00'
+                          ? wholePartFormatted
+                          : `${wholePartFormatted}.${trimmedFractional}`;
 
-                    // Only show decimal part if it's non-zero
-                    const formattedBalance = trimmedFractional === '00'
-                      ? wholePartFormatted
-                      : `${wholePartFormatted}.${trimmedFractional}`;
+                        return `${formattedBalance} LIBRA`;
+                      }
+                      return '0 LIBRA';
+                    })()}
+                  </Text>
+                </View>
 
-                    return `${formattedBalance} LIBRA`;
-                  }
-                  return '0 LIBRA';
-                })()}
-              </Text>
-            </View>
+                <Row justifyContent="between" alignItems="center" className="mb-1">
+                  <Text className="text-text-light text-base font-bold">Sequence Number</Text>
+                </Row>
 
-            <View className="flex-row justify-between items-center mb-1">
-              <Text className="text-text-light text-base font-bold">Sequence Number</Text>
-            </View>
+                <View className="bg-background rounded px-3 py-2">
+                  <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.sequence_number, 0)}</Text>
+                </View>
+              </Column>
 
-            <View className="bg-background rounded px-3 py-2">
-              <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.sequence_number, 0)}</Text>
-            </View>
-          </View>
+              {/* Right Column - Status Information */}
+              <Column>
+                {getObservableValue(extendedData, null) && (
+                  <>
+                    <View className="border-t border-border my-4 md:hidden" />
 
+                    <Row justifyContent="between" alignItems="center" className="mb-3">
+                      <Text className="text-text-light text-base font-bold">Community Wallet Status</Text>
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#E75A5C" />
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => {
+                            console.log('Refreshing community wallet status');
+                            refreshAccount();
+                          }}
+                          className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                        >
+                          <MaterialIcons name="refresh" size={14} color="white" />
+                        </TouchableOpacity>
+                      )}
+                    </Row>
+                    <View className="bg-background rounded px-3 py-3 mb-4">
+                      <Row alignItems="center" className="mb-2">
+                        <Text className="text-text-light text-sm mr-2">Community Wallet:</Text>
+                        {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) ? (
+                          <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                            <Text className="text-white text-xs">Yes</Text>
+                          </View>
+                        ) : (
+                          <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                            <Text className="text-gray-300 text-xs">No</Text>
+                          </View>
+                        )}
+                        <View className="ml-2">
+                          <TouchableOpacity
+                            onPress={() => {
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice::is_donor_voice")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            }}
+                            className="rounded-md px-2 py-0.5 bg-blue-800"
+                          >
+                            <Text className="text-white text-xs">View</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Row>
+
+                      {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) && (
+                        <>
+                          <Row alignItems="center" className="mb-2">
+                            <Text className="text-text-light text-sm mr-2">Reauthorization Proposed:</Text>
+                            {getObservableValue(extendedData?.communityWallet?.isReauthProposed, false) ? (
+                              <View className="bg-blue-800 px-2 py-0.5 rounded-md">
+                                <Text className="text-white text-xs">Pending</Text>
+                              </View>
+                            ) : (
+                              <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                                <Text className="text-gray-300 text-xs">None</Text>
+                              </View>
+                            )}
+                            <View className="ml-2">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::is_reauth_proposed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                }}
+                                className="rounded-md px-2 py-0.5 bg-blue-800"
+                              >
+                                <Text className="text-white text-xs">View</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </Row>
+
+                          <Row alignItems="center">
+                            <Text className="text-text-light text-sm mr-2">Authorization Status:</Text>
+                            {getObservableValue(extendedData?.communityWallet?.isAuthorized, false) ? (
+                              <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                                <Text className="text-white text-xs">Authorized</Text>
+                              </View>
+                            ) : (
+                              <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                                <Text className="text-white text-xs">Not Authorized</Text>
+                              </View>
+                            )}
+                            <View className="ml-2">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_authorized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                }}
+                                className="rounded-md px-2 py-0.5 bg-blue-800"
+                              >
+                                <Text className="text-white text-xs">View</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </Row>
+                        </>
+                      )}
+                    </View>
+
+                    {/* Founder Status Section */}
+                    <Row justifyContent="between" alignItems="center" className="mb-3">
+                      <Text className="text-text-light text-base font-bold">Founder Status</Text>
+                    </Row>
+                    <View className="bg-background rounded px-3 py-3 mb-4">
+                      <Row alignItems="center" className="mb-2">
+                        <Text className="text-text-light text-sm mr-2">Founder:</Text>
+                        {getObservableValue(extendedData?.founder?.isFounder, false) ? (
+                          <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                            <Text className="text-white text-xs">Yes</Text>
+                          </View>
+                        ) : (
+                          <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                            <Text className="text-gray-300 text-xs">No</Text>
+                          </View>
+                        )}
+                        <View className="ml-2">
+                          <TouchableOpacity
+                            onPress={() => {
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_founder")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            }}
+                            className="rounded-md px-2 py-0.5 bg-blue-800"
+                          >
+                            <Text className="text-white text-xs">View</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Row>
+
+                      {getObservableValue(extendedData?.founder?.isFounder, false) && (
+                        <Row alignItems="center">
+                          <Text className="text-text-light text-sm mr-2">Has Human Friends:</Text>
+                          {getObservableValue(extendedData?.founder?.hasFriends, false) ? (
+                            <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Yes</Text>
+                            </View>
+                          ) : (
+                            <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">No</Text>
+                            </View>
+                          )}
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::has_friends")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+                      )}
+                    </View>
+
+                    {/* Vouch Score Section */}
+                    <Row justifyContent="between" alignItems="center" className="mb-3">
+                      <Text className="text-text-light text-base font-bold">Vouch Score</Text>
+                    </Row>
+                    <View className="bg-background rounded px-3 py-3">
+                      <Row alignItems="center" className="mb-2">
+                        <Text className="text-text-light text-sm mr-2">Score:</Text>
+                        <Text className="text-white font-mono text-sm">{getObservableValue(extendedData?.vouching?.vouchScore, 0)}</Text>
+                        <View className="ml-2">
+                          <TouchableOpacity
+                            onPress={() => {
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::vouch_score::evaluate_users_vouchers")}&initialArgs=${encodeURIComponent(`["0x1"], "${getObservableValue(accountData.address, '')}"`)}`)
+                            }}
+                            className="rounded-md px-2 py-0.5 bg-blue-800"
+                          >
+                            <Text className="text-white text-xs">View</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Row>
+
+                      <Row alignItems="center">
+                        <Text className="text-text-light text-sm mr-2">Valid for Reactivation:</Text>
+                        {getObservableValue(extendedData?.vouching?.hasValidVouchScore, false) ? (
+                          <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                            <Text className="text-white text-xs">Yes</Text>
+                          </View>
+                        ) : (
+                          <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                            <Text className="text-white text-xs">No</Text>
+                          </View>
+                        )}
+                        <View className="ml-2">
+                          <TouchableOpacity
+                            onPress={() => {
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_voucher_score_valid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            }}
+                            className="rounded-md px-2 py-0.5 bg-blue-800"
+                          >
+                            <Text className="text-white text-xs">View</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Row>
+
+                      {/* Vouch Score Progress Bar */}
+                      <View className="mt-3">
+                        <View className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                          <View
+                            className="h-full bg-primary rounded-full"
+                            style={{
+                              width: `${Math.min(100, (getObservableValue(extendedData?.vouching?.vouchScore, 0) / 3) * 100)}%`
+                            }}
+                          />
+                        </View>
+                        <View className="flex-row justify-between mt-1">
+                          <Text className="text-gray-500 text-xs">0</Text>
+                          <Text className="text-gray-500 text-xs">Threshold: 2</Text>
+                          <Text className="text-gray-500 text-xs">3+</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </Column>
+            </TwoColumn>
+          </Card>
+
+          {/* Resources Section */}
           {(() => {
             // Get resources directly using our helper regardless of any previous state
-            const rawAccount = typeof accountData?.get === 'function' ? accountData.get() : accountData;
+            const rawAccount = accountData;
 
             // Try multiple ways to access resources
             let resources = [];
             if (rawAccount?.resources) {
-              const rawResources = typeof rawAccount.resources?.get === 'function'
-                ? rawAccount.resources.get()
-                : rawAccount.resources;
-
-              if (Array.isArray(rawResources)) {
-                resources = rawResources;
-              } else if (typeof rawResources === 'object') {
-                resources = Object.values(rawResources);
-              }
+              resources = extractResources(rawAccount);
             }
 
             // If resources are still empty, use the hardcoded JSON example as fallback
@@ -900,122 +1122,133 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             );
 
             return (
-              <View className="bg-secondary rounded-lg p-4 mb-4">
-                <View className="flex-row justify-between items-center mb-3">
+              <Card className="mb-4">
+                <Row justifyContent="between" alignItems="center" className="mb-3">
                   <Text className="text-text-light text-lg font-bold">
                     Resources ({resources.length})
                   </Text>
                   <Text className="text-gray-500 text-sm">{filteredResources.length} resources of this type</Text>
-                </View>
+                </Row>
 
-                {/* Resource Type Navigation */}
-                <View className="mb-6">
-                  {Object.entries(categorizeResourceTypes(typesList as string[])).map(([category, categoryTypes]) => (
-                    <View key={category} className="mb-4">
-                      {/* Category Header with Background */}
-                      <View className="mb-2 bg-secondary/40 py-1.5 px-2 rounded-md">
-                        <Text className="text-white text-sm font-bold uppercase">{category}</Text>
-                      </View>
+                {/* Resource Type Navigation and Content with responsive layout */}
+                <TwoColumn
+                  leftWidth="w-1/4"
+                  rightWidth="w-3/4"
+                  stackOnMobile={true}
+                >
+                  {/* Left Side - Resource Categories */}
+                  <Column>
+                    {Object.entries(categorizeResourceTypes(typesList as string[])).map(([category, categoryTypes]) => (
+                      <View key={category} className="mb-4">
+                        {/* Category Header with Background */}
+                        <View className="mb-2 bg-secondary/40 py-1.5 px-2 rounded-md">
+                          <Text className="text-white text-sm font-bold uppercase">{category}</Text>
+                        </View>
 
-                      {/* Resource Type Buttons - Using grid layout with proper typing */}
-                      <View className="flex-row flex-wrap">
-                        {(categoryTypes as string[]).map((type: string) => {
-                          // Use our formatter for display names
-                          let shortName = formatDisplayName(type);
+                        {/* Resource Type Buttons */}
+                        <View className="flex-row flex-wrap">
+                          {(categoryTypes as string[]).map((type: string) => {
+                            // Use our formatter for display names
+                            let shortName = formatDisplayName(type);
 
-                          // Keep special cases for validator resources for better display
-                          if (type.toLowerCase().includes('validatorconfig')) {
-                            shortName = 'Validator Config';
-                          } else if (type.toLowerCase().includes('validatorstate')) {
-                            shortName = 'Validator State';
-                          } else if (type.toLowerCase().includes('validatorset')) {
-                            shortName = 'Validator Set';
-                          }
+                            // Keep special cases for validator resources for better display
+                            if (type.toLowerCase().includes('validatorconfig')) {
+                              shortName = 'Validator Config';
+                            } else if (type.toLowerCase().includes('validatorstate')) {
+                              shortName = 'Validator State';
+                            } else if (type.toLowerCase().includes('validatorset')) {
+                              shortName = 'Validator Set';
+                            }
 
-                          // Define colors based on category
-                          let bgColor = 'bg-gray-700';
-                          let activeBgColor = 'bg-primary';
+                            // Define colors based on category
+                            let bgColor = 'bg-gray-700';
+                            let activeBgColor = 'bg-primary';
 
-                          if (category === 'Account') bgColor = 'bg-amber-800';
-                          else if (category === 'Assets') bgColor = 'bg-green-800';
-                          else if (category === 'Validating') bgColor = 'bg-blue-800';
-                          else if (category === 'Social') bgColor = 'bg-purple-800';
+                            if (category === 'Account') bgColor = 'bg-amber-800';
+                            else if (category === 'Assets') bgColor = 'bg-green-800';
+                            else if (category === 'Validating') bgColor = 'bg-blue-800';
+                            else if (category === 'Social') bgColor = 'bg-purple-800';
 
-                          const isActive = type === currentActiveType;
+                            const isActive = type === currentActiveType;
 
-                          return (
-                            <TouchableOpacity
-                              key={type}
-                              onPress={() => handleResourceTypeChange(type)}
-                              className={`px-3 py-2 rounded-md m-1 min-w-[110px] ${isActive ? activeBgColor : bgColor}`}
-                            >
-                              <Text
-                                className={`text-sm font-medium text-center ${isActive ? 'text-white' : 'text-gray-300'}`}
-                                numberOfLines={1}
+                            return (
+                              <TouchableOpacity
+                                key={type}
+                                onPress={() => handleResourceTypeChange(type)}
+                                className={`px-3 py-2 rounded-md m-1 min-w-[110px] ${isActive ? activeBgColor : bgColor}`}
                               >
-                                {shortName}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Active Resources */}
-                {filteredResources.length > 0 ? (
-                  filteredResources.map((resource, index) => {
-                    // Determine the appropriate border color based on the resource category
-                    let borderColor = 'border-gray-600'; // Default
-                    const typeStr = resource.type.toLowerCase();
-
-                    if (typeStr.includes('coin') || typeStr.includes('wallet')) {
-                      borderColor = 'border-green-600'; // Assets
-                    } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
-                      typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
-                      borderColor = 'border-blue-600'; // Validating
-                    } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
-                      typeStr.includes('ancestry')) {
-                      borderColor = 'border-purple-600'; // Social
-                    } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
-                      (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
-                      borderColor = 'border-yellow-600'; // Account
-                    }
-
-                    return (
-                      <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                        <View
-                          className={`flex-row justify-between items-center p-3 border-l-4 ${borderColor}`}
-                        >
-                          <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
-                          <TouchableOpacity
-                            onPress={() => copyToClipboard(JSON.stringify(resource.data, null, 2))}
-                            className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                          >
-                            <MaterialIcons name="content-copy" size={14} color="white" />
-                          </TouchableOpacity>
+                                <Text
+                                  className={`text-sm font-medium text-center ${isActive ? 'text-white' : 'text-gray-300'}`}
+                                  numberOfLines={1}
+                                >
+                                  {shortName}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
-                        <View className="p-3 border-t border-border">
-                          <View className="overflow-auto">
-                            <Text className="text-text-light font-mono text-xs whitespace-pre">
-                              {JSON.stringify(resource.data, null, 2)}
-                            </Text>
+                      </View>
+                    ))}
+                  </Column>
+
+                  {/* Right Side - Resource Content */}
+                  <Column>
+                    {filteredResources.length > 0 ? (
+                      filteredResources.map((resource, index) => {
+                        // Determine the appropriate border color based on the resource category
+                        let borderColor = 'border-gray-600'; // Default
+                        const typeStr = resource.type.toLowerCase();
+
+                        if (typeStr.includes('coin') || typeStr.includes('wallet')) {
+                          borderColor = 'border-green-600'; // Assets
+                        } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
+                          typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
+                          borderColor = 'border-blue-600'; // Validating
+                        } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
+                          typeStr.includes('ancestry')) {
+                          borderColor = 'border-purple-600'; // Social
+                        } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
+                          (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
+                          borderColor = 'border-yellow-600'; // Account
+                        }
+
+                        return (
+                          <View key={index} className="bg-background rounded mb-2 overflow-hidden">
+                            <Row
+                              justifyContent="between"
+                              alignItems="center"
+                              className={`p-3 border-l-4 ${borderColor}`}
+                            >
+                              <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
+                              <TouchableOpacity
+                                onPress={() => copyToClipboard(JSON.stringify(resource.data, null, 2))}
+                                className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                              >
+                                <MaterialIcons name="content-copy" size={14} color="white" />
+                              </TouchableOpacity>
+                            </Row>
+                            <View className="p-3 border-t border-border">
+                              <View className="overflow-auto">
+                                <Text className="text-text-light font-mono text-xs whitespace-pre">
+                                  {JSON.stringify(resource.data, null, 2)}
+                                </Text>
+                              </View>
+                            </View>
                           </View>
-                        </View>
+                        );
+                      })
+                    ) : (
+                      <View className="py-6 bg-background rounded-lg items-center justify-center">
+                        <Text className="text-white text-base">No resources found for this type</Text>
                       </View>
-                    );
-                  })
-                ) : (
-                  <View className="py-6 bg-background rounded-lg items-center justify-center">
-                    <Text className="text-white text-base">No resources found for this type</Text>
-                  </View>
-                )}
-              </View>
+                    )}
+                  </Column>
+                </TwoColumn>
+              </Card>
             );
           })()}
 
-          {/* Account Transactions Section - Add this at the end */}
+          {/* Account Transactions Section */}
           {accountData && getObservableValue(accountData.address, '') && (
             <AccountTransactionsList
               accountAddress={getObservableValue(accountData.address, '')}
@@ -1033,7 +1266,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               isVisible={isFocused}
             />
           )}
-        </View>
+        </Container>
       </ScrollView>
     </View>
   );

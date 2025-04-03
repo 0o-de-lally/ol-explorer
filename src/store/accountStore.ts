@@ -9,10 +9,28 @@ export const ACCOUNT_DATA_CONFIG = {
     REFRESH_INTERVAL_MS: 30000
 };
 
+// Extended account data interface
+export interface ExtendedAccountData {
+    communityWallet: {
+        isDonorVoice: boolean;
+        isAuthorized: boolean;
+        isReauthProposed: boolean;
+    };
+    founder: {
+        isFounder: boolean;
+        hasFriends: boolean;
+    };
+    vouching: {
+        vouchScore: number;
+        hasValidVouchScore: boolean;
+    };
+}
+
 // Define the account store structure
 export interface AccountStoreType {
     accounts: Record<string, {
         data: Account | null;
+        extendedData: ExtendedAccountData | null;
         lastUpdated: number;
         isLoading: boolean;
         error: string | null;
@@ -49,6 +67,7 @@ export const accountActions = {
         if (!accountStore.accounts[address].peek()) {
             accountStore.accounts[address].set({
                 data: null,
+                extendedData: null,
                 lastUpdated: 0,
                 isLoading: true,
                 error: null
@@ -82,6 +101,7 @@ export const accountActions = {
         if (!accountStore.accounts[address].peek()) {
             accountStore.accounts[address].set({
                 data: account,
+                extendedData: null,
                 lastUpdated: Date.now(),
                 isLoading: false,
                 error: null
@@ -94,11 +114,28 @@ export const accountActions = {
         notifyUpdate();
     },
 
+    setExtendedData: (address: string, extendedData: ExtendedAccountData | null) => {
+        // Initialize account entry if it doesn't exist
+        if (!accountStore.accounts[address].peek()) {
+            accountStore.accounts[address].set({
+                data: null,
+                extendedData: extendedData,
+                lastUpdated: Date.now(),
+                isLoading: false,
+                error: null
+            });
+        } else {
+            accountStore.accounts[address].extendedData.set(extendedData);
+        }
+        notifyUpdate();
+    },
+
     setError: (address: string, error: string) => {
         // Initialize account entry if it doesn't exist
         if (!accountStore.accounts[address].peek()) {
             accountStore.accounts[address].set({
                 data: null,
+                extendedData: null,
                 lastUpdated: Date.now(),
                 isLoading: false,
                 error: error

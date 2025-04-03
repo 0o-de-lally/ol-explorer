@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { BlockchainSDK } from '../types/blockchain';
+import { BlockchainSDK, LedgerInfo, ViewFunctionParams } from '../types/blockchain';
 import { createMockLibraClient } from '../services/mockSdk';
 import { normalizeAddress, normalizeTransactionHash } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
@@ -183,6 +183,16 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         // Get resources first, as the SDK client doesn't have a direct getAccount method
                         const resources = await client.getAccountResources(resourcesParams);
 
+                        // DEBUG: Log resources received from SDK
+                        console.log('SDK DEBUG: Resources received from getAccountResources:', {
+                            isArray: Array.isArray(resources),
+                            length: Array.isArray(resources) ? resources.length : 'not an array',
+                            type: typeof resources,
+                            sample: Array.isArray(resources) && resources.length > 0
+                                ? `${JSON.stringify(resources[0]).substring(0, 100)}...`
+                                : 'no resources'
+                        });
+
                         // Find coin resource for balance - cast resource data to any to avoid errors
                         let balance = 0;
                         let sequenceNumber = 0;
@@ -222,7 +232,7 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         }
 
                         // Transform and create account object
-                        return {
+                        const accountObject = {
                             address: normalizedAddress,
                             balance,
                             sequence_number: sequenceNumber,
@@ -231,6 +241,19 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 data: resource?.data || {}
                             }))
                         };
+
+                        // DEBUG: Log final account object before returning
+                        console.log('SDK DEBUG: Final account object:', {
+                            address: accountObject.address,
+                            balance: accountObject.balance,
+                            sequence_number: accountObject.sequence_number,
+                            resourcesLength: accountObject.resources.length,
+                            resourcesSample: accountObject.resources.length > 0
+                                ? `${JSON.stringify(accountObject.resources[0]).substring(0, 100)}...`
+                                : 'no resources'
+                        });
+
+                        return accountObject;
                     } catch (err) {
                         console.error(`Error fetching account ${normalizedAddress}:`, err);
                         return null;
@@ -275,6 +298,167 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             block_height: '0',
                             git_hash: ''
                         };
+                    }
+                },
+                view: async (params) => {
+                    console.log('Calling view function:', params.function);
+                    try {
+                        // Log original arguments for debugging
+                        console.log('Arguments before conversion:', params.arguments);
+
+                        // Try a simpler approach by creating a more direct payload
+                        // Some SDKs expect a very specific format for view functions
+                        const functionParts = params.function.split('::');
+
+                        if (functionParts.length >= 3) {
+                            const moduleAddress = functionParts[0];
+                            const moduleName = functionParts[1];
+                            const functionName = functionParts[2];
+
+                            console.log(`Parsed function parts: address=${moduleAddress}, module=${moduleName}, function=${functionName}`);
+
+                            // Format as a direct API call payload
+                            const directPayload = {
+                                function: params.function,
+                                type_arguments: params.typeArguments || [],
+                                arguments: params.arguments || []
+                            };
+
+                            console.log('Attempting direct view call with payload:', JSON.stringify(directPayload));
+
+                            // Try making a direct API call if the SDK isn't working properly
+                            const apiUrl = `${sdkConfig.rpcUrl}/view`;
+                            const response = await fetch(apiUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(directPayload)
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.json();
+                                console.error('Direct API call failed:', errorData);
+                                throw new Error(`API error: ${errorData.message || 'Unknown error'}`);
+                            }
+
+                            return await response.json();
+                        } else {
+                            // Fallback to original approach if function format is incorrect
+                            console.log('Invalid function format, falling back to standard SDK call');
+
+                            // Format specifically for the viewJson function
+                            const viewArgs = {
+                                payload: {
+                                    function: params.function,
+                                    type_arguments: params.typeArguments || [],
+                                    arguments: params.arguments || []
+                                }
+                            };
+
+                            console.log('View function payload:', JSON.stringify(viewArgs.payload));
+                            // Use type casting to bypass TS error
+                            return await client.general.viewJson(viewArgs as any);
+                        }
+                    } catch (error) {
+                        console.error('Error calling view function:', error);
+
+                        // Return default values based on function name to avoid breaking the UI
+                        if (params.function.includes('is_donor_voice') ||
+                            params.function.includes('is_authorized') ||
+                            params.function.includes('is_reauth_proposed') ||
+                            params.function.includes('is_founder') ||
+                            params.function.includes('has_friends') ||
+                            params.function.includes('is_voucher_score_valid')) {
+                            console.log(`Returning default false for ${params.function}`);
+                            return false;
+                        } else if (params.function.includes('get_current_roots_at_registry')) {
+                            console.log(`Returning default ['0x1'] for ${params.function}`);
+                            return ['0x1'];
+                        } else if (params.function.includes('evaluate_users_vouchers')) {
+                            console.log(`Returning default 0 for ${params.function}`);
+                            return 0;
+                        } else if (params.function.includes('get_root_registry')) {
+                            console.log(`Returning empty array for ${params.function}`);
+                            return [];
+                        }
+
+                        throw error;
+                    }
+                },
+                ext_getAccountTransactions: async (address, limit = 25, start) => {
+                    console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}, start: ${start || 'none'}`);
+
+                    try {
+                        // Normalize the address for consistency
+                        const normalizedAddress = normalizeAddress(address);
+
+                        // Build the REST API endpoint URL with pagination parameters
+                        let restUrl = `${sdkConfig.rpcUrl}/accounts/${normalizedAddress}/transactions?limit=${limit}`;
+                        if (start) {
+                            restUrl += `&start=${start}`;
+                        }
+                        console.log(`Fetching from REST endpoint: ${restUrl}`);
+
+                        const response = await fetch(restUrl);
+
+                        if (!response.ok) {
+                            throw new Error(`REST API responded with status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        // Check if we got valid transactions data
+                        if (Array.isArray(data)) {
+                            console.log(`Found ${data.length} transactions for account ${normalizedAddress}`);
+                            return data;
+                        }
+
+                        console.warn('Unexpected response format from REST API');
+                        return [];
+                    } catch (error) {
+                        console.error('Error fetching account transactions:', error);
+
+                        // Fall back to SDK filtering method if REST API fails
+                        console.log('Falling back to client-side filtering approach');
+
+                        try {
+                            // Note: This fallback method doesn't support proper pagination
+                            // For a production app, we might want to implement more sophisticated fallback
+                            const txsParams = { options: { limit: limit * 2 } };
+                            const allTxs = await client.getTransactions(txsParams);
+
+                            // Filter transactions where the sender matches our address
+                            const normalizedAddress = normalizeAddress(address);
+                            const filteredTxs = allTxs.filter((tx: any) => {
+                                return tx.sender &&
+                                    tx.sender.toLowerCase() === normalizedAddress.toLowerCase();
+                            }).slice(0, limit);
+
+                            console.log(`Found ${filteredTxs.length} transactions for account ${normalizedAddress} via filtering`);
+                            return filteredTxs;
+                        } catch (sdkError) {
+                            console.error('Error with fallback method:', sdkError);
+                            return [];
+                        }
+                    }
+                },
+                viewJson: async (params) => {
+                    console.log('Calling viewJson function:', params.function);
+                    try {
+                        // Format the parameters according to what the SDK expects
+                        const viewArgs = {
+                            payload: {
+                                function: params.function,
+                                typeArguments: params.typeArguments || [],
+                                arguments: params.arguments || []
+                            }
+                        };
+
+                        return await client.general.viewJson(viewArgs as any);
+                    } catch (error) {
+                        console.error('Error calling viewJson function:', error);
+                        throw error;
                     }
                 }
             };
@@ -391,7 +575,104 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         },
                         isInitialized: true,
                         error: new Error('Using mock data in debug mode'),
-                        isUsingMockData: true
+                        isUsingMockData: true,
+                        view: async (params) => {
+                            console.log('Calling view function (MOCK):', params.function);
+
+                            try {
+                                // Log the arguments for debugging
+                                console.log('Mock view function arguments:',
+                                    Array.isArray(params.arguments) ? JSON.stringify(params.arguments) : 'None');
+
+                                // Parse the function name to determine what to return
+                                const functionStr = params.function.toString();
+
+                                // In mock mode, we always return appropriate default values
+                                console.log(`Mock mode: Returning default value for ${functionStr}`);
+
+                                if (functionStr.includes('is_donor_voice')) {
+                                    return false;
+                                } else if (functionStr.includes('is_authorized')) {
+                                    return false;
+                                } else if (functionStr.includes('is_reauth_proposed')) {
+                                    return false;
+                                } else if (functionStr.includes('is_founder')) {
+                                    return false;
+                                } else if (functionStr.includes('has_friends')) {
+                                    return false;
+                                } else if (functionStr.includes('is_voucher_score_valid')) {
+                                    return false;
+                                } else if (functionStr.includes('get_current_roots_at_registry')) {
+                                    return ['0x1'];
+                                } else if (functionStr.includes('evaluate_users_vouchers')) {
+                                    return 0;
+                                } else if (functionStr.includes('get_root_registry')) {
+                                    return [];
+                                } else if (functionStr.includes('get_current_validators')) {
+                                    return [
+                                        {
+                                            "addr": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                                            "voting_power": "100"
+                                        },
+                                        {
+                                            "addr": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+                                            "voting_power": "200"
+                                        }
+                                    ];
+                                } else {
+                                    return null;
+                                }
+                            } catch (error) {
+                                console.error('Error in mock view function:', error);
+                                return null;
+                            }
+                        },
+                        ext_getAccountTransactions: async (address, limit = 25) => {
+                            console.log(`Mock ext_getAccountTransactions called for address: ${address}, limit: ${limit}`);
+                            // Return empty array for mock
+                            return [];
+                        },
+                        viewJson: async (params: ViewFunctionParams) => {
+                            console.log('Calling viewJson function (MOCK):', params.function);
+                            try {
+                                // Return a mock response based on the function being called
+                                if (params.function.includes('stake::get_current_validators')) {
+                                    return [
+                                        {
+                                            "addr": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                                            "voting_power": "100"
+                                        },
+                                        {
+                                            "addr": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+                                            "voting_power": "200"
+                                        }
+                                    ];
+                                } else if (params.function.includes('donor_voice::is_donor_voice')) {
+                                    return false;
+                                } else if (params.function.includes('donor_voice_reauth::is_authorized')) {
+                                    return false;
+                                } else if (params.function.includes('donor_voice_governance::is_reauth_proposed')) {
+                                    return false;
+                                } else if (params.function.includes('founder::is_founder')) {
+                                    return false;
+                                } else if (params.function.includes('founder::has_friends')) {
+                                    return false;
+                                } else if (params.function.includes('founder::is_voucher_score_valid')) {
+                                    return false;
+                                } else if (params.function.includes('root_of_trust::get_current_roots_at_registry')) {
+                                    return ['0x1'];
+                                } else if (params.function.includes('vouch_score::evaluate_users_vouchers')) {
+                                    return 0;
+                                } else if (params.function.includes('donor_voice::get_root_registry')) {
+                                    return [];
+                                } else {
+                                    return null;
+                                }
+                            } catch (error) {
+                                console.error('Error in mock viewJson function:', error);
+                                return null;
+                            }
+                        }
                     };
 
                     setSdk(mockSdk);

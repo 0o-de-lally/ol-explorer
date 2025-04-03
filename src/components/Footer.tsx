@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
 import { Logo } from './Logo';
+import { Container, Row, Column } from './Layout';
 
 export const Footer: React.FC = () => {
     const { width } = useWindowDimensions();
@@ -12,16 +13,16 @@ export const Footer: React.FC = () => {
 
     return (
         <View className="bg-background py-4 w-full border-border">
-            <View className="mx-auto w-full max-w-screen-lg px-4">
+            <Container className="py-0">
                 {isMobile ? (
                     // Mobile layout
-                    <View className="flex-col">
+                    <Column>
                         <View className="flex-row items-center justify-center mb-6">
                             <Logo size={28} className="mr-2" />
                             <Text className="text-white font-medium">Open Libra Blockchain Explorer</Text>
                         </View>
 
-                        <View className="flex-row items-center space-x-6 justify-center">
+                        <Row justifyContent="center" className="space-x-6">
                             <TouchableOpacity onPress={() => handleLinkPress('https://openlibra.io')}>
                                 <Text className="text-white hover:text-primary">Website</Text>
                             </TouchableOpacity>
@@ -33,17 +34,17 @@ export const Footer: React.FC = () => {
                             <TouchableOpacity onPress={() => handleLinkPress('http://github.com/0LNetworkCommunity')}>
                                 <Text className="text-white hover:text-primary">GitHub</Text>
                             </TouchableOpacity>
-                        </View>
-                    </View>
+                        </Row>
+                    </Column>
                 ) : (
                     // Desktop layout
-                    <View className="flex-row items-center justify-between">
+                    <Row justifyContent="between">
                         <View className="flex-row items-center flex-none">
                             <Logo size={28} className="mr-2" />
                             <Text className="text-white font-medium whitespace-nowrap">Open Libra Blockchain Explorer</Text>
                         </View>
 
-                        <View className="flex-row items-center space-x-6 justify-end">
+                        <Row className="space-x-6">
                             <TouchableOpacity onPress={() => handleLinkPress('https://openlibra.io')}>
                                 <Text className="text-white hover:text-primary">Website</Text>
                             </TouchableOpacity>
@@ -55,10 +56,10 @@ export const Footer: React.FC = () => {
                             <TouchableOpacity onPress={() => handleLinkPress('http://github.com/0LNetworkCommunity')}>
                                 <Text className="text-white hover:text-primary">GitHub</Text>
                             </TouchableOpacity>
-                        </View>
-                    </View>
+                        </Row>
+                    </Row>
                 )}
-            </View>
+            </Container>
         </View>
     );
 }; 

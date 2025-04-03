@@ -11,6 +11,8 @@ import { SearchBar } from '../components/SearchBar';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
 import { useIsFocused } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Container } from '../components/Layout';
 
 // Debug flag - must match the one in SdkContext.tsx
 const DEBUG_MODE = false;
@@ -37,9 +39,11 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
     // If hook is not available, default to true
     isFocused = true;
   }
-  
+
   // Determine if screen is actually visible based on props and navigation
   const isScreenVisible = isVisible && isFocused;
+
+  const router = useRouter();
 
   // Set isMounted ref on mount/unmount
   useEffect(() => {
@@ -175,12 +179,12 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
     try {
       console.log(`Fetching blockchain data with limit: ${currentLimit}, auto-refresh: ${isAutoRefresh}`);
       dataFetchAttempted.current = true;
-      
+
       if (!isAutoRefresh) {
         // Only set loading state for manual refreshes to avoid UI flicker
         blockchainActions.setLoading(true);
       }
-      
+
       blockchainActions.setError(null);
 
       // Fetch blockchain stats
@@ -212,7 +216,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
       // Fetch recent transactions - use the current limit to respect user preference
       console.log(`Fetching transactions with current limit: ${currentLimit}`);
       const transactions = await sdk.getTransactions(currentLimit);
-      
+
       // Only update state if component is still mounted
       if (!isMounted.current) return;
 
@@ -231,10 +235,10 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
       });
     } catch (error) {
       console.error('Error fetching blockchain data:', error);
-      
+
       // Only update state if component is still mounted
       if (!isMounted.current) return;
-      
+
       blockchainActions.setError(error instanceof Error ? error.message : 'Unknown error');
 
       // Only use mock data in debug mode if there's an error
@@ -401,7 +405,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   return (
     <View className="bg-background flex-1">
       <ScrollView>
-        <View className="mx-auto w-full max-w-screen-lg px-4 py-4">
+        <Container>
           {/* Show debug warning if using mock data */}
           {isUsingMockData && (
             <View className="bg-primary/20 p-2.5 rounded mb-4">
@@ -416,13 +420,19 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
           {/* <BlockchainStats testID="blockchain-stats" /> */}
           <BlockchainMetrics />
-          <TransactionsList 
-            testID="transactions-list" 
-            onRefresh={handleRefresh} 
+          <TransactionsList
+            testID="transactions-list"
+            onRefresh={handleRefresh}
             initialLimit={appConfig.transactions.defaultLimit}
             onLimitChange={handleLimitChange}
           />
-        </View>
+          <TouchableOpacity
+            className="ml-2 bg-purple-700 rounded-lg px-3 py-1.5"
+            onPress={() => router.push('/view-tester')}
+          >
+            <Text className="text-white text-sm">Developer</Text>
+          </TouchableOpacity>
+        </Container>
       </ScrollView>
     </View>
   );

@@ -65,6 +65,12 @@ export interface LedgerInfo {
   git_hash?: string;
 }
 
+export interface ViewFunctionParams {
+  function: string;
+  typeArguments: string[];
+  arguments: any[];
+}
+
 export type NetworkType = 'mainnet' | 'testnet' | 'devnet';
 
 export interface BlockchainSDK {
@@ -75,6 +81,8 @@ export interface BlockchainSDK {
   getTransactionByHash: (hash: string, forceFresh?: boolean) => Promise<TransactionDetail | null>;
   getAccount: (address: string, forceFresh?: boolean) => Promise<Account | null>;
   getLedgerInfo: (forceFresh?: boolean) => Promise<LedgerInfo>;
+  view: (params: ViewFunctionParams) => Promise<any>;
+  viewJson: (params: ViewFunctionParams) => Promise<any>;
   isInitialized: boolean;
   error: Error | null;
   isUsingMockData?: boolean;

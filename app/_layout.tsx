@@ -15,6 +15,11 @@ import { Footer } from '../src/components/Footer';
 // Setup necessary polyfills
 setupPolyfills();
 
+// Add dark mode class to fix color scheme errors
+if (typeof document !== 'undefined') {
+    document.documentElement.classList.add('dark');
+}
+
 export default function RootLayout() {
     // Log environment information for debugging
     useEffect(() => {
@@ -31,21 +36,18 @@ export default function RootLayout() {
         <ErrorBoundary>
             <SdkProvider>
                 <View className="bg-background font-sans min-h-screen flex flex-col">
-                    {/* Show loading indicator when SDK is initializing */}
                     <SdkLoadingIndicator />
-
-                    {/* Main content area that can scroll */}
                     <View className="flex-1 flex flex-col overflow-auto">
                         <StatusBar style="light" />
                         <Header testID="header" />
-
-                        <Stack
-                            screenOptions={{
-                                headerShown: false,
-                                contentStyle: { backgroundColor: '#0B1221' }
-                            }}
-                        />
-
+                        <View className="flex-1 grid grid-cols-1">
+                            <Stack
+                                screenOptions={{
+                                    headerShown: false,
+                                    contentStyle: { backgroundColor: '#0B1221' }
+                                }}
+                            />
+                        </View>
                         <Footer />
                     </View>
                 </View>

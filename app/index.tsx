@@ -1,10 +1,11 @@
 import React from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
+import { ScrollView, RefreshControl, View } from 'react-native';
 import { HomeScreen } from '../src/screens/HomeScreen';
 import { useBlockchain } from '../src/hooks/useBlockchain';
 import { useForceUpdate } from '../src/hooks/useForceUpdate';
 import { blockchainActions } from '../src/store/blockchainStore';
 import { useBlockTime } from '../src/hooks/useBlockTime';
+import { Redirect, Link } from 'expo-router';
 
 export default function HomePage() {
   const { refreshData, isLoading } = useBlockchain();
@@ -26,13 +27,8 @@ export default function HomePage() {
   }, []);
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refreshData} />
-      }
-    >
+    <View className="flex-1 bg-background">
       <HomeScreen />
-    </ScrollView>
+    </View>
   );
 } 

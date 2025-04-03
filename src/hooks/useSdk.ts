@@ -10,6 +10,14 @@ import sdkConfig from '../config/sdkConfig';
  */
 export const useSdk = (): BlockchainSDK & {
   ext_getAccountTransactions: (address: string, limit?: number) => Promise<any[]>;
+  isDonorVoice: (address: string) => Promise<boolean>;
+  isDonorVoiceAuthorized: (address: string) => Promise<boolean>;
+  isReauthProposed: (address: string) => Promise<boolean>;
+  isFounder: (address: string) => Promise<boolean>;
+  hasFounderFriends: (address: string) => Promise<boolean>;
+  isVoucherScoreValid: (address: string) => Promise<boolean>;
+  getVouchScore: (address: string) => Promise<number>;
+  getAllCommunityWallets: () => Promise<string[]>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -90,6 +98,294 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
+  // OL Framework module namespace (usually 0x1 on mainnet)
+  const OL_FRAMEWORK = "0x1";
+
+  // Check if an address is a Community Wallet (Donor Voice)
+  const isDonorVoice = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if donor voice');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if address ${normalizedAddress} is a donor voice`);
+
+      // Use view function directly with proper argument formatting
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice::is_donor_voice`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`isDonorVoice result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is donor voice:`, error);
+      return false;
+    }
+  };
+
+  // Check if a Community Wallet is authorized (reauthorized within window)
+  const isDonorVoiceAuthorized = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if donor voice is authorized');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if donor voice ${normalizedAddress} is authorized`);
+
+      // Use view function directly
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_reauth::is_authorized`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`isDonorVoiceAuthorized result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is authorized:`, error);
+      return false;
+    }
+  };
+
+  // Check if reauthorization is currently proposed for a Community Wallet
+  const isReauthProposed = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if reauth proposed');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if reauth is proposed for ${normalizedAddress}`);
+
+      // Use view function directly
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`isReauthProposed result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if reauth proposed for ${address}:`, error);
+      return false;
+    }
+  };
+
+  // Check if an account is a founder
+  const isFounder = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if founder');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if address ${normalizedAddress} is a founder`);
+
+      // Use view function directly
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::founder::is_founder`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`isFounder result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is founder:`, error);
+
+      // Check if it's a "module not found" error, which means we're on testnet
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("can't be found") || errorMessage.includes("invalid_input")) {
+        console.log(`Module founder not found. This is expected on testnet.`);
+      }
+
+      return false;
+    }
+  };
+
+  // Check if a founder has human friends (not a bot)
+  const hasFounderFriends = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if founder has friends');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if founder ${normalizedAddress} has friends`);
+
+      // Use view function directly
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::founder::has_friends`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`hasFounderFriends result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if founder ${address} has friends:`, error);
+
+      // Check if it's a "module not found" error, which means we're on testnet
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("can't be found") || errorMessage.includes("invalid_input")) {
+        console.log(`Module founder not found. This is expected on testnet.`);
+      }
+
+      return false;
+    }
+  };
+
+  // Check if an account has a valid vouch score (for founder eligibility)
+  const isVoucherScoreValid = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if voucher score valid');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Checking if ${normalizedAddress} has valid voucher score`);
+
+      // Use view function directly
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::founder::is_voucher_score_valid`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      console.log(`isVoucherScoreValid result for ${normalizedAddress}:`, result);
+
+      // Handle the case where the result is an array containing the boolean
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} has valid voucher score:`, error);
+
+      // Check if it's a "module not found" error, which means we're on testnet
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("can't be found") || errorMessage.includes("invalid_input")) {
+        console.log(`Module founder not found. This is expected on testnet.`);
+      }
+
+      return false;
+    }
+  };
+
+  // Get the vouch score for an account
+  const getVouchScore = async (address: string): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get vouch score');
+      return 0;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+      console.log(`Getting vouch score for ${normalizedAddress}`);
+
+      // First get the current roots of trust
+      const rootsOfTrust = await sdk.view({
+        function: `${OL_FRAMEWORK}::root_of_trust::get_current_roots_at_registry`,
+        typeArguments: [],
+        arguments: [OL_FRAMEWORK]
+      });
+
+      // Get the roots from the array response if needed
+      const processedRoots = Array.isArray(rootsOfTrust) ? rootsOfTrust : [rootsOfTrust];
+
+      // Get the vouch score
+      const score = await sdk.view({
+        function: `${OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`,
+        typeArguments: [],
+        arguments: [processedRoots, normalizedAddress]
+      });
+
+      console.log(`getVouchScore result for ${normalizedAddress}:`, score);
+
+      // Handle the case where the result is an array containing the score
+      if (Array.isArray(score) && score.length > 0) {
+        return typeof score[0] === 'number' ? score[0] : 0;
+      }
+
+      return typeof score === 'number' ? score : 0;
+    } catch (error) {
+      console.error(`Error getting vouch score for ${address}:`, error);
+      return 0;
+    }
+  };
+
+  // Get all community wallets in the system
+  const getAllCommunityWallets = async (): Promise<string[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get community wallets');
+      return [];
+    }
+
+    try {
+      console.log('Getting all community wallets');
+
+      const walletAddresses = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice::get_root_registry`,
+        typeArguments: [],
+        arguments: []
+      });
+
+      return Array.isArray(walletAddresses) ? walletAddresses : [];
+    } catch (error) {
+      console.error('Error getting community wallets:', error);
+
+      // Check if it's a "module not found" error, which means we're on testnet
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("can't be found") || errorMessage.includes("invalid_input")) {
+        console.log(`Module donor_voice not found. This is expected on testnet.`);
+      }
+
+      return [];
+    }
+  };
+
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
     return {
@@ -131,11 +427,51 @@ export const useSdk = (): BlockchainSDK & {
           git_hash: ''
         } as LedgerInfo;
       },
+      view: async (params) => {
+        console.log('SDK not initialized, returning null for view function. Function called:', params.function);
+        return null;
+      },
+      viewJson: async (params) => {
+        console.log('SDK not initialized, returning null for viewJson function. Function called:', params.function);
+        return null;
+      },
       isInitialized: false,
       error: error || new Error('SDK not initialized'),
       isUsingMockData: false,
       ext_getAccountTransactions: async () => {
         console.log('SDK not initialized, cannot get account transactions');
+        return [];
+      },
+      isDonorVoice: async () => {
+        console.log('SDK not initialized, cannot check if donor voice');
+        return false;
+      },
+      isDonorVoiceAuthorized: async () => {
+        console.log('SDK not initialized, cannot check if donor voice is authorized');
+        return false;
+      },
+      isReauthProposed: async () => {
+        console.log('SDK not initialized, cannot check if reauth proposed');
+        return false;
+      },
+      isFounder: async () => {
+        console.log('SDK not initialized, cannot check if founder');
+        return false;
+      },
+      hasFounderFriends: async () => {
+        console.log('SDK not initialized, cannot check if founder has friends');
+        return false;
+      },
+      isVoucherScoreValid: async () => {
+        console.log('SDK not initialized, cannot check if voucher score valid');
+        return false;
+      },
+      getVouchScore: async () => {
+        console.log('SDK not initialized, cannot get vouch score');
+        return 0;
+      },
+      getAllCommunityWallets: async () => {
+        console.log('SDK not initialized, cannot get community wallets');
         return [];
       }
     };
@@ -170,6 +506,14 @@ export const useSdk = (): BlockchainSDK & {
     isInitialized,
     error,
     isUsingMockData,
-    ext_getAccountTransactions
+    ext_getAccountTransactions,
+    isDonorVoice,
+    isDonorVoiceAuthorized,
+    isReauthProposed,
+    isFounder,
+    hasFounderFriends,
+    isVoucherScoreValid,
+    getVouchScore,
+    getAllCommunityWallets
   };
 }; 

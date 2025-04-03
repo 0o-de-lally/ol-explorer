@@ -69,9 +69,12 @@ const generateMockStateChanges = (count: number): StateChange[] => {
 
 // Mock resource data for accounts
 const generateMockResources = () => {
+  console.log('Generating mock resources');
+
+  // Create a more comprehensive set of mock resources
   return [
     {
-      type: '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>',
+      type: '0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>',
       data: {
         coin: {
           value: `${Math.floor(Math.random() * 100000000000)}`
@@ -101,6 +104,68 @@ const generateMockResources = () => {
       data: {
         sequence_number: Math.floor(Math.random() * 100),
         authentication_key: `0x${Math.random().toString(16).substring(2, 66)}`
+      }
+    },
+    {
+      type: '0x1::stake::StakePool',
+      data: {
+        active: Math.floor(Math.random() * 1000000),
+        inactive: Math.floor(Math.random() * 50000),
+        pending_active: Math.floor(Math.random() * 10000)
+      }
+    },
+    {
+      type: '0x1::ancestry::Ancestry',
+      data: {
+        ancestors: [
+          `0x${Math.random().toString(16).substring(2, 42)}`,
+          `0x${Math.random().toString(16).substring(2, 42)}`
+        ]
+      }
+    },
+    {
+      type: '0x1::slow_wallet::SlowWallet',
+      data: {
+        unlocked: Math.floor(Math.random() * 500000).toString(),
+        balance: Math.floor(Math.random() * 1000000).toString()
+      }
+    },
+    {
+      type: '0x1::donor_voice::DonorVoice',
+      data: {
+        active: true,
+        created_at: Date.now().toString()
+      }
+    },
+    {
+      type: '0x1::validator::ValidatorConfig',
+      data: {
+        operator_address: `0x${Math.random().toString(16).substring(2, 42)}`,
+        validator_index: Math.floor(Math.random() * 100)
+      }
+    },
+    {
+      type: '0x1::vouch::VouchReceipts',
+      data: {
+        vouchers: [
+          `0x${Math.random().toString(16).substring(2, 42)}`,
+          `0x${Math.random().toString(16).substring(2, 42)}`
+        ]
+      }
+    },
+    {
+      type: '0x1::pledge::PledgeAccounts',
+      data: {
+        accounts: [
+          `0x${Math.random().toString(16).substring(2, 42)}`,
+          `0x${Math.random().toString(16).substring(2, 42)}`
+        ]
+      }
+    },
+    {
+      type: '0x1::fee_maker::FeeMaker',
+      data: {
+        collected: Math.floor(Math.random() * 10000).toString()
       }
     }
   ];
