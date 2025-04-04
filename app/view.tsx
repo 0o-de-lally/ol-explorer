@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSdk } from '../src/hooks/useSdk';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
@@ -8,6 +8,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 export default function ViewFunction() {
     const sdk = useSdk();
     const params = useLocalSearchParams();
+    const autoExecutedRef = useRef(false);
 
     // Get initial values from URL params if available
     const initialPath = params?.initialPath as string | undefined;
@@ -20,6 +21,18 @@ export default function ViewFunction() {
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [copySuccess, setCopySuccess] = useState<boolean>(false);
+    const [sdkReady, setSdkReady] = useState<boolean>(false);
+
+    // Check when SDK is ready
+    useEffect(() => {
+        if (sdk.isInitialized) {
+            console.log('SDK is now initialized and ready for use');
+            setSdkReady(true);
+        } else {
+            console.log('SDK is not yet initialized');
+            setSdkReady(false);
+        }
+    }, [sdk.isInitialized]);
 
     // Parse the input arguments and type arguments
     const parseArguments = useCallback((input: string): any[] => {
@@ -39,6 +52,11 @@ export default function ViewFunction() {
 
     // Execute the view function
     const executeViewFunction = useCallback(async () => {
+        if (!sdk.isInitialized) {
+            setError("SDK is not initialized yet. Please wait or try again.");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
         setResult(null);
@@ -83,16 +101,26 @@ export default function ViewFunction() {
         }
     }, [functionPath, typeArguments, arguments_, sdk, parseArguments, parseTypeArguments]);
 
-    // If initialPath and initialArgs are provided, execute function automatically
+    // Attempt auto-execution only when SDK is ready and it hasn't been attempted before
     useEffect(() => {
-        if (initialPath && initialArgs) {
+        if (sdkReady && initialPath && initialArgs && !autoExecutedRef.current && !isLoading) {
             console.log('Auto-executing view function with:', {
                 initialPath,
-                initialArgs
+                initialArgs,
+                sdkReady
             });
-            executeViewFunction();
+
+            // Mark that we've attempted execution
+            autoExecutedRef.current = true;
+
+            // Delay execution slightly to ensure everything is properly set up
+            const timer = setTimeout(() => {
+                executeViewFunction();
+            }, 300);
+
+            return () => clearTimeout(timer);
         }
-    }, [initialPath, initialArgs, executeViewFunction]);
+    }, [initialPath, initialArgs, executeViewFunction, sdkReady, isLoading]);
 
     const copyToClipboard = () => {
         const resultStr = JSON.stringify(result, null, 2);
@@ -120,6 +148,12 @@ export default function ViewFunction() {
                         </TouchableOpacity>
                         <Text className="text-white text-2xl font-bold">View Function</Text>
                     </View>
+
+                    {!sdkReady && (
+                        <View className="bg-blue-900/30 rounded-lg p-4 mb-4">
+                            <Text className="text-blue-300">Initializing SDK, please wait...</Text>
+                        </View>
+                    )}
 
                     <View className="bg-secondary rounded-lg p-4 mb-4">
                         <Text className="text-white text-lg font-bold mb-4">Function Parameters</Text>
@@ -164,9 +198,9 @@ export default function ViewFunction() {
 
                         {/* Execute Button */}
                         <TouchableOpacity
-                            className="bg-primary rounded-lg py-3 items-center mb-4"
+                            className={`rounded-lg py-3 items-center mb-4 ${sdkReady ? 'bg-primary' : 'bg-gray-600'}`}
                             onPress={executeViewFunction}
-                            disabled={isLoading}
+                            disabled={isLoading || !sdkReady}
                         >
                             <Text className="text-white font-bold">
                                 {isLoading ? 'Executing...' : 'Execute View Function'}
