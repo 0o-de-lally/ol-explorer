@@ -17,6 +17,7 @@ import { useForceUpdateTransactions } from '../hooks/useForceUpdate';
 import { router } from 'expo-router';
 import { useSdk } from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
+import { getTransactionStatus, getStatusPillStyle } from '../utils/transactionUtils';
 
 type TransactionsListProps = {
   testID?: string;
@@ -24,6 +25,9 @@ type TransactionsListProps = {
   initialLimit?: number;
   onLimitChange?: (newLimit: number) => void;
   isVisible?: boolean;
+  externalTransactions?: any[]; // Add support for external transactions
+  fetchExternalTransactions?: () => Promise<void>; // Function to refresh external transactions
+  title?: string; // Custom title for the component
 };
 
 // Use observer pattern to correctly handle observables
@@ -32,7 +36,10 @@ export const TransactionsList = observer(({
   onRefresh,
   initialLimit = 25,
   onLimitChange,
-  isVisible = true
+  isVisible = true,
+  externalTransactions,
+  fetchExternalTransactions,
+  title
 }: TransactionsListProps) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -180,21 +187,27 @@ export const TransactionsList = observer(({
         onRefresh();
       }
 
-      // Don't reset to initial limit - keep the user's current view preference
-      // First, try to fetch using the SDK directly with the current limit
-      const currentStoreLimit = blockchainStore.currentLimit.get();
-      console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
+      // If using external transactions, use the provided fetch function
+      if (fetchExternalTransactions) {
+        await fetchExternalTransactions();
+      } else {
+        // Otherwise, use the standard store-based approach
+        // Don't reset to initial limit - keep the user's current view preference
+        // First, try to fetch using the SDK directly with the current limit
+        const currentStoreLimit = blockchainStore.currentLimit.get();
+        console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
 
-      // Use forceUpdateTransactions to force only transaction updates, not metrics
-      blockchainActions.forceUpdateTransactions();
+        // Use forceUpdateTransactions to force only transaction updates, not metrics
+        blockchainActions.forceUpdateTransactions();
 
-      // Fetch transactions directly with current limit
-      const transactions = await sdk.getTransactions(currentStoreLimit);
+        // Fetch transactions directly with current limit
+        const transactions = await sdk.getTransactions(currentStoreLimit);
 
-      // Update the store directly with these transactions
-      blockchainActions.setTransactions(transactions);
+        // Update the store directly with these transactions
+        blockchainActions.setTransactions(transactions);
 
-      console.log(`Refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
+        console.log(`Refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
+      }
     } catch (error) {
       console.error('Error during direct refresh:', error);
     } finally {
@@ -215,18 +228,24 @@ export const TransactionsList = observer(({
       const newLimit = Math.min(currentLimit + 25, 100);
       console.log(`Loading more transactions, new limit: ${newLimit}`);
 
-      // Update the currentLimit in the store - this only affects transactions
-      blockchainActions.setCurrentLimit(newLimit);
+      if (externalTransactions && fetchExternalTransactions) {
+        // For external transactions, update the limit and trigger the fetch
+        blockchainActions.setCurrentLimit(newLimit);
+        await fetchExternalTransactions();
+      } else {
+        // Update the currentLimit in the store - this only affects transactions
+        blockchainActions.setCurrentLimit(newLimit);
 
-      // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
-      const transactions = await sdk.getTransactions(newLimit);  // Use newLimit directly, not currentLimit
-      console.log(`Fetched ${transactions.length} transactions with new limit ${newLimit}`);
+        // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
+        const transactions = await sdk.getTransactions(newLimit);  // Use newLimit directly, not currentLimit
+        console.log(`Fetched ${transactions.length} transactions with new limit ${newLimit}`);
 
-      // Update the store with the new transactions if the component is still mounted
-      if (isMounted.current) {
-        // Use transaction-specific actions
-        blockchainActions.setTransactions(transactions);
-        console.log(`Successfully loaded ${transactions.length} transactions with limit ${newLimit}`);
+        // Update the store with the new transactions if the component is still mounted
+        if (isMounted.current) {
+          // Use transaction-specific actions
+          blockchainActions.setTransactions(transactions);
+          console.log(`Successfully loaded ${transactions.length} transactions with limit ${newLimit}`);
+        }
       }
     } catch (error) {
       console.error('Error loading more transactions:', error);
@@ -238,8 +257,8 @@ export const TransactionsList = observer(({
     }
   };
 
-  // Get values from observables
-  const transactions = blockchainStore.transactions.get();
+  // Get values from observables or external props
+  const transactions = externalTransactions || blockchainStore.transactions.get();
   const isLoading = blockchainStore.isLoading.get();
   const lastTransactionsUpdated = blockchainStore.lastTransactionsUpdated.get();
 
@@ -346,10 +365,11 @@ export const TransactionsList = observer(({
 
     return (
       <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
-        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">VERSION</Text>
-        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TX HASH</Text>
-        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">FUNCTION</Text>
-        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TIME</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">STATUS</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/6 font-sans text-center truncate">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">TIME</Text>
       </View>
     );
   };
@@ -357,6 +377,10 @@ export const TransactionsList = observer(({
   const renderTransactionItem = (item: any) => {
     const functionLabel = getFunctionLabel(item.type, item);
     const functionPillColor = getFunctionPillColor(item.type, functionLabel);
+
+    // Get status using the utility function
+    const status = getTransactionStatus(item);
+    const statusPillStyle = getStatusPillStyle(status);
 
     return (
       <TouchableOpacity
@@ -370,8 +394,13 @@ export const TransactionsList = observer(({
             <View className="w-full space-y-2">
               {/* First row */}
               <View className="w-full flex-none flex-row items-center justify-between">
-                <View className={`rounded-full ${functionPillColor}`}>
-                  <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+                <View className="flex-row space-x-2 items-center">
+                  <View className={`rounded-full ${functionPillColor}`}>
+                    <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+                  </View>
+                  <View className={`rounded-full ${statusPillStyle}`}>
+                    <Text className="text-white text-xs font-bold px-2 py-1">{status.toUpperCase()}</Text>
+                  </View>
                 </View>
                 <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
               </View>
@@ -387,19 +416,27 @@ export const TransactionsList = observer(({
 
         {isDesktop && (
           <View className="flex flex-row py-3 px-4 w-full">
-            <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(item.version)}</Text>
-            <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(item.hash)}</Text>
-            <View className="w-2/5 flex items-center justify-center">
+            <Text className="text-white text-sm w-1/6 font-data text-center">{formatNumber(item.version)}</Text>
+            <Text className="text-white text-sm w-1/6 font-data text-center">{getSenderDisplay(item.hash)}</Text>
+            <View className="w-1/6 flex items-center justify-center">
+              <View className={`px-2 py-1 rounded-full max-w-[100px] w-auto flex items-center justify-center ${statusPillStyle}`}>
+                <Text className="text-white text-xs font-bold">{status.toUpperCase()}</Text>
+              </View>
+            </View>
+            <View className="w-2/6 flex items-center justify-center">
               <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
                 <Text className="text-xs font-medium">{functionLabel}</Text>
               </View>
             </View>
-            <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(item.timestamp)}</Text>
+            <Text className="text-white text-sm w-1/6 text-center">{formatTimestamp(item.timestamp)}</Text>
           </View>
         )}
       </TouchableOpacity>
     );
   };
+
+  // Get the component title
+  const componentTitle = title || 'Recent Transactions';
 
   // Initial loading state with no transactions
   if (isLoading && transactions.length === 0) {
@@ -409,7 +446,7 @@ export const TransactionsList = observer(({
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
             <Text className="text-lg font-bold text-white">
-              Recent Transactions
+              {componentTitle}
               <ActivityIndicator size="small" color="#E75A5C" style={{ marginLeft: 8 }} />
             </Text>
             {/* No refresh button during loading */}
@@ -431,7 +468,7 @@ export const TransactionsList = observer(({
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
-            <Text className="text-lg font-bold text-white">Recent Transactions (0)</Text>
+            <Text className="text-lg font-bold text-white">{componentTitle} (0)</Text>
             {(isRefreshing || isAutoRefreshing) ? (
               <ActivityIndicator size="small" color="#E75A5C" />
             ) : (
@@ -461,7 +498,7 @@ export const TransactionsList = observer(({
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
-            Recent Transactions ({transactions.length})
+            {componentTitle} ({transactions.length})
           </Text>
           <View className="w-8 h-8 justify-center items-center">
             {(isRefreshing || isAutoRefreshing || isLoading) ? (

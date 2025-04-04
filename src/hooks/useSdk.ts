@@ -91,6 +91,7 @@ export const useSdk = (): BlockchainSDK & {
       }
 
       const data = await response.json();
+      console.log(`REST API response for account transactions ${normalizedAddress}:`, data);
 
       // Check if we got valid transactions data
       if (Array.isArray(data)) {

@@ -10,6 +10,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { navigate } from '../navigation/navigationUtils';
 import appConfig from '../config/appConfig';
+import { getTransactionStatus, getStatusPillStyle } from '../utils/transactionUtils';
 
 /**
  * Get color for function pill based on function type using alphabetical index
@@ -266,8 +267,10 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             {/* Mobile layout */}
             <View className="md:hidden">
               <View className="flex-row justify-between items-center mb-3">
-                <View className={`px-3 py-1 rounded-full ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                  <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
+                <View className={`px-3 py-1 rounded-full ${getStatusPillStyle(getTransactionStatus(transaction))}`}>
+                  <Text className="text-white text-xs font-bold">
+                    {getTransactionStatus(transaction).toUpperCase()}
+                  </Text>
                 </View>
                 <Text className="text-text-light text-sm">Version {transaction.version}</Text>
               </View>
@@ -292,8 +295,10 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             <View className="hidden md:block">
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
-                <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                  <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
+                <View className={`px-2 py-1 rounded ${getStatusPillStyle(getTransactionStatus(transaction))}`}>
+                  <Text className="text-white text-xs font-bold">
+                    {getTransactionStatus(transaction).toUpperCase()}
+                  </Text>
                 </View>
               </View>
 

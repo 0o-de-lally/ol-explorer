@@ -5,7 +5,8 @@ export interface Transaction {
   sequence_number: number;
   timestamp: string | number;
   type: string;
-  status: 'success' | 'failure' | 'pending';
+  status?: 'success' | 'failure' | 'pending';
+  success?: boolean;
   gas_used?: number;
   gas_unit_price?: number;
   vm_status?: string;
