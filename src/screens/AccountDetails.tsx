@@ -1324,11 +1324,8 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                                 {getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'Compliant' : 'Non-Compliant'}
                               </Text>
                             </View>
-                            <Text className="text-white text-xs mr-1">
-                              {`Proposals Accepted: ${getObservableValue(extendedData?.validator?.grade?.acceptedProposals, 0)}`}
-                            </Text>
                             <Text className="text-white text-xs">
-                              {`Proposals Failed: ${getObservableValue(extendedData?.validator?.grade?.failedProposals, 0)}`}
+                              {`Proposals Passed/Failed: ${getObservableValue(extendedData?.validator?.grade?.acceptedProposals, 0).toLocaleString()}/${getObservableValue(extendedData?.validator?.grade?.failedProposals, 0).toLocaleString()}`}
                             </Text>
                           </View>
                           <View className="ml-2">
