@@ -1318,14 +1318,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
                         <Row alignItems="center" className="mb-2">
                           <Text className="text-text-light text-sm mr-2">Validator Grade:</Text>
-                          <View className="flex-row items-center">
-                            <View className={`mr-2 px-2 py-0.5 rounded-md ${getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'bg-green-800' : 'bg-red-800'}`}>
-                              <Text className="text-white text-xs">
-                                {getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'Compliant' : 'Non-Compliant'}
-                              </Text>
-                            </View>
+                          <View className={`mr-2 px-2 py-0.5 rounded-md ${getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'bg-green-800' : 'bg-red-800'}`}>
                             <Text className="text-white text-xs">
-                              {`Proposals Passed/Failed: ${getObservableValue(extendedData?.validator?.grade?.acceptedProposals, 0).toLocaleString()}/${getObservableValue(extendedData?.validator?.grade?.failedProposals, 0).toLocaleString()}`}
+                              {getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'Compliant' : 'Non-Compliant'}
                             </Text>
                           </View>
                           <View className="ml-2">
@@ -1338,6 +1333,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                               <Text className="text-white text-xs">View</Text>
                             </TouchableOpacity>
                           </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm ml-4">Proposals Passed/Failed:</Text>
+                          <Text className="text-white text-sm ml-2">
+                            {`${getObservableValue(extendedData?.validator?.grade?.acceptedProposals, 0).toLocaleString()}/${getObservableValue(extendedData?.validator?.grade?.failedProposals, 0).toLocaleString()}`}
+                          </Text>
                         </Row>
 
                         <Row alignItems="center" className="mb-2">
