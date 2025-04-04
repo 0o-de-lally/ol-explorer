@@ -326,7 +326,8 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 <View className="w-2/3 flex-row justify-end items-center">
                   <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
                     <Text className="text-primary text-sm text-right mr-2">
-                      {transaction.sender}
+                      <Text className="hidden md:inline">{transaction.sender}</Text>
+                      <Text className="inline md:hidden">{formatAddressForDisplay(transaction.sender, 6, 4)}</Text>
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity

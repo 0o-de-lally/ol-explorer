@@ -7,6 +7,7 @@ import { useSdk } from '../hooks/useSdk';
 import { useSdkContext } from '../context/SdkContext';
 import { Transaction } from '../types/blockchain';
 import { BlockchainMetrics } from '../components/BlockchainMetrics';
+import { SupplyStats } from '../components/SupplyStats';
 import { SearchBar } from '../components/SearchBar';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
@@ -421,6 +422,9 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
           <Grid cols={1} gap={6} fullBleed={true} className="mb-4">
             {/* Blockchain metrics card */}
             <BlockchainMetrics />
+
+            {/* Supply statistics card */}
+            <SupplyStats isVisible={isScreenVisible} />
 
             {/* Transactions list */}
             <TransactionsList

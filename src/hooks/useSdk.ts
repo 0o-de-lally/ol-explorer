@@ -11,6 +11,15 @@ export interface ValidatorGrade {
   failedProposals: number;
 }
 
+// Add this interface to define the return type of supply stats
+export interface SupplyStats {
+  total: number;
+  slowLocked: number;
+  donorVoice: number;
+  pledge: number;
+  unlocked: number;
+}
+
 /**
  * Hook for accessing the SDK instance.
  * This is a thin wrapper over the SDK context that handles address normalization.
@@ -37,6 +46,7 @@ export const useSdk = (): BlockchainSDK & {
   isCommunityWalletInit: (address: string) => Promise<boolean>;
   isWithinAuthorizeWindow: (address: string) => Promise<boolean>;
   getVetoTally: (address: string) => Promise<number>;
+  getSupplyStats: () => Promise<SupplyStats>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -858,6 +868,43 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
+  // Add this function to fetch the supply stats
+  const getSupplyStats = async (): Promise<SupplyStats> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get supply stats');
+      return { total: 0, slowLocked: 0, donorVoice: 0, pledge: 0, unlocked: 0 };
+    }
+
+    try {
+      console.log('Getting supply statistics');
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::supply::get_stats`,
+        typeArguments: [],
+        arguments: []
+      });
+
+      console.log(`getSupplyStats result:`, result);
+
+      // Check if result is an array with 5 elements (total, slow_locked, donor_voice, pledge, unlocked)
+      if (Array.isArray(result) && result.length >= 5) {
+        return {
+          total: parseFloat(result[0]) || 0,
+          slowLocked: parseFloat(result[1]) || 0,
+          donorVoice: parseFloat(result[2]) || 0,
+          pledge: parseFloat(result[3]) || 0,
+          unlocked: parseFloat(result[4]) || 0
+        };
+      }
+
+      console.warn('Unexpected supply stats format:', result);
+      return { total: 0, slowLocked: 0, donorVoice: 0, pledge: 0, unlocked: 0 };
+    } catch (error) {
+      console.error('Error getting supply stats:', error);
+      return { total: 0, slowLocked: 0, donorVoice: 0, pledge: 0, unlocked: 0 };
+    }
+  };
+
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
     return {
@@ -996,6 +1043,10 @@ export const useSdk = (): BlockchainSDK & {
       getVetoTally: async () => {
         console.log('SDK not initialized, cannot get veto tally');
         return 0;
+      },
+      getSupplyStats: async () => {
+        console.log('SDK not initialized, cannot get supply stats');
+        return { total: 0, slowLocked: 0, donorVoice: 0, pledge: 0, unlocked: 0 };
       }
     };
   }
@@ -1053,6 +1104,7 @@ export const useSdk = (): BlockchainSDK & {
     // Community wallet status functions
     isCommunityWalletInit,
     isWithinAuthorizeWindow,
-    getVetoTally
+    getVetoTally,
+    getSupplyStats
   };
 }; 
