@@ -394,15 +394,17 @@ export const TransactionsList = observer(({
             <View className="w-full space-y-2">
               {/* First row */}
               <View className="w-full flex-none flex-row items-center justify-between">
-                <View className="flex-row space-x-2 items-center">
-                  <View className={`rounded-full ${functionPillColor}`}>
+                <View className="flex-1 mr-2">
+                  <View className={`rounded-full ${functionPillColor} self-start`}>
                     <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
                   </View>
+                </View>
+                <View className="flex-row items-center space-x-2">
                   <View className={`rounded-full ${statusPillStyle}`}>
                     <Text className="text-white text-xs font-bold px-2 py-1">{status.toUpperCase()}</Text>
                   </View>
+                  <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
                 </View>
-                <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
               </View>
 
               {/* Second row */}
