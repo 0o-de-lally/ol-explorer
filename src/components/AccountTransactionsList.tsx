@@ -1,23 +1,31 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
   AppState,
-  AppStateStatus
+  AppStateStatus,
+  useWindowDimensions
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
+import { observable } from '@legendapp/state';
 import { formatTimestamp } from '../utils/formatters';
 import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
 import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
+import { useForceUpdateTransactions } from '../hooks/useForceUpdate';
 import { router } from 'expo-router';
 import appConfig from '../config/appConfig';
-import { useSdkContext } from '../context/SdkContext';
 
-// Polling interval in milliseconds - could be moved to appConfig
-const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds (changed from 30 seconds)
+// Local observable state for this component
+const accountTransactionsStore = observable({
+  transactions: [] as any[],
+  isLoading: false,
+  error: null as string | null,
+  currentLimit: 25,
+  lastUpdated: Date.now()
+});
 
 type AccountTransactionsListProps = {
   accountAddress: string;
@@ -28,49 +36,61 @@ type AccountTransactionsListProps = {
   isVisible?: boolean; // Add prop to indicate if component is visible
 };
 
-// Use observer pattern to correctly handle observables
+// Use the observer pattern to automatically react to changes in the observable state
 export const AccountTransactionsList = observer(({
   accountAddress,
-  initialLimit = 25, // Changed from appConfig.transactions.defaultLimit to hardcoded 25
-  testID,
+  initialLimit = 25,
+  testID = 'account-transactions-list',
   onRefresh,
   onLimitChange,
-  isVisible = true // Default to true if not provided
+  isVisible = true
 }: AccountTransactionsListProps) => {
-  // State for transactions and loading
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  // Track the current limit for pagination
-  const [currentLimit, setCurrentLimit] = useState(initialLimit);
-  // Add state to track auto-refresh
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
-  // Add ref to track polling interval
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  // Add ref to track app state
-  const appState = useRef(AppState.currentState);
-  // Track if component is mounted
-  const isMounted = useRef(true);
-
   const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
+  // Use local state to track refresh, loading more, and auto refresh states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+
+  // Get SDK instance
   const sdk = useSdk();
-  const { isInitialized, isUsingMockData } = useSdkContext();
+  const updateCounter = useForceUpdateTransactions();
+  const { isInitialized } = useSdkContext();
 
-  // Effect to notify parent component when limit changes
-  useEffect(() => {
-    if (onLimitChange && currentLimit !== initialLimit) {
-      onLimitChange(currentLimit);
-    }
-  }, [currentLimit, initialLimit, onLimitChange]);
+  // Get the current state from the store
+  const transactions = accountTransactionsStore.transactions.get();
+  const isLoading = accountTransactionsStore.isLoading.get();
+  const error = accountTransactionsStore.error.get();
+  const currentLimit = accountTransactionsStore.currentLimit.get();
 
-  // Set isMounted ref on mount/unmount
+  // Add refs to track polling interval and app state
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const appState = useRef(AppState.currentState);
+  const isMounted = useRef(true);
+  const previousLimitRef = useRef(currentLimit);
+
+  // Effect to set up and clean up
   useEffect(() => {
     isMounted.current = true;
+    console.log(`AccountTransactionsList mounted for address: ${accountAddress}`);
+
+    // Initialize with the provided limit
+    if (initialLimit !== currentLimit) {
+      accountTransactionsStore.currentLimit.set(initialLimit);
+    }
+
+    // Initial fetch when component mounts
+    if (isInitialized && accountAddress) {
+      fetchTransactions(false, false, true);
+    }
+
     return () => {
+      console.log(`AccountTransactionsList unmounting for address: ${accountAddress}`);
       isMounted.current = false;
+      stopPolling();
     };
-  }, []);
+  }, [accountAddress, isInitialized]);
 
   // Listen for app state changes
   useEffect(() => {
@@ -80,57 +100,33 @@ export const AccountTransactionsList = observer(({
     };
   }, []);
 
+  // Effect to notify parent component when limit changes
+  useEffect(() => {
+    if (onLimitChange && currentLimit !== previousLimitRef.current) {
+      console.log(`Notifying parent of limit change: ${previousLimitRef.current} -> ${currentLimit}`);
+      onLimitChange(currentLimit);
+      previousLimitRef.current = currentLimit;
+    }
+  }, [currentLimit, onLimitChange]);
+
   // Handle app state changes
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
       // App has come to the foreground
       console.log('App has come to the foreground, refreshing account transactions');
-      if (isVisible && accountAddress) {
+      if (isVisible && isInitialized && accountAddress) {
         fetchTransactions(false, true);
       }
     }
     appState.current = nextAppState;
   };
 
-  // Sort transactions by version (descending) and then by timestamp (most recent first)
-  const sortedTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) => {
-      // Extract version numbers, handling different data formats
-      const versionA = Number(a.version || a.sequence_number || 0);
-      const versionB = Number(b.version || b.sequence_number || 0);
+  // Auto-refresh polling
+  const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds
 
-      // First sort by version (block number) in descending order
-      if (versionB !== versionA) {
-        return versionB - versionA;
-      }
-
-      // Extract timestamps, handling different formats
-      const timestampA = new Date(
-        a.timestamp ||
-        (a.transaction?.expiration_timestamp_secs ? a.transaction.expiration_timestamp_secs * 1000 : 0)
-      ).getTime();
-
-      const timestampB = new Date(
-        b.timestamp ||
-        (b.transaction?.expiration_timestamp_secs ? b.transaction.expiration_timestamp_secs * 1000 : 0)
-      ).getTime();
-
-      // If versions are equal, sort by timestamp in descending order
-      return timestampB - timestampA;
-    });
-  }, [transactions]);
-
-  // Load transactions on component mount
+  // Auto-refresh based on visibility
   useEffect(() => {
-    if (accountAddress && isVisible) {
-      fetchTransactions(false, false, true); // Initial fetch, use current limit
-    }
-  }, [accountAddress, isVisible]);
-
-  // Set up and clean up polling based on visibility
-  useEffect(() => {
-    // Create or destroy polling interval based on visibility
-    if (isVisible) {
+    if (isVisible && accountAddress) {
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
       startPolling();
@@ -138,174 +134,143 @@ export const AccountTransactionsList = observer(({
       stopPolling();
     }
 
-    // Clean up polling on unmount
+    // Clean up polling on unmount or when component becomes invisible
     return () => {
       stopPolling();
     };
-  }, [isVisible, isInitialized, isUsingMockData, accountAddress]);
+  }, [isVisible, isInitialized, accountAddress]);
 
-  // Start polling interval
+  // Start polling for transactions
   const startPolling = () => {
-    // Only start polling if not already polling, component is visible, SDK is initialized and not using mock data
-    if (!pollingIntervalRef.current && isVisible && isInitialized && !isUsingMockData && accountAddress) {
-      console.log('Starting polling for account transactions');
+    // Only start polling if not already polling and component is visible
+    if (!pollingIntervalRef.current && isVisible && isInitialized) {
+      console.log(`Starting polling for account transactions: ${accountAddress}`);
 
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
 
-      // Force an immediate refresh when starting polling
-      setTimeout(() => {
-        console.log('Initial account transactions refresh');
-        setIsAutoRefreshing(true);
-        fetchTransactions(false, true)
-          .finally(() => {
-            if (isMounted.current) {
-              setTimeout(() => setIsAutoRefreshing(false), 500);
-            }
-          });
-      }, 200);
-
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
-        if (!isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
-          console.log('[POLL] Auto-refreshing account transactions');
-          // Set auto-refreshing flag to true
-          setIsAutoRefreshing(true);
-          // Fetch transactions with current limit - use auto-refresh flag, not initial fetch
-          // Use current limit directly to avoid race conditions
-          const limitToUse = currentLimit;
-          fetchTransactions(false, true, false, limitToUse)
-            .finally(() => {
-              // Reset auto-refreshing flag when done
-              if (isMounted.current) {
-                setTimeout(() => {
-                  setIsAutoRefreshing(false);
-                }, 500); // Short delay to ensure the user sees the refresh indicator
-              }
-            });
-        } else {
-          console.log('[POLL] Skipping transactions refresh, conditions not met:', {
-            isLoadingMore, isAutoRefreshing, isVisible, isMounted: isMounted.current
-          });
+        if (!isRefreshing && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
+          console.log(`Auto-refreshing account transactions for ${accountAddress}`);
+          fetchTransactions(false, true);
         }
       }, AUTO_REFRESH_INTERVAL);
-
-      console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
     }
   };
 
-  // Stop polling interval
+  // Stop polling
   const stopPolling = () => {
     if (pollingIntervalRef.current) {
-      console.log('Stopping polling for account transactions');
+      console.log(`Stopping polling for account transactions: ${accountAddress}`);
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
   };
 
-  // Function to fetch transactions
+  // Fetch transactions
   const fetchTransactions = async (isLoadMore = false, isAutoRefresh = false, isInitialFetch = false, overrideLimit?: number) => {
+    // Only proceed if we have an account address and SDK is initialized
+    if (!accountAddress || !isInitialized) {
+      console.error('Cannot fetch transactions: Missing account address or SDK not initialized');
+      if (!isInitialized) {
+        accountTransactionsStore.error.set('SDK not initialized');
+      } else {
+        accountTransactionsStore.error.set('Invalid account address');
+      }
+      return;
+    }
+
+    // Set appropriate loading state
+    if (isLoadMore) {
+      setIsLoadingMore(true);
+    } else if (isAutoRefresh) {
+      setIsAutoRefreshing(true);
+    } else if (isInitialFetch) {
+      accountTransactionsStore.isLoading.set(true);
+    } else {
+      setIsRefreshing(true);
+    }
+
     try {
-      // For manual refreshes and initial loads, set loading state
-      if (!isLoadMore && !isAutoRefresh) {
-        setIsLoading(true);
-        setError(null);
+      // Determine the limit to use
+      const limitToUse = overrideLimit || currentLimit;
+      console.log(`Fetching up to ${limitToUse} transactions for account: ${accountAddress}`);
 
-        // Only clear transactions on initial fetch, not on manual refresh
-        if (isInitialFetch) {
-          setTransactions([]);
-        }
-      } else if (isLoadMore) {
-        // For "load more", still show loading indicator
-        setIsLoadingMore(true);
-      }
-      // For auto-refresh, we don't modify the loading state to avoid UI flickering
+      // Call the SDK to get account transactions
+      const accountTransactions = await sdk.ext_getAccountTransactions(accountAddress, limitToUse);
+      const count = accountTransactions?.length || 0;
+      console.log(`Fetched ${count} transactions for account: ${accountAddress}`);
 
-      // Use override limit if provided (to avoid race conditions), otherwise use currentLimit
-      const limitToUse = overrideLimit !== undefined ? overrideLimit : currentLimit;
-
-      console.log(`Fetching transactions for account: ${accountAddress}, limit: ${limitToUse}, isAutoRefresh: ${isAutoRefresh}`);
-      const accountTxs = await sdk.ext_getAccountTransactions(accountAddress, limitToUse);
-
-      // Only update state if component is still mounted
+      // Only update the store if the component is still mounted
       if (isMounted.current) {
-        // Replace with new transactions - we're getting everything in one go
-        setTransactions(accountTxs);
+        accountTransactionsStore.transactions.set(accountTransactions || []);
+        accountTransactionsStore.error.set(null);
+        accountTransactionsStore.lastUpdated.set(Date.now());
 
-        if (accountTxs.length === 0) {
-          setError('No transactions found for this account');
+        // If this was a load more operation, update the limit
+        if (isLoadMore && overrideLimit) {
+          accountTransactionsStore.currentLimit.set(overrideLimit);
         }
       }
-    } catch (e: any) {
-      console.error('Error fetching account transactions:', e);
+    } catch (error) {
+      console.error(`Error fetching account transactions for ${accountAddress}:`, error);
       if (isMounted.current) {
-        setError(e.message || 'Failed to load transactions');
+        accountTransactionsStore.error.set(error instanceof Error ? error.message : String(error));
       }
     } finally {
+      // Reset loading states
       if (isMounted.current) {
-        // Reset loading states based on the type of refresh
-        if (!isAutoRefresh) {
-          setIsLoading(false);
-        }
         if (isLoadMore) {
           setIsLoadingMore(false);
+        } else if (isAutoRefresh) {
+          setTimeout(() => setIsAutoRefreshing(false), 500);
+        } else if (isInitialFetch) {
+          accountTransactionsStore.isLoading.set(false);
+        } else {
+          setIsRefreshing(false);
         }
       }
     }
   };
 
-  // Handle refresh button click
+  // Handle manual refresh
   const handleRefresh = async () => {
     if (onRefresh) {
       onRefresh();
     }
-    // Don't reset to initial limit - keep the user's current view preference
-    await fetchTransactions(false, false, false); // Use current limit for manual refresh
+    fetchTransactions();
   };
 
-  // Handle load more button click
+  // Handle load more
   const handleLoadMore = async () => {
-    // Always allow loading more when button is clicked
-    // Calculate the new limit first
+    if (isLoadingMore || currentLimit >= 100) return;
+
     const newLimit = Math.min(currentLimit + 25, 100);
-
-    // Set loading state immediately
-    setIsLoadingMore(true);
-
-    try {
-      console.log(`Increasing fetch limit to ${newLimit}`);
-
-      // Update state with new limit
-      setCurrentLimit(newLimit);
-
-      // Use fetchTransactions with the override limit to avoid race condition
-      await fetchTransactions(true, false, false, newLimit);
-      console.log(`Loaded transactions with new limit ${newLimit}`);
-    } catch (error) {
-      console.error('Error loading more transactions:', error);
-      if (isMounted.current) {
-        setError('Failed to load more transactions');
-      }
-    } finally {
-      if (isMounted.current) {
-        setIsLoadingMore(false);
-      }
-    }
+    console.log(`Loading more account transactions, new limit: ${newLimit}`);
+    fetchTransactions(true, false, false, newLimit);
   };
+
+  // Sort transactions by version (descending)
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      // Try to get version from different formats
+      const aVersion = Number(a.version || (a.transaction && a.transaction.version) || 0);
+      const bVersion = Number(b.version || (b.transaction && b.transaction.version) || 0);
+      return bVersion - aVersion;
+    });
+  }, [transactions]);
 
   const handleTransactionPress = (hash: string) => {
     // Normalize the hash using our utility function
     const normalizedHash = normalizeTransactionHash(hash);
 
-    // Validate hash before navigation
     if (!normalizedHash) {
       console.error('Invalid transaction hash:', hash);
       return;
     }
 
     console.log('Navigating to transaction details with normalized hash:', normalizedHash);
-
-    // Use Expo Router directly
     router.push(`/tx/${normalizedHash}`);
   };
 
@@ -338,11 +303,12 @@ export const AccountTransactionsList = observer(({
       }
     }
 
-    // For transactions from REST API, check transaction structure
-    if (item.transaction?.payload?.function) {
+    // Check if we have a transaction object with payload
+    if (item.transaction && item.transaction.payload && item.transaction.payload.function) {
       const functionPath = item.transaction.payload.function;
       const parts = functionPath.split('::');
       if (parts.length >= 3) {
+        // Return the last part
         return parts[parts.length - 1];
       }
     }
@@ -360,14 +326,14 @@ export const AccountTransactionsList = observer(({
       case 'entry_function':
         return 'entry_function';
       default:
-        return type;
+        return type || 'unknown';
     }
   };
 
-  // Get color for function pill based on function type - using alphabetical index
+  // Get color for function pill based on function type using alphabetical index
   const getFunctionPillColor = (type: string, functionName: string) => {
     // First check for special mappings from config
-    const normalizedType = type.toLowerCase();
+    const normalizedType = (type || '').toLowerCase();
 
     // Check for special cases from config
     for (const [specialType, colors] of Object.entries(appConfig.ui.specialFunctionPills)) {
@@ -377,7 +343,7 @@ export const AccountTransactionsList = observer(({
     }
 
     // Use the functionName (which is from getFunctionLabel) for consistent alphabetical indexing
-    const normalizedName = functionName.toLowerCase();
+    const normalizedName = (functionName || 'unknown').toLowerCase();
 
     // Get alphabetical position and map to color
     const firstChar = normalizedName.charAt(0);
@@ -391,8 +357,10 @@ export const AccountTransactionsList = observer(({
   };
 
   const renderTableHeader = () => {
+    if (!isDesktop) return null;
+
     return (
-      <View className="hidden md:flex md:flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+      <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
         <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">VERSION</Text>
         <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TX HASH</Text>
         <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">FUNCTION</Text>
@@ -420,36 +388,38 @@ export const AccountTransactionsList = observer(({
         onPress={() => handleTransactionPress(hash)}
         testID={`transaction-${hash}`}
       >
-        {/* Mobile View (Stacked Layout) */}
-        <View className="md:hidden py-3 px-4 w-full">
-          <View className="w-full space-y-2">
-            {/* First row */}
-            <View className="w-full flex-none flex-row items-center justify-between">
-              <View className={`rounded-full ${functionPillColor}`}>
-                <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+        {!isDesktop && (
+          <View className="py-3 px-4 w-full">
+            <View className="w-full space-y-2">
+              {/* First row */}
+              <View className="w-full flex-none flex-row items-center justify-between">
+                <View className={`rounded-full ${functionPillColor}`}>
+                  <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+                </View>
+                <Text className="text-white text-xs font-data">{formatNumber(version)}</Text>
               </View>
-              <Text className="text-white text-xs font-data">{formatNumber(version)}</Text>
-            </View>
 
-            {/* Second row */}
-            <View className="w-full flex-none flex-row items-center justify-between">
-              <Text className="text-white text-xs font-data">{getSenderDisplay(hash)}</Text>
-              <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
+              {/* Second row */}
+              <View className="w-full flex-none flex-row items-center justify-between">
+                <Text className="text-white text-xs font-data">{getSenderDisplay(hash)}</Text>
+                <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Desktop View (Row Layout) */}
-        <View className="hidden md:flex flex-row py-3 px-4 w-full">
-          <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(version)}</Text>
-          <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(hash)}</Text>
-          <View className="w-2/5 flex items-center justify-center">
-            <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
-              <Text className="text-xs font-medium">{functionLabel}</Text>
+        {isDesktop && (
+          <View className="flex flex-row py-3 px-4 w-full">
+            <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(version)}</Text>
+            <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(hash)}</Text>
+            <View className="w-2/5 flex items-center justify-center">
+              <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
+                <Text className="text-xs font-medium">{functionLabel}</Text>
+              </View>
             </View>
+            <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(timestamp)}</Text>
           </View>
-          <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(timestamp)}</Text>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };

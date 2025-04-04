@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { observable } from '@legendapp/state';
 import { blockchainStore, blockchainActions } from '../store/blockchainStore';
@@ -65,21 +65,28 @@ const TooltipWrapper = ({ children, tooltip }: { children: React.ReactNode; tool
 };
 
 // Metric card component for consistent styling
-const MetricCard = ({ label, value, tooltip }: { label: string; value: string | number; tooltip: string }) => {
+const MetricCard = ({ label, value, tooltip, isDesktop }: {
+  label: string;
+  value: string | number;
+  tooltip: string;
+  isDesktop: boolean;
+}) => {
   // Determine if this is a timestamp (Ledger Time) by checking the label
   const isTimestamp = label === 'Ledger Time';
 
   return (
-    <View className={`
-      bg-secondary/50 rounded-lg p-3 backdrop-blur-sm
-      ${isTimestamp ? 'col-span-2 md:col-span-1' : 'col-span-1'}
-    `}>
+    <View style={{
+      backgroundColor: 'rgba(26, 34, 53, 0.5)',
+      borderRadius: 8,
+      padding: 12,
+      backdropFilter: 'blur(4px)',
+      gridColumn: isTimestamp && !isDesktop ? 'span 2' : 'span 1'
+    }}>
       <TooltipWrapper tooltip={tooltip}>
         <View>
           <Text className="text-text-muted text-xs mb-1">{label}</Text>
           <Text
-            className={`text-text-light font-bold ${isTimestamp ? 'text-base' : 'text-lg'
-              }`}
+            className={`text-text-light font-bold ${isTimestamp ? 'text-base' : 'text-lg'}`}
             numberOfLines={1}
           >
             {value}
@@ -129,12 +136,18 @@ const getMetricValue = (key: string, values: any) => {
 // Render metrics rows
 const MetricsGrid = ({
   metrics,
-  values
+  values,
+  isDesktop
 }: {
   metrics: MetricRowConfig;
   values: MetricsValues;
+  isDesktop: boolean;
 }) => (
-  <View className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+  <View style={{
+    display: 'grid',
+    gridTemplateColumns: isDesktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+    gap: isDesktop ? 16 : 8
+  }}>
     {Object.entries(metrics)
       .filter(([_, config]) => config.enabled)
       .map(([key, config]) => (
@@ -143,6 +156,7 @@ const MetricsGrid = ({
           label={config.label}
           value={getMetricValue(key, values)}
           tooltip={config.tooltip}
+          isDesktop={isDesktop}
         />
       ))}
   </View>
@@ -150,6 +164,9 @@ const MetricsGrid = ({
 
 // Use the observer HOC to automatically handle observables
 export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   const updateCounter = useForceUpdateMetrics();
   const { isInitialized } = useSdkContext();
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
@@ -276,8 +293,19 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
     <View className="w-full mb-5">
       <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
         <View className="h-1 bg-primary/20" />
-        <View className="flex-row justify-between items-center p-3 md:p-4 border-b border-border/20">
-          <Text className="text-base md:text-lg font-bold text-white">
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: isDesktop ? 16 : 12,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(30, 39, 54, 0.2)'
+        }}>
+          <Text style={{
+            fontSize: isDesktop ? 18 : 16,
+            fontWeight: 'bold',
+            color: 'white'
+          }}>
             Blockchain Metrics
           </Text>
           <View className="w-8 h-8 justify-center items-center">
@@ -291,13 +319,17 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
           </View>
         </View>
 
-        <View className="p-3 md:p-4 space-y-2 md:space-y-4">
+        <View style={{
+          padding: isDesktop ? 16 : 12,
+          gap: isDesktop ? 16 : 8
+        }}>
           <MetricsGrid
             metrics={{
               ...appConfig.metrics.display.row1,
               ...appConfig.metrics.display.row2
             }}
             values={values}
+            isDesktop={isDesktop}
           />
         </View>
       </View>

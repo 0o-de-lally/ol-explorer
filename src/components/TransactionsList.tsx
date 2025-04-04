@@ -5,7 +5,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   AppState,
-  AppStateStatus
+  AppStateStatus,
+  useWindowDimensions
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { blockchainStore, blockchainActions } from '../store/blockchainStore';
@@ -33,6 +34,9 @@ export const TransactionsList = observer(({
   onLimitChange,
   isVisible = true
 }: TransactionsListProps) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   // State for refresh indicator
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -338,8 +342,10 @@ export const TransactionsList = observer(({
   };
 
   const renderTableHeader = () => {
+    if (!isDesktop) return null;
+
     return (
-      <View className="hidden md:flex md:flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+      <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
         <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">VERSION</Text>
         <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TX HASH</Text>
         <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">FUNCTION</Text>
@@ -359,36 +365,38 @@ export const TransactionsList = observer(({
         onPress={() => handleTransactionPress(item.hash)}
         testID={`transaction-${item.hash}`}
       >
-        {/* Mobile View (Stacked Layout) */}
-        <View className="md:hidden py-3 px-4 w-full">
-          <View className="w-full space-y-2">
-            {/* First row */}
-            <View className="w-full flex-none flex-row items-center justify-between">
-              <View className={`rounded-full ${functionPillColor}`}>
-                <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+        {!isDesktop && (
+          <View className="py-3 px-4 w-full">
+            <View className="w-full space-y-2">
+              {/* First row */}
+              <View className="w-full flex-none flex-row items-center justify-between">
+                <View className={`rounded-full ${functionPillColor}`}>
+                  <Text className="text-xs font-medium px-3 py-1">{functionLabel}</Text>
+                </View>
+                <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
               </View>
-              <Text className="text-white text-xs font-data">{formatNumber(item.version)}</Text>
-            </View>
 
-            {/* Second row */}
-            <View className="w-full flex-none flex-row items-center justify-between">
-              <Text className="text-white text-xs font-data">{getSenderDisplay(item.hash)}</Text>
-              <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
+              {/* Second row */}
+              <View className="w-full flex-none flex-row items-center justify-between">
+                <Text className="text-white text-xs font-data">{getSenderDisplay(item.hash)}</Text>
+                <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Desktop View (Row Layout) */}
-        <View className="hidden md:flex flex-row py-3 px-4 w-full">
-          <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(item.version)}</Text>
-          <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(item.hash)}</Text>
-          <View className="w-2/5 flex items-center justify-center">
-            <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
-              <Text className="text-xs font-medium">{functionLabel}</Text>
+        {isDesktop && (
+          <View className="flex flex-row py-3 px-4 w-full">
+            <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(item.version)}</Text>
+            <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(item.hash)}</Text>
+            <View className="w-2/5 flex items-center justify-center">
+              <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
+                <Text className="text-xs font-medium">{functionLabel}</Text>
+              </View>
             </View>
+            <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(item.timestamp)}</Text>
           </View>
-          <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(item.timestamp)}</Text>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
