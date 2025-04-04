@@ -12,7 +12,7 @@ import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { Container } from '../components/Layout';
+import { Container, Grid } from '../components/Layout';
 
 // Debug flag - must match the one in SdkContext.tsx
 const DEBUG_MODE = false;
@@ -405,7 +405,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   return (
     <View className="bg-background flex-1">
       <ScrollView>
-        <Container>
+        <Container width="lg" centered={true}>
           {/* Show debug warning if using mock data */}
           {isUsingMockData && (
             <View className="bg-primary/20 p-2.5 rounded mb-4">
@@ -418,20 +418,26 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
             </View>
           )}
 
-          {/* <BlockchainStats testID="blockchain-stats" /> */}
-          <BlockchainMetrics />
-          <TransactionsList
-            testID="transactions-list"
-            onRefresh={handleRefresh}
-            initialLimit={appConfig.transactions.defaultLimit}
-            onLimitChange={handleLimitChange}
-          />
-          <TouchableOpacity
-            className="ml-2 bg-purple-700 rounded-lg px-3 py-1.5"
-            onPress={() => router.push('/view-tester')}
-          >
-            <Text className="text-white text-sm">Developer</Text>
-          </TouchableOpacity>
+          <Grid cols={1} gap={6} fullBleed={true} className="mb-4">
+            {/* Blockchain metrics card */}
+            <BlockchainMetrics />
+
+            {/* Transactions list */}
+            <TransactionsList
+              testID="transactions-list"
+              onRefresh={handleRefresh}
+              initialLimit={appConfig.transactions.defaultLimit}
+              onLimitChange={handleLimitChange}
+            />
+
+            {/* Developer button */}
+            <TouchableOpacity
+              className="ml-2 bg-purple-700 rounded-lg px-3 py-1.5 w-fit"
+              onPress={() => router.push('/view')}
+            >
+              <Text className="text-white text-sm">Developer</Text>
+            </TouchableOpacity>
+          </Grid>
         </Container>
       </ScrollView>
     </View>

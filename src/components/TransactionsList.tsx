@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
   AppState,
   AppStateStatus
 } from 'react-native';
@@ -60,8 +59,6 @@ export const TransactionsList = observer(({
   const isMounted = useRef(true);
 
   const { isInitialized } = useSdkContext();
-  const { width } = useWindowDimensions();
-  const updateCounter = useForceUpdateTransactions();
   const sdk = useSdk();
 
   // Set isMounted ref on mount/unmount
@@ -237,9 +234,6 @@ export const TransactionsList = observer(({
     }
   };
 
-  // Check if we should use mobile layout
-  const isMobile = width < 768;
-
   // Get values from observables
   const transactions = blockchainStore.transactions.get();
   const isLoading = blockchainStore.isLoading.get();
@@ -344,17 +338,12 @@ export const TransactionsList = observer(({
   };
 
   const renderTableHeader = () => {
-    if (isMobile) {
-      // On mobile, don't show the header - we'll include labels in the row items
-      return null;
-    }
-
     return (
-      <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">VERSION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px] font-sans text-center">TX HASH</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">FUNCTION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px] font-sans text-center">TIME</Text>
+      <View className="hidden md:flex md:flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TIME</Text>
       </View>
     );
   };
@@ -363,15 +352,15 @@ export const TransactionsList = observer(({
     const functionLabel = getFunctionLabel(item.type, item);
     const functionPillColor = getFunctionPillColor(item.type, functionLabel);
 
-    // Mobile view with stacked layout
-    if (isMobile) {
-      return (
-        <TouchableOpacity
-          key={item.hash}
-          className="py-3 px-4 border-b border-border"
-          onPress={() => handleTransactionPress(item.hash)}
-          testID={`transaction-${item.hash}`}
-        >
+    return (
+      <TouchableOpacity
+        key={item.hash}
+        className="w-full border-b border-border"
+        onPress={() => handleTransactionPress(item.hash)}
+        testID={`transaction-${item.hash}`}
+      >
+        {/* Mobile View (Stacked Layout) */}
+        <View className="md:hidden py-3 px-4 w-full">
           <View className="w-full space-y-2">
             {/* First row */}
             <View className="w-full flex-none flex-row items-center justify-between">
@@ -387,26 +376,19 @@ export const TransactionsList = observer(({
               <Text className="text-white text-xs">{formatTimestamp(item.timestamp)}</Text>
             </View>
           </View>
-        </TouchableOpacity>
-      );
-    }
-
-    // Desktop view with row layout
-    return (
-      <TouchableOpacity
-        key={item.hash}
-        className="flex-row py-3 px-4 border-b border-border"
-        onPress={() => handleTransactionPress(item.hash)}
-        testID={`transaction-${item.hash}`}
-      >
-        <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(item.version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(item.hash)}</Text>
-        <View className="flex-1 min-w-[120px] flex items-center justify-center">
-          <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
-            <Text className="text-xs font-medium">{functionLabel}</Text>
-          </View>
         </View>
-        <Text className="text-white text-sm flex-1 min-w-[180px] text-center">{formatTimestamp(item.timestamp)}</Text>
+
+        {/* Desktop View (Row Layout) */}
+        <View className="hidden md:flex flex-row py-3 px-4 w-full">
+          <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(item.version)}</Text>
+          <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(item.hash)}</Text>
+          <View className="w-2/5 flex items-center justify-center">
+            <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
+              <Text className="text-xs font-medium">{functionLabel}</Text>
+            </View>
+          </View>
+          <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(item.timestamp)}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -414,7 +396,7 @@ export const TransactionsList = observer(({
   // Initial loading state with no transactions
   if (isLoading && transactions.length === 0) {
     return (
-      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+      <View className="w-full mb-5">
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
@@ -437,7 +419,7 @@ export const TransactionsList = observer(({
   // Fixed condition for empty state when not loading
   if (transactions.length === 0 && !isLoading) {
     return (
-      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+      <View className="w-full mb-5">
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
@@ -466,7 +448,7 @@ export const TransactionsList = observer(({
 
   // Main render for populated list
   return (
-    <View className="mx-auto w-full max-w-screen-lg px-4 mb-16">
+    <View className="w-full mb-8">
       <View className="bg-secondary rounded-lg overflow-hidden" testID={testID}>
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">

@@ -9,55 +9,99 @@ type LayoutProps = {
 /**
  * Container component that centers content with max-width and consistent padding
  */
-export const Container: React.FC<LayoutProps> = ({ children, className = '' }) => (
-    <View className={`w-full mx-auto max-w-screen-lg px-4 py-4 ${className}`}>
-        {children}
-    </View>
-);
+export const Container: React.FC<LayoutProps & {
+    width?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'; // Allow specifying container width
+    centered?: boolean; // Whether to center the container at all screen sizes
+}> = ({
+    children,
+    className = '',
+    width = 'lg',
+    centered = true
+}) => {
+        // Map width option to actual max-width class
+        let maxWidthClass;
+        switch (width) {
+            case 'sm': maxWidthClass = 'max-w-screen-sm'; break; // 640px
+            case 'md': maxWidthClass = 'max-w-screen-md'; break; // 768px
+            case 'lg': maxWidthClass = 'max-w-screen-lg'; break; // 1024px
+            case 'xl': maxWidthClass = 'max-w-screen-xl'; break; // 1280px
+            case '2xl': maxWidthClass = 'max-w-screen-2xl'; break; // 1536px
+            case 'full': maxWidthClass = 'w-full'; break; // No max width
+            default: maxWidthClass = 'max-w-screen-lg'; // Default to lg
+        }
+
+        return (
+            <View className={`w-full ${centered ? 'mx-auto' : ''} ${maxWidthClass} px-2 sm:px-4 py-4 ${className}`}>
+                {children}
+            </View>
+        );
+    };
 
 /**
- * Grid component for column-based layouts
- * Note: In React Native with NativeWind, we need to use flexbox for grid-like layouts
+ * Grid component for column-based layouts with responsive behavior
+ * Provides a consistent grid system that works across different screen sizes
  */
 export const Grid: React.FC<LayoutProps & {
-    cols?: 1 | 2 | 3 | 4 | 5 | 6;
-    mdCols?: 1 | 2 | 3 | 4 | 5 | 6;
-    lgCols?: 1 | 2 | 3 | 4 | 5 | 6;
-    gap?: 1 | 2 | 3 | 4 | 5 | 6 | 8;
+    cols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
+    smCols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
+    mdCols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
+    lgCols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
+    xlCols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
+    gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10;
+    containerWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
+    fullBleed?: boolean; // Whether the grid should ignore container padding
+    centered?: boolean; // Whether the grid should be centered
 }> = ({
     children,
     className = '',
     cols = 1,
+    smCols,
     mdCols = 2,
     lgCols = 3,
-    gap = 4
+    xlCols,
+    gap = 4,
+    containerWidth = 'lg',
+    fullBleed = false,
+    centered = true
 }) => {
-        const { width } = useWindowDimensions();
-        const isMobile = width < 768; // md breakpoint
-        const isDesktop = width >= 1024; // lg breakpoint
+        // Determine responsive column classes
+        const colClasses = [`grid-cols-${cols}`];
+        if (smCols) colClasses.push(`sm:grid-cols-${smCols}`);
+        if (mdCols) colClasses.push(`md:grid-cols-${mdCols}`);
+        if (lgCols) colClasses.push(`lg:grid-cols-${lgCols}`);
+        if (xlCols) colClasses.push(`xl:grid-cols-${xlCols}`);
 
-        // Determine columns based on screen size
-        const activeCols = isDesktop ? lgCols : (isMobile ? cols : mdCols);
+        // Map gap to Tailwind gap classes
+        const gapClass = gap === 0 ? '' : `gap-${gap}`;
 
-        // Calculate column width as a number percentage
-        const colWidth = 100 / activeCols;
-
-        // Convert numeric gap to padding value
-        const gapPadding = gap * 2;
+        // Map width option to actual max-width class
+        let maxWidthClass = '';
+        if (containerWidth !== 'full') {
+            switch (containerWidth) {
+                case 'sm': maxWidthClass = 'max-w-screen-sm'; break; // 640px
+                case 'md': maxWidthClass = 'max-w-screen-md'; break; // 768px
+                case 'lg': maxWidthClass = 'max-w-screen-lg'; break; // 1024px
+                case 'xl': maxWidthClass = 'max-w-screen-xl'; break; // 1280px
+                case '2xl': maxWidthClass = 'max-w-screen-2xl'; break; // 1536px
+                default: maxWidthClass = 'max-w-screen-lg'; // Default to lg
+            }
+        }
 
         // Create array of children
         const childrenArray = React.Children.toArray(children);
 
+        // Determine padding based on fullBleed option
+        const paddingClass = fullBleed ? '' : 'px-2 sm:px-4';
+
         return (
-            <View className={`flex flex-row flex-wrap ${className}`} style={{ margin: -gapPadding }}>
-                {childrenArray.map((child, index) => (
-                    <View key={index} style={{
-                        width: `${colWidth}%`,
-                        padding: gapPadding,
-                    }}>
-                        {child}
-                    </View>
-                ))}
+            <View className={`w-full ${centered ? 'mx-auto' : ''} ${maxWidthClass} ${paddingClass}`}>
+                <View className={`grid ${colClasses.join(' ')} ${gapClass} ${className}`}>
+                    {childrenArray.map((child, index) => (
+                        <View key={index} className="w-full">
+                            {child}
+                        </View>
+                    ))}
+                </View>
             </View>
         );
     };
@@ -73,21 +117,19 @@ export const TwoColumn: React.FC<LayoutProps & {
 }> = ({
     children,
     className = '',
-    leftWidth = 'w-1/3',
-    rightWidth = 'w-2/3',
-    spacing = 'md:space-x-4',
+    leftWidth = 'w-full md:w-1/3',
+    rightWidth = 'w-full md:w-2/3',
+    spacing = 'space-y-4 md:space-y-0 md:space-x-4',
     stackOnMobile = true
 }) => {
-        const { width } = useWindowDimensions();
-        const isMobile = width < 768; // md breakpoint
         const childrenArray = React.Children.toArray(children);
 
         return (
-            <View className={`flex ${isMobile ? 'flex-col' : 'flex-row'} ${spacing} ${className}`}>
-                <View className={`${isMobile ? 'w-full mb-4' : leftWidth}`}>
+            <View className={`flex flex-col md:flex-row ${spacing} ${className}`}>
+                <View className={`${leftWidth}`}>
                     {childrenArray[0]}
                 </View>
-                <View className={`${isMobile ? 'w-full' : rightWidth} ${!isMobile && childrenArray.length > 1 ? 'md:border-l md:border-border md:pl-4' : ''}`}>
+                <View className={`${rightWidth} ${childrenArray.length > 1 ? 'md:border-l md:border-border md:pl-4' : ''}`}>
                     {childrenArray.length > 1 ? childrenArray[1] : null}
                 </View>
             </View>
@@ -152,7 +194,7 @@ export const Card: React.FC<LayoutProps & {
     padded = true
 }) => {
         return (
-            <View className={`bg-secondary rounded-lg ${padded ? 'p-4' : ''} ${className}`}>
+            <View className={`bg-secondary rounded-lg w-full ${padded ? 'p-4' : ''} ${className}`}>
                 {children}
             </View>
         );

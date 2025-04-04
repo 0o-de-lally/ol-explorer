@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native'
 import { SearchBar } from './SearchBar';
 import { Logo } from './Logo';
 import { router } from 'expo-router';
-import { Container, Row, Column } from './Layout';
+import { Container } from './Layout';
 
 type HeaderProps = {
   testID?: string;
@@ -21,39 +21,25 @@ export const Header: React.FC<HeaderProps> = ({ testID }) => {
   return (
     <View className="bg-background py-4" testID={testID}>
       <Container className="py-0">
-        {isMobile ? (
-          // Mobile layout - Logo above Search
-          <Column>
-            <TouchableOpacity
-              className="flex-row items-center flex-none mb-4"
-              onPress={handleHomePress}
-            >
-              <Logo size={36} className="mr-3" />
-              <Text className="text-white text-xl font-bold whitespace-nowrap">
-                Open Libra Explorer
-              </Text>
-            </TouchableOpacity>
-            <View className="w-full">
-              <SearchBar />
-            </View>
-          </Column>
-        ) : (
-          // Desktop layout - Logo and Search side-by-side
-          <Row justifyContent="between">
-            <TouchableOpacity
-              className="flex-row items-center flex-none"
-              onPress={handleHomePress}
-            >
-              <Logo size={36} className="mr-3" />
-              <Text className="text-white text-xl font-bold whitespace-nowrap">
-                Open Libra Explorer
-              </Text>
-            </TouchableOpacity>
-            <View className="flex-1 pl-4 max-w-[70%]">
-              <SearchBar />
-            </View>
-          </Row>
-        )}
+        <View
+          className={`flex w-full items-center ${isMobile ? 'flex-col' : 'flex-row justify-between'}`}
+        >
+          {/* Logo and title - centered on mobile, left-aligned on desktop */}
+          <TouchableOpacity
+            className={`flex flex-row items-center ${isMobile ? 'mb-4' : ''}`}
+            onPress={handleHomePress}
+          >
+            <Logo size={36} className="mr-3" />
+            <Text className="text-white text-xl font-bold whitespace-nowrap">
+              Open Libra Explorer
+            </Text>
+          </TouchableOpacity>
+
+          {/* Search bar - full width on mobile, partial width on desktop */}
+          <View className={`${isMobile ? 'w-full' : 'w-[60%]'}`}>
+            <SearchBar />
+          </View>
+        </View>
       </Container>
     </View>
   );

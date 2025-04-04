@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SdkLoadingIndicator } from '../src/components/SdkLoadingIndicator';
 import { setupPolyfills } from '../src/utils/polyfills';
 import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration';
+import { Container } from '../src/components/Layout';
 import '../src/utils/bufferPolyfill';
 import '../global.css';
 import ErrorBoundary from '../src/components/ErrorBoundary';
@@ -40,14 +41,14 @@ export default function RootLayout() {
                     <View className="flex-1 flex flex-col overflow-auto">
                         <StatusBar style="light" />
                         <Header testID="header" />
-                        <View className="flex-1 grid grid-cols-1">
+                        <Container width="lg" className="flex-1 py-0">
                             <Stack
                                 screenOptions={{
                                     headerShown: false,
                                     contentStyle: { backgroundColor: '#0B1221' }
                                 }}
                             />
-                        </View>
+                        </Container>
                         <Footer />
                     </View>
                 </View>

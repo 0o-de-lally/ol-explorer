@@ -273,7 +273,7 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
   }, [values.currentLedgerTimestamp, values.latestLedgerTime]);
 
   return (
-    <View className="w-full px-2 md:px-4 mb-5">
+    <View className="w-full mb-5">
       <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
         <View className="h-1 bg-primary/20" />
         <View className="flex-row justify-between items-center p-3 md:p-4 border-b border-border/20">

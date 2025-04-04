@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, Dimensions, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { TransactionDetail } from '../types/blockchain';
 import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
@@ -8,13 +8,8 @@ import { normalizeAddress, formatAddressForDisplay, normalizeTransactionHash } f
 import { useSdkContext } from '../context/SdkContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { useWindowDimensions } from 'react-native';
 import { navigate } from '../navigation/navigationUtils';
 import appConfig from '../config/appConfig';
-
-// Get screen width to adjust formatting for mobile
-const screenWidth = Dimensions.get('window').width;
-const isMobile = screenWidth < 768;
 
 /**
  * Get color for function pill based on function type using alphabetical index
@@ -46,14 +41,14 @@ const getFunctionPillColor = (type: string, functionName?: string) => {
 
 /**
  * Format a hash value for display
- * - For mobile: Shows abbreviated version with ellipsis
- * - For desktop: Shows full hash
+ * - For small screens: Shows abbreviated version with ellipsis
+ * - For larger screens: Shows full hash
  */
-const formatHashForDisplay = (hash: string, mobile = isMobile): string => {
+const formatHashForDisplay = (hash: string, abbreviate = true): string => {
   if (!hash) return '';
 
-  // Always keep the 0x prefix
-  if (mobile) {
+  // If abbreviation is requested (for small screens or other purposes)
+  if (abbreviate) {
     return formatAddressForDisplay(hash, 10, 8); // Show more characters for hashes
   }
 
@@ -268,44 +263,19 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           <Text className="text-white text-2xl font-bold mb-5">Transaction Details</Text>
 
           <View className="bg-secondary rounded-lg p-6 mb-6">
-            {isMobile ? (
-              // Mobile layout
-              <>
-                <View className="flex-row justify-between items-center mb-3">
-                  <View className={`px-3 py-1 rounded-full ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                    <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
-                  </View>
-                  <Text className="text-text-light text-sm">Version {transaction.version}</Text>
+            {/* Mobile layout */}
+            <View className="md:hidden">
+              <View className="flex-row justify-between items-center mb-3">
+                <View className={`px-3 py-1 rounded-full ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
+                  <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
                 </View>
+                <Text className="text-text-light text-sm">Version {transaction.version}</Text>
+              </View>
 
-                <View className="mb-4">
-                  <View className="flex-row items-center">
-                    <View className="bg-background rounded px-3 py-2 flex-1">
-                      <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash)}</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => copyToClipboard(transaction.hash)}
-                      className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
-                    >
-                      <MaterialIcons name="content-copy" size={14} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                  <Text className="text-text-muted text-xs mt-2">{formatTimestamp(transaction.timestamp)}</Text>
-                </View>
-              </>
-            ) : (
-              // Desktop layout
-              <>
-                <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
-                  <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                    <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
-                  </View>
-                </View>
-
-                <View className="flex-row items-center mb-4">
+              <View className="mb-4">
+                <View className="flex-row items-center">
                   <View className="bg-background rounded px-3 py-2 flex-1">
-                    <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
+                    <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, true)}</Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => copyToClipboard(transaction.hash)}
@@ -314,8 +284,31 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                     <MaterialIcons name="content-copy" size={14} color="white" />
                   </TouchableOpacity>
                 </View>
-              </>
-            )}
+                <Text className="text-text-muted text-xs mt-2">{formatTimestamp(transaction.timestamp)}</Text>
+              </View>
+            </View>
+
+            {/* Desktop layout */}
+            <View className="hidden md:block">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-text-light text-base font-bold">Transaction Hash</Text>
+                <View className={`px-2 py-1 rounded ${transaction.status === 'success' ? 'bg-green-900' : 'bg-red-900'}`}>
+                  <Text className="text-white text-xs font-bold">{transaction.status.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center mb-4">
+                <View className="bg-background rounded px-3 py-2 flex-1">
+                  <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => copyToClipboard(transaction.hash)}
+                  className="p-1.5 bg-primary rounded-md ml-2 flex items-center justify-center w-8 h-8"
+                >
+                  <MaterialIcons name="content-copy" size={14} color="white" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-text-muted text-sm w-1/3">Version</Text>

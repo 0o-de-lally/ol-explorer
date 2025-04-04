@@ -230,7 +230,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const appState = useRef(AppState.currentState);
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   // Data loaded tracking
   const dataLoadedRef = useRef(false);
@@ -757,8 +756,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
             {/* Main content with responsive layout */}
             <TwoColumn
-              leftWidth="w-1/2"
-              rightWidth="w-1/2"
+              leftWidth="w-full md:w-1/2"
+              rightWidth="w-full md:w-1/2"
+              spacing="space-y-4 md:space-y-0 md:space-x-8"
               stackOnMobile={true}
             >
               {/* Left Column - Basic Account Info */}
@@ -836,8 +836,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               <Column>
                 {getObservableValue(extendedData, null) && (
                   <>
-                    <View className="border-t border-border my-4 md:hidden" />
-
                     <Row justifyContent="between" alignItems="center" className="mb-3">
                       <Text className="text-text-light text-base font-bold">Community Wallet Status</Text>
                       {isLoading ? (
@@ -1132,8 +1130,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
                 {/* Resource Type Navigation and Content with responsive layout */}
                 <TwoColumn
-                  leftWidth="w-1/4"
-                  rightWidth="w-3/4"
+                  leftWidth="w-full md:w-1/4"
+                  rightWidth="w-full md:w-3/4"
+                  spacing="space-y-4 md:space-y-0 md:space-x-8"
                   stackOnMobile={true}
                 >
                   {/* Left Side - Resource Categories */}
@@ -1250,21 +1249,23 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
           {/* Account Transactions Section */}
           {accountData && getObservableValue(accountData.address, '') && (
-            <AccountTransactionsList
-              accountAddress={getObservableValue(accountData.address, '')}
-              initialLimit={appConfig.transactions.defaultLimit}
-              onRefresh={() => {
-                console.log('Manual refresh triggered');
-                setIsAutoRefreshing(true);
-                refreshAccount()
-                  .then(() => console.log('Manual refresh completed successfully'))
-                  .catch(err => console.error('Error during manual refresh:', err))
-                  .finally(() => {
-                    setTimeout(() => setIsAutoRefreshing(false), 500);
-                  });
-              }}
-              isVisible={isFocused}
-            />
+            <Card className="w-full overflow-hidden">
+              <AccountTransactionsList
+                accountAddress={getObservableValue(accountData.address, '')}
+                initialLimit={appConfig.transactions.defaultLimit}
+                onRefresh={() => {
+                  console.log('Manual refresh triggered');
+                  setIsAutoRefreshing(true);
+                  refreshAccount()
+                    .then(() => console.log('Manual refresh completed successfully'))
+                    .catch(err => console.error('Error during manual refresh:', err))
+                    .finally(() => {
+                      setTimeout(() => setIsAutoRefreshing(false), 500);
+                    });
+                }}
+                isVisible={isFocused}
+              />
+            </Card>
           )}
         </Container>
       </ScrollView>

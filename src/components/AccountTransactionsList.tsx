@@ -92,9 +92,6 @@ export const AccountTransactionsList = observer(({
     appState.current = nextAppState;
   };
 
-  // Check if we should use mobile layout
-  const isMobile = width < 768;
-
   // Sort transactions by version (descending) and then by timestamp (most recent first)
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => {
@@ -394,17 +391,12 @@ export const AccountTransactionsList = observer(({
   };
 
   const renderTableHeader = () => {
-    if (isMobile) {
-      // On mobile, don't show the header - we'll include labels in the row items
-      return null;
-    }
-
     return (
-      <View className="flex-row py-2.5 px-4 bg-background border-b border-border">
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">VERSION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[160px] font-sans text-center">TX HASH</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[120px] font-sans text-center">FUNCTION</Text>
-        <Text className="font-bold text-text-muted text-sm flex-1 min-w-[180px] font-sans text-center">TIME</Text>
+      <View className="hidden md:flex md:flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">TIME</Text>
       </View>
     );
   };
@@ -421,15 +413,15 @@ export const AccountTransactionsList = observer(({
     const functionLabel = getFunctionLabel(type, item);
     const functionPillColor = getFunctionPillColor(type, functionLabel);
 
-    // Mobile view with stacked layout
-    if (isMobile) {
-      return (
-        <TouchableOpacity
-          key={hash}
-          className="py-3 px-4 border-b border-border"
-          onPress={() => handleTransactionPress(hash)}
-          testID={`transaction-${hash}`}
-        >
+    return (
+      <TouchableOpacity
+        key={hash}
+        className="w-full border-b border-border"
+        onPress={() => handleTransactionPress(hash)}
+        testID={`transaction-${hash}`}
+      >
+        {/* Mobile View (Stacked Layout) */}
+        <View className="md:hidden py-3 px-4 w-full">
           <View className="w-full space-y-2">
             {/* First row */}
             <View className="w-full flex-none flex-row items-center justify-between">
@@ -445,26 +437,19 @@ export const AccountTransactionsList = observer(({
               <Text className="text-white text-xs">{formatTimestamp(timestamp)}</Text>
             </View>
           </View>
-        </TouchableOpacity>
-      );
-    }
-
-    // Desktop view with row layout
-    return (
-      <TouchableOpacity
-        key={hash}
-        className="flex-row py-3 px-4 border-b border-border"
-        onPress={() => handleTransactionPress(hash)}
-        testID={`transaction-${hash}`}
-      >
-        <Text className="text-white text-sm flex-1 min-w-[120px] font-data text-center">{formatNumber(version)}</Text>
-        <Text className="text-white text-sm flex-1 min-w-[160px] font-data text-center">{getSenderDisplay(hash)}</Text>
-        <View className="flex-1 min-w-[120px] flex items-center justify-center">
-          <View className={`px-3 py-1 rounded-full w-[150px] flex items-center justify-center ${functionPillColor}`}>
-            <Text className="text-xs font-medium">{functionLabel}</Text>
-          </View>
         </View>
-        <Text className="text-white text-sm flex-1 min-w-[180px] text-center">{formatTimestamp(timestamp)}</Text>
+
+        {/* Desktop View (Row Layout) */}
+        <View className="hidden md:flex flex-row py-3 px-4 w-full">
+          <Text className="text-white text-sm w-1/5 font-data text-center">{formatNumber(version)}</Text>
+          <Text className="text-white text-sm w-1/5 font-data text-center">{getSenderDisplay(hash)}</Text>
+          <View className="w-2/5 flex items-center justify-center">
+            <View className={`px-3 py-1 rounded-full max-w-[180px] w-auto flex items-center justify-center ${functionPillColor}`}>
+              <Text className="text-xs font-medium">{functionLabel}</Text>
+            </View>
+          </View>
+          <Text className="text-white text-sm w-1/5 text-center">{formatTimestamp(timestamp)}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -472,7 +457,7 @@ export const AccountTransactionsList = observer(({
   // Initial loading state with no transactions
   if (isLoading && transactions.length === 0) {
     return (
-      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+      <View className="w-full mb-5">
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
@@ -494,7 +479,7 @@ export const AccountTransactionsList = observer(({
   // Display error state if there was an error and no transactions
   if (error && transactions.length === 0) {
     return (
-      <View className="mx-auto w-full max-w-screen-lg px-4 mb-5">
+      <View className="w-full mb-5">
         <View className="bg-secondary rounded-lg" testID={testID}>
           <View className="h-1 bg-white/10" />
           <View className="flex-row justify-between items-center p-4 border-b border-border">
@@ -516,7 +501,7 @@ export const AccountTransactionsList = observer(({
 
   // Main render for populated list
   return (
-    <View className="mx-auto w-full max-w-screen-lg px-4 mb-16">
+    <View className="w-full mb-8">
       <View className="bg-secondary rounded-lg overflow-hidden" testID={testID}>
         <View className="h-1 bg-white/10" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
