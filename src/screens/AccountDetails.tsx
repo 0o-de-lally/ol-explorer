@@ -14,6 +14,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ExtendedAccountData } from '../store/accountStore';
 import { Container, Row, Column, Card, TwoColumn } from '../components';
+import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -260,6 +262,10 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   // Use our custom hook to get account data
   const { account: accountData, extendedData, isLoading, error, refresh: refreshAccount, isStale } = useAccount(addressFromParams);
 
+  // Get SDK context at the component level
+  const sdk = useSdk();
+  const { isInitialized } = useSdkContext();
+
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [activeResourceType, setActiveResourceType] = useState<string | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -293,6 +299,24 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     // Reset auto-refreshing state on mount
     setIsAutoRefreshing(false);
   }, []);
+
+  // Update the refresh button logic to handle loading states properly
+  const handleRefresh = async () => {
+    console.log('Manual refresh triggered');
+    setIsAutoRefreshing(true);
+
+    try {
+      // Refresh account data but don't wait for completion
+      await refreshAccount();
+      console.log('Manual refresh completed successfully');
+    } catch (err) {
+      console.error('Error during manual refresh:', err);
+    } finally {
+      if (isMounted.current) {
+        setTimeout(() => setIsAutoRefreshing(false), 500);
+      }
+    }
+  };
 
   // Extract resource types from account data
   const resourceTypes = useMemo(() => {
@@ -465,15 +489,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       setTimeout(() => {
         console.log('Initial account details refresh');
         if (isMounted.current && isFocused) {
-          setIsAutoRefreshing(true);
-          refreshAccount()
-            .then(() => console.log('Initial account refresh completed'))
-            .catch(err => console.error('Initial account refresh error:', err))
-            .finally(() => {
-              if (isMounted.current) {
-                setTimeout(() => setIsAutoRefreshing(false), 500);
-              }
-            });
+          handleRefresh();
         }
       }, 200);
 
@@ -481,18 +497,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
         // Only refresh if we're not already refreshing and component is still visible
         if (!isAutoRefreshing && isFocused && isMounted.current) {
           console.log('[POLL] Auto-refreshing account details - starting refresh');
-          setIsAutoRefreshing(true);
-          refreshAccount()
-            .then(() => console.log('[POLL] Account refresh completed'))
-            .catch(err => console.error('[POLL] Account refresh error:', err))
-            .finally(() => {
-              if (isMounted.current) {
-                setTimeout(() => {
-                  setIsAutoRefreshing(false);
-                  console.log('[POLL] Account refresh state reset');
-                }, 500);
-              }
-            });
+          handleRefresh();
         } else {
           console.log('[POLL] Skipping account refresh, conditions not met:', {
             isAutoRefreshing, isFocused, isMounted: isMounted.current
@@ -657,20 +662,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     return categories;
   };
 
-  // Update the refresh button logic to handle loading states properly
-  const handleRefresh = async () => {
-    console.log('Manual refresh triggered');
-    setIsAutoRefreshing(true);
-    refreshAccount()
-      .then(() => console.log('Manual refresh completed successfully'))
-      .catch(err => console.error('Error during manual refresh:', err))
-      .finally(() => {
-        if (isMounted.current) {
-          setTimeout(() => setIsAutoRefreshing(false), 500);
-        }
-      });
-  };
-
   if (isLoading && !accountData) {
     return (
       <View className="bg-background flex-1">
@@ -695,13 +686,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               className="bg-primary rounded-lg py-3 px-6 mb-4"
               onPress={() => {
                 console.log('Debug refresh triggered');
-                setIsAutoRefreshing(true);
-                refreshAccount()
-                  .then(() => console.log('Debug refresh completed'))
-                  .catch(err => console.error('Debug refresh error:', err))
-                  .finally(() => {
-                    setTimeout(() => setIsAutoRefreshing(false), 500);
-                  });
+                handleRefresh();
               }}
             >
               <Text className="text-white font-bold text-base">Retry</Text>
@@ -875,19 +860,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   {/* 1. Activity Status Section */}
                   <Row justifyContent="between" alignItems="center" className="mb-3">
                     <Text className="text-text-light text-base font-bold">Activity Status</Text>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#E75A5C" />
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('Refreshing activity status');
-                          refreshAccount();
-                        }}
-                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                      >
-                        <MaterialIcons name="refresh" size={14} color="white" />
-                      </TouchableOpacity>
-                    )}
                   </Row>
 
                   <View className="bg-background rounded px-3 py-3 mb-4">
@@ -960,19 +932,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   {/* 2. Founder Status Section */}
                   <Row justifyContent="between" alignItems="center" className="mb-3">
                     <Text className="text-text-light text-base font-bold">Founder Status</Text>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#E75A5C" />
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('Refreshing founder status');
-                          refreshAccount();
-                        }}
-                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                      >
-                        <MaterialIcons name="refresh" size={14} color="white" />
-                      </TouchableOpacity>
-                    )}
                   </Row>
                   <View className="bg-background rounded px-3 py-3 mb-4">
                     <Row alignItems="center" className="mb-2">
@@ -1027,19 +986,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   {/* 3. Community Wallet Status Section */}
                   <Row justifyContent="between" alignItems="center" className="mb-3">
                     <Text className="text-text-light text-base font-bold">Community Wallet Status</Text>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#E75A5C" />
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('Refreshing community wallet status');
-                          refreshAccount();
-                        }}
-                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                      >
-                        <MaterialIcons name="refresh" size={14} color="white" />
-                      </TouchableOpacity>
-                    )}
                   </Row>
                   <View className="bg-background rounded px-3 py-3 mb-4">
                     <Row alignItems="center" className="mb-2">
@@ -1185,19 +1131,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   {/* 4. Vouch Score Section */}
                   <Row justifyContent="between" alignItems="center" className="mb-3">
                     <Text className="text-text-light text-base font-bold">Vouch Score</Text>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#E75A5C" />
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('Refreshing vouch score');
-                          refreshAccount();
-                        }}
-                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                      >
-                        <MaterialIcons name="refresh" size={14} color="white" />
-                      </TouchableOpacity>
-                    )}
                   </Row>
                   <View className="bg-background rounded px-3 py-3 mb-4">
                     <Row alignItems="center" className="mb-2">
@@ -1259,19 +1192,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   {/* 5. Validator Status Section */}
                   <Row justifyContent="between" alignItems="center" className="mb-3">
                     <Text className="text-text-light text-base font-bold">Validator Status</Text>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#E75A5C" />
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('Refreshing validator status');
-                          refreshAccount();
-                        }}
-                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                      >
-                        <MaterialIcons name="refresh" size={14} color="white" />
-                      </TouchableOpacity>
-                    )}
                   </Row>
                   <View className="bg-background rounded px-3 py-3 mb-4">
                     <Row alignItems="center" className="mb-2">

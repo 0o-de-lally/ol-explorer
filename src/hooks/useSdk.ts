@@ -813,6 +813,7 @@ export const useSdk = (): BlockchainSDK & {
         typeArguments: [],
         arguments: [OL_FRAMEWORK]
       });
+      console.log(`rootsOfTrust for ${normalizedAddress}:`, rootsOfTrust);
 
       // Get the roots from the array response if needed
       const processedRoots = Array.isArray(rootsOfTrust) ? rootsOfTrust : [rootsOfTrust];
