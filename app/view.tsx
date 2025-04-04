@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useSdk } from '../src/hooks/useSdk';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -133,9 +133,19 @@ export default function ViewFunction() {
         router.back();
     };
 
+    // Set page title for web
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            document.title = 'View Function | Open Libra Explorer';
+        }
+    }, []);
+
     return (
         <View className="flex-1 bg-background">
-            <Stack.Screen options={{ title: 'View Function' }} />
+            <Stack.Screen options={{
+                title: 'View Function',
+                headerTitle: 'View Function'
+            }} />
 
             <ScrollView className="flex-1">
                 <View className="mx-auto w-full max-w-screen-lg px-4 py-4">

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { SdkProvider } from '../src/context/SdkContext';
 import { StatusBar } from 'expo-status-bar';
 import { SdkLoadingIndicator } from '../src/components/SdkLoadingIndicator';
@@ -19,6 +19,23 @@ setupPolyfills();
 // Add dark mode class to fix color scheme errors
 if (typeof document !== 'undefined') {
     document.documentElement.classList.add('dark');
+
+    // Add favicon links directly in document head
+    const favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.href = 'https://explorer.openlibra.space/favicon.svg';
+    favicon.type = 'image/svg+xml';
+    document.head.appendChild(favicon);
+
+    const shortcutIcon = document.createElement('link');
+    shortcutIcon.rel = 'shortcut icon';
+    shortcutIcon.href = 'https://explorer.openlibra.space/favicon.ico';
+    document.head.appendChild(shortcutIcon);
+
+    const appleTouchIcon = document.createElement('link');
+    appleTouchIcon.rel = 'apple-touch-icon';
+    appleTouchIcon.href = 'https://explorer.openlibra.space/logo192.png';
+    document.head.appendChild(appleTouchIcon);
 }
 
 export default function RootLayout() {
