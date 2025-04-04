@@ -1,5 +1,6 @@
 import { observable } from '@legendapp/state';
 import { Account } from '../types/blockchain';
+import { ValidatorGrade } from '../hooks/useSdk';
 
 // Config for data freshness
 export const ACCOUNT_DATA_CONFIG = {
@@ -15,6 +16,9 @@ export interface ExtendedAccountData {
         isDonorVoice: boolean;
         isAuthorized: boolean;
         isReauthProposed: boolean;
+        isInitialized: boolean;
+        isWithinAuthorizeWindow: boolean;
+        vetoTally: number;
     };
     founder: {
         isFounder: boolean;
@@ -23,6 +27,19 @@ export interface ExtendedAccountData {
     vouching: {
         vouchScore: number;
         hasValidVouchScore: boolean;
+    };
+    activity: {
+        hasBeenTouched: boolean;
+        onboardingTimestamp: number;
+        lastActivityTimestamp: number;
+        isInitializedOnV8: boolean;
+    };
+    validator: {
+        isValidator: boolean;
+        currentBid: number;
+        grade: ValidatorGrade;
+        jailReputation: number;
+        countBuddiesJailed: number;
     };
 }
 

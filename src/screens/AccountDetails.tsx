@@ -214,6 +214,42 @@ const extractResources = (accountData: any): any[] => {
   return [];
 };
 
+// Modify the formatTimestamp function to handle Unix timestamps in seconds
+const formatTimestamp = (timestamp: number | string | any[]): string => {
+  if (!timestamp) return 'N/A';
+
+  // Handle array format like ['1743775134']
+  if (Array.isArray(timestamp) && timestamp.length > 0) {
+    timestamp = timestamp[0];
+  }
+
+  // Convert string to number if needed
+  if (typeof timestamp === 'string') {
+    timestamp = parseInt(timestamp, 10);
+  }
+
+  // If still not a valid number after conversions, return N/A
+  if (isNaN(timestamp as number)) {
+    return 'N/A';
+  }
+
+  // The value is in seconds since epoch (not milliseconds or microseconds)
+  // We need to multiply by 1000 to convert to milliseconds for JavaScript Date
+  const milliseconds = (timestamp as number) * 1000;
+
+  const date = new Date(milliseconds);
+
+  // Format with locale for readability
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
 export const AccountDetailsScreen = observer(({ route, address: propAddress }: AccountDetailsScreenProps) => {
   const params = useLocalSearchParams();
   const addressFromParams = (route?.params?.address || propAddress || params?.address) as string;
@@ -834,143 +870,51 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
               {/* Right Column - Status Information */}
               <Column>
-                {getObservableValue(extendedData, null) && (
-                  <>
-                    <Row justifyContent="between" alignItems="center" className="mb-3">
-                      <Text className="text-text-light text-base font-bold">Community Wallet Status</Text>
-                      {isLoading ? (
-                        <ActivityIndicator size="small" color="#E75A5C" />
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => {
-                            console.log('Refreshing community wallet status');
-                            refreshAccount();
-                          }}
-                          className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                        >
-                          <MaterialIcons name="refresh" size={14} color="white" />
-                        </TouchableOpacity>
-                      )}
-                    </Row>
-                    <View className="bg-background rounded px-3 py-3 mb-4">
-                      <Row alignItems="center" className="mb-2">
-                        <Text className="text-text-light text-sm mr-2">Community Wallet:</Text>
-                        {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) ? (
+                {/* Always show statuses even if null, just hide the details when not applicable */}
+                <View>
+                  {/* 1. Activity Status Section */}
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-base font-bold">Activity Status</Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#E75A5C" />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('Refreshing activity status');
+                          refreshAccount();
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="refresh" size={14} color="white" />
+                      </TouchableOpacity>
+                    )}
+                  </Row>
+
+                  <View className="bg-background rounded px-3 py-3 mb-4">
+                    {getObservableValue(extendedData?.activity?.hasBeenTouched, false) ? (
+                      <>
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Account Touched:</Text>
                           <View className="bg-green-800 px-2 py-0.5 rounded-md">
                             <Text className="text-white text-xs">Yes</Text>
                           </View>
-                        ) : (
-                          <View className="bg-gray-700 px-2 py-0.5 rounded-md">
-                            <Text className="text-gray-300 text-xs">No</Text>
-                          </View>
-                        )}
-                        <View className="ml-2">
-                          <TouchableOpacity
-                            onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice::is_donor_voice")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
-                            }}
-                            className="rounded-md px-2 py-0.5 bg-blue-800"
-                          >
-                            <Text className="text-white text-xs">View</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </Row>
+                        </Row>
 
-                      {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) && (
-                        <>
-                          <Row alignItems="center" className="mb-2">
-                            <Text className="text-text-light text-sm mr-2">Reauthorization Proposed:</Text>
-                            {getObservableValue(extendedData?.communityWallet?.isReauthProposed, false) ? (
-                              <View className="bg-blue-800 px-2 py-0.5 rounded-md">
-                                <Text className="text-white text-xs">Pending</Text>
-                              </View>
-                            ) : (
-                              <View className="bg-gray-700 px-2 py-0.5 rounded-md">
-                                <Text className="text-gray-300 text-xs">None</Text>
-                              </View>
-                            )}
-                            <View className="ml-2">
-                              <TouchableOpacity
-                                onPress={() => {
-                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::is_reauth_proposed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
-                                }}
-                                className="rounded-md px-2 py-0.5 bg-blue-800"
-                              >
-                                <Text className="text-white text-xs">View</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </Row>
-
-                          <Row alignItems="center">
-                            <Text className="text-text-light text-sm mr-2">Authorization Status:</Text>
-                            {getObservableValue(extendedData?.communityWallet?.isAuthorized, false) ? (
-                              <View className="bg-green-800 px-2 py-0.5 rounded-md">
-                                <Text className="text-white text-xs">Authorized</Text>
-                              </View>
-                            ) : (
-                              <View className="bg-red-800 px-2 py-0.5 rounded-md">
-                                <Text className="text-white text-xs">Not Authorized</Text>
-                              </View>
-                            )}
-                            <View className="ml-2">
-                              <TouchableOpacity
-                                onPress={() => {
-                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_authorized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
-                                }}
-                                className="rounded-md px-2 py-0.5 bg-blue-800"
-                              >
-                                <Text className="text-white text-xs">View</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </Row>
-                        </>
-                      )}
-                    </View>
-
-                    {/* Founder Status Section */}
-                    <Row justifyContent="between" alignItems="center" className="mb-3">
-                      <Text className="text-text-light text-base font-bold">Founder Status</Text>
-                    </Row>
-                    <View className="bg-background rounded px-3 py-3 mb-4">
-                      <Row alignItems="center" className="mb-2">
-                        <Text className="text-text-light text-sm mr-2">Founder:</Text>
-                        {getObservableValue(extendedData?.founder?.isFounder, false) ? (
-                          <View className="bg-green-800 px-2 py-0.5 rounded-md">
-                            <Text className="text-white text-xs">Yes</Text>
-                          </View>
-                        ) : (
-                          <View className="bg-gray-700 px-2 py-0.5 rounded-md">
-                            <Text className="text-gray-300 text-xs">No</Text>
-                          </View>
-                        )}
-                        <View className="ml-2">
-                          <TouchableOpacity
-                            onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_founder")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
-                            }}
-                            className="rounded-md px-2 py-0.5 bg-blue-800"
-                          >
-                            <Text className="text-white text-xs">View</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </Row>
-
-                      {getObservableValue(extendedData?.founder?.isFounder, false) && (
-                        <Row alignItems="center">
-                          <Text className="text-text-light text-sm mr-2">Has Human Friends:</Text>
-                          {getObservableValue(extendedData?.founder?.hasFriends, false) ? (
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Initialized on V8:</Text>
+                          {getObservableValue(extendedData?.activity?.isInitializedOnV8, false) ? (
                             <View className="bg-green-800 px-2 py-0.5 rounded-md">
                               <Text className="text-white text-xs">Yes</Text>
                             </View>
                           ) : (
-                            <View className="bg-red-800 px-2 py-0.5 rounded-md">
-                              <Text className="text-white text-xs">No</Text>
+                            <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                              <Text className="text-gray-300 text-xs">No</Text>
                             </View>
                           )}
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::has_friends")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::activity::is_initialized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -978,21 +922,31 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                             </TouchableOpacity>
                           </View>
                         </Row>
-                      )}
-                    </View>
 
-                    {/* Vouch Score Section */}
-                    <Row justifyContent="between" alignItems="center" className="mb-3">
-                      <Text className="text-text-light text-base font-bold">Vouch Score</Text>
-                    </Row>
-                    <View className="bg-background rounded px-3 py-3">
-                      <Row alignItems="center" className="mb-2">
-                        <Text className="text-text-light text-sm mr-2">Score:</Text>
-                        <Text className="text-white font-mono text-sm">{getObservableValue(extendedData?.vouching?.vouchScore, 0)}</Text>
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Onboarded:</Text>
+                          <Text className="text-white text-sm">
+                            {formatTimestamp(getObservableValue(extendedData?.activity?.onboardingTimestamp, 0))}
+                          </Text>
+                        </Row>
+
+                        <Row alignItems="center">
+                          <Text className="text-text-light text-sm mr-2">Last Activity:</Text>
+                          <Text className="text-white text-sm">
+                            {formatTimestamp(getObservableValue(extendedData?.activity?.lastActivityTimestamp, 0))}
+                          </Text>
+                        </Row>
+                      </>
+                    ) : (
+                      <Row alignItems="center">
+                        <Text className="text-text-light text-sm mr-2">Account Touched:</Text>
+                        <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                          <Text className="text-gray-300 text-xs">No</Text>
+                        </View>
                         <View className="ml-2">
                           <TouchableOpacity
                             onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::vouch_score::evaluate_users_vouchers")}&initialArgs=${encodeURIComponent(`["0x1"], "${getObservableValue(accountData.address, '')}"`)}`)
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::activity::has_ever_been_touched")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                             }}
                             className="rounded-md px-2 py-0.5 bg-blue-800"
                           >
@@ -1000,10 +954,54 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           </TouchableOpacity>
                         </View>
                       </Row>
+                    )}
+                  </View>
 
+                  {/* 2. Founder Status Section */}
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-base font-bold">Founder Status</Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#E75A5C" />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('Refreshing founder status');
+                          refreshAccount();
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="refresh" size={14} color="white" />
+                      </TouchableOpacity>
+                    )}
+                  </Row>
+                  <View className="bg-background rounded px-3 py-3 mb-4">
+                    <Row alignItems="center" className="mb-2">
+                      <Text className="text-text-light text-sm mr-2">Founder:</Text>
+                      {getObservableValue(extendedData?.founder?.isFounder, false) ? (
+                        <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                          <Text className="text-white text-xs">Yes</Text>
+                        </View>
+                      ) : (
+                        <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                          <Text className="text-gray-300 text-xs">No</Text>
+                        </View>
+                      )}
+                      <View className="ml-2">
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_founder")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                          }}
+                          className="rounded-md px-2 py-0.5 bg-blue-800"
+                        >
+                          <Text className="text-white text-xs">View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Row>
+
+                    {getObservableValue(extendedData?.founder?.isFounder, false) && (
                       <Row alignItems="center">
-                        <Text className="text-text-light text-sm mr-2">Valid for Reactivation:</Text>
-                        {getObservableValue(extendedData?.vouching?.hasValidVouchScore, false) ? (
+                        <Text className="text-text-light text-sm mr-2">Has Human Friends:</Text>
+                        {getObservableValue(extendedData?.founder?.hasFriends, false) ? (
                           <View className="bg-green-800 px-2 py-0.5 rounded-md">
                             <Text className="text-white text-xs">Yes</Text>
                           </View>
@@ -1015,7 +1013,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         <View className="ml-2">
                           <TouchableOpacity
                             onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_voucher_score_valid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::has_friends")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                             }}
                             className="rounded-md px-2 py-0.5 bg-blue-800"
                           >
@@ -1023,26 +1021,365 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           </TouchableOpacity>
                         </View>
                       </Row>
+                    )}
+                  </View>
 
-                      {/* Vouch Score Progress Bar */}
-                      <View className="mt-3">
-                        <View className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                          <View
-                            className="h-full bg-primary rounded-full"
-                            style={{
-                              width: `${Math.min(100, (getObservableValue(extendedData?.vouching?.vouchScore, 0) / 3) * 100)}%`
-                            }}
-                          />
+                  {/* 3. Community Wallet Status Section */}
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-base font-bold">Community Wallet Status</Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#E75A5C" />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('Refreshing community wallet status');
+                          refreshAccount();
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="refresh" size={14} color="white" />
+                      </TouchableOpacity>
+                    )}
+                  </Row>
+                  <View className="bg-background rounded px-3 py-3 mb-4">
+                    <Row alignItems="center" className="mb-2">
+                      <Text className="text-text-light text-sm mr-2">Community Wallet:</Text>
+                      {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) ? (
+                        <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                          <Text className="text-white text-xs">Yes</Text>
                         </View>
-                        <View className="flex-row justify-between mt-1">
-                          <Text className="text-gray-500 text-xs">0</Text>
-                          <Text className="text-gray-500 text-xs">Threshold: 2</Text>
-                          <Text className="text-gray-500 text-xs">3+</Text>
+                      ) : (
+                        <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                          <Text className="text-gray-300 text-xs">No</Text>
                         </View>
+                      )}
+                      <View className="ml-2">
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice::is_donor_voice")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                          }}
+                          className="rounded-md px-2 py-0.5 bg-blue-800"
+                        >
+                          <Text className="text-white text-xs">View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Row>
+
+                    {getObservableValue(extendedData?.communityWallet?.isDonorVoice, false) && (
+                      <>
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Reauthorization Proposed:</Text>
+                          {getObservableValue(extendedData?.communityWallet?.isReauthProposed, false) ? (
+                            <View className="bg-blue-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Pending</Text>
+                            </View>
+                          ) : (
+                            <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                              <Text className="text-gray-300 text-xs">None</Text>
+                            </View>
+                          )}
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::is_reauth_proposed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Authorization Status:</Text>
+                          {getObservableValue(extendedData?.communityWallet?.isAuthorized, false) ? (
+                            <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Authorized</Text>
+                            </View>
+                          ) : (
+                            <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Not Authorized</Text>
+                            </View>
+                          )}
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_authorized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Within Auth Window:</Text>
+                          {getObservableValue(extendedData?.communityWallet?.isWithinAuthorizeWindow, false) ? (
+                            <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Yes</Text>
+                            </View>
+                          ) : (
+                            <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">No</Text>
+                            </View>
+                          )}
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_within_authorize_window")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Initialized:</Text>
+                          {getObservableValue(extendedData?.communityWallet?.isInitialized, false) ? (
+                            <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">Yes</Text>
+                            </View>
+                          ) : (
+                            <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                              <Text className="text-white text-xs">No</Text>
+                            </View>
+                          )}
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::community_wallet::is_init")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        {/* Veto Tally - Only show if it's greater than 0 */}
+                        {getObservableValue(extendedData?.communityWallet?.vetoTally, 0) > 0 && (
+                          <Row alignItems="center">
+                            <Text className="text-text-light text-sm mr-2">Veto Tally:</Text>
+                            <Text className="text-white text-sm">
+                              {getObservableValue(extendedData?.communityWallet?.vetoTally, 0)}%
+                            </Text>
+                            <View className="ml-2">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::get_veto_tally")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                }}
+                                className="rounded-md px-2 py-0.5 bg-blue-800"
+                              >
+                                <Text className="text-white text-xs">View</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </Row>
+                        )}
+                      </>
+                    )}
+                  </View>
+
+                  {/* 4. Vouch Score Section */}
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-base font-bold">Vouch Score</Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#E75A5C" />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('Refreshing vouch score');
+                          refreshAccount();
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="refresh" size={14} color="white" />
+                      </TouchableOpacity>
+                    )}
+                  </Row>
+                  <View className="bg-background rounded px-3 py-3 mb-4">
+                    <Row alignItems="center" className="mb-2">
+                      <Text className="text-text-light text-sm mr-2">Score:</Text>
+                      <Text className="text-white font-mono text-sm">{getObservableValue(extendedData?.vouching?.vouchScore, 0)}</Text>
+                      <View className="ml-2">
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push(`/view?initialPath=${encodeURIComponent("0x1::vouch_score::evaluate_users_vouchers")}&initialArgs=${encodeURIComponent(`["0x1"], "${getObservableValue(accountData.address, '')}"`)}`)
+                          }}
+                          className="rounded-md px-2 py-0.5 bg-blue-800"
+                        >
+                          <Text className="text-white text-xs">View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Row>
+
+                    <Row alignItems="center">
+                      <Text className="text-text-light text-sm mr-2">Valid for Reactivation:</Text>
+                      {getObservableValue(extendedData?.vouching?.hasValidVouchScore, false) ? (
+                        <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                          <Text className="text-white text-xs">Yes</Text>
+                        </View>
+                      ) : (
+                        <View className="bg-red-800 px-2 py-0.5 rounded-md">
+                          <Text className="text-white text-xs">No</Text>
+                        </View>
+                      )}
+                      <View className="ml-2">
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_voucher_score_valid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                          }}
+                          className="rounded-md px-2 py-0.5 bg-blue-800"
+                        >
+                          <Text className="text-white text-xs">View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Row>
+
+                    {/* Vouch Score Progress Bar */}
+                    <View className="mt-3">
+                      <View className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                        <View
+                          className="h-full bg-primary rounded-full"
+                          style={{
+                            width: `${Math.min(100, (getObservableValue(extendedData?.vouching?.vouchScore, 0) / 3) * 100)}%`
+                          }}
+                        />
+                      </View>
+                      <View className="flex-row justify-between mt-1">
+                        <Text className="text-gray-500 text-xs">0</Text>
+                        <Text className="text-gray-500 text-xs">Threshold: 2</Text>
+                        <Text className="text-gray-500 text-xs">3+</Text>
                       </View>
                     </View>
-                  </>
-                )}
+                  </View>
+
+                  {/* 5. Validator Status Section */}
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-base font-bold">Validator Status</Text>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#E75A5C" />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('Refreshing validator status');
+                          refreshAccount();
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="refresh" size={14} color="white" />
+                      </TouchableOpacity>
+                    )}
+                  </Row>
+                  <View className="bg-background rounded px-3 py-3 mb-4">
+                    <Row alignItems="center" className="mb-2">
+                      <Text className="text-text-light text-sm mr-2">Validator:</Text>
+                      {getObservableValue(extendedData?.validator?.isValidator, false) ? (
+                        <View className="bg-green-800 px-2 py-0.5 rounded-md">
+                          <Text className="text-white text-xs">Yes</Text>
+                        </View>
+                      ) : (
+                        <View className="bg-gray-700 px-2 py-0.5 rounded-md">
+                          <Text className="text-gray-300 text-xs">No</Text>
+                        </View>
+                      )}
+                      <View className="ml-2">
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push(`/view?initialPath=${encodeURIComponent("0x1::stake::get_current_validators")}&initialArgs=${encodeURIComponent(``)}`)
+                          }}
+                          className="rounded-md px-2 py-0.5 bg-blue-800"
+                        >
+                          <Text className="text-white text-xs">View All</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Row>
+
+                    {getObservableValue(extendedData?.validator?.isValidator, false) && (
+                      <>
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Current Bid:</Text>
+                          <Text className="text-white text-sm">
+                            {getObservableValue(extendedData?.validator?.currentBid, 0)}
+                          </Text>
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::proof_of_fee::current_bid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Validator Grade:</Text>
+                          <View className="flex-row items-center">
+                            <View className={`mr-2 px-2 py-0.5 rounded-md ${getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'bg-green-800' : 'bg-red-800'}`}>
+                              <Text className="text-white text-xs">
+                                {getObservableValue(extendedData?.validator?.grade?.isCompliant, false) ? 'Compliant' : 'Non-Compliant'}
+                              </Text>
+                            </View>
+                            <Text className="text-white text-xs mr-1">
+                              {`Proposals Accepted: ${getObservableValue(extendedData?.validator?.grade?.acceptedProposals, 0)}`}
+                            </Text>
+                            <Text className="text-white text-xs">
+                              {`Proposals Failed: ${getObservableValue(extendedData?.validator?.grade?.failedProposals, 0)}`}
+                            </Text>
+                          </View>
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::grade::get_validator_grade")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center" className="mb-2">
+                          <Text className="text-text-light text-sm mr-2">Jail Reputation:</Text>
+                          <Text className="text-white text-sm">
+                            {getObservableValue(extendedData?.validator?.jailReputation, 0)}
+                          </Text>
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::jail::get_jail_reputation")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+
+                        <Row alignItems="center">
+                          <Text className="text-text-light text-sm mr-2">Buddies Jailed:</Text>
+                          <Text className="text-white text-sm">
+                            {getObservableValue(extendedData?.validator?.countBuddiesJailed, 0)}
+                          </Text>
+                          <View className="ml-2">
+                            <TouchableOpacity
+                              onPress={() => {
+                                router.push(`/view?initialPath=${encodeURIComponent("0x1::jail::get_count_buddies_jailed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              }}
+                              className="rounded-md px-2 py-0.5 bg-blue-800"
+                            >
+                              <Text className="text-white text-xs">View</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Row>
+                      </>
+                    )}
+                  </View>
+                </View>
               </Column>
             </TwoColumn>
           </Card>
