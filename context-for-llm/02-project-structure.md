@@ -66,14 +66,116 @@ ol-explorer/
 1. **package.json**
    - Defines project metadata, dependencies, and scripts
    - Contains npm scripts for development, testing, and building
+   
+   ```json
+   {
+     "name": "ol-explorer",
+     "version": "1.0.0",
+     "main": "index.ts",
+     "scripts": {
+       "start": "expo start",
+       "android": "expo start --android",
+       "ios": "expo start --ios",
+       "web": "expo start --web",
+       "test": "jest",
+       "test:watch": "jest --watch",
+       "test:coverage": "jest --coverage",
+       "cypress:open": "cypress open",
+       "cypress:run": "cypress run",
+       "lint": "eslint . --ext .ts,.tsx",
+       "typecheck": "tsc --noEmit",
+       "build": "expo export:web"
+     },
+     "dependencies": {
+       "@legendapp/state": "^2.1.15",
+       "@react-native-async-storage/async-storage": "^1.22.2",
+       "@react-navigation/native": "^7.0.19",
+       "@react-navigation/native-stack": "^7.3.3",
+       "expo": "~52.0.40",
+       "expo-asset": "^11.0.5",
+       "expo-constants": "^17.0.8",
+       "expo-font": "^13.0.4",
+       "expo-status-bar": "~2.0.1",
+       "expo-updates": "^0.27.4",
+       "expo-web-browser": "^14.0.2",
+       "react": "18.3.1",
+       "react-native": "0.76.7",
+       "react-native-safe-area-context": "^5.3.0",
+       "react-native-screens": "^4.9.2",
+       "react-native-web": "^0.19.13",
+       "react-navigation": "^5.0.0",
+       "open-libra-sdk": "^1.0.0"
+     },
+     "devDependencies": {
+       "@babel/core": "^7.25.2",
+       "@testing-library/jest-native": "^5.4.3",
+       "@testing-library/react-native": "^12.4.3",
+       "@types/jest": "^29.5.12",
+       "@types/react": "~18.3.12",
+       "@typescript-eslint/eslint-plugin": "^8.28.0",
+       "@typescript-eslint/parser": "^8.28.0",
+       "cypress": "^13.6.6",
+       "eslint": "^9.23.0",
+       "eslint-plugin-react": "^7.37.4",
+       "eslint-plugin-react-hooks": "^5.2.0",
+       "identity-obj-proxy": "^3.0.0",
+       "jest": "^29.7.0",
+       "jest-expo": "^49.0.0",
+       "react-test-renderer": "18.3.1",
+       "ts-jest": "^29.1.2",
+       "typescript": "^5.3.3"
+     },
+     "private": true
+   }
+   ```
 
 2. **app.json**
    - Expo-specific configuration
    - Defines app name, version, orientation, and more
+   
+   ```json
+   {
+     "expo": {
+       "name": "ol-explorer",
+       "slug": "ol-explorer",
+       "version": "1.0.0",
+       "orientation": "portrait",
+       "icon": "./assets/icon.png",
+       "userInterfaceStyle": "light",
+       "newArchEnabled": true,
+       "splash": {
+         "image": "./assets/splash-icon.png",
+         "resizeMode": "contain",
+         "backgroundColor": "#ffffff"
+       },
+       "ios": {
+         "supportsTablet": true
+       },
+       "android": {
+         "adaptiveIcon": {
+           "foregroundImage": "./assets/adaptive-icon.png",
+           "backgroundColor": "#ffffff"
+         }
+       },
+       "web": {
+         "favicon": "./assets/favicon.png"
+       }
+     }
+   }
+   ```
 
 3. **tsconfig.json**
    - TypeScript configuration
    - Sets strict type checking and other compiler options
+   
+   ```json
+   {
+     "extends": "expo/tsconfig.base",
+     "compilerOptions": {
+       "strict": true
+     }
+   }
+   ```
 
 4. **babel.config.js**
    - Babel configuration for JavaScript/TypeScript transpilation
@@ -90,10 +192,71 @@ ol-explorer/
 7. **.eslintrc.js**
    - ESLint configuration for code quality and style
    - Enforces TypeScript and React best practices
+   
+   ```javascript
+   module.exports = {
+     extends: [
+       'eslint:recommended',
+       'plugin:@typescript-eslint/recommended',
+       'plugin:react/recommended',
+       'plugin:react-hooks/recommended',
+     ],
+     parser: '@typescript-eslint/parser',
+     plugins: ['@typescript-eslint', 'react', 'react-hooks'],
+     parserOptions: {
+       ecmaVersion: 2020,
+       sourceType: 'module',
+       ecmaFeatures: {
+         jsx: true,
+       },
+     },
+     env: {
+       browser: true,
+       es2020: true,
+       node: true,
+       jest: true,
+     },
+     settings: {
+       react: {
+         version: 'detect',
+       },
+     },
+     rules: {
+       'react/prop-types': 'off',
+       'react/react-in-jsx-scope': 'off',
+       '@typescript-eslint/explicit-module-boundary-types': 'off',
+       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+       'no-console': ['warn', { allow: ['warn', 'error'] }],
+     },
+   };
+   ```
 
 8. **jest.config.js** and **jest.setup.js**
    - Jest configuration for testing
    - Setup code for test environment and mocks
+   
+   ```javascript
+   module.exports = {
+     preset: 'jest-expo',
+     transformIgnorePatterns: [
+       'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)'
+     ],
+     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+     collectCoverage: true,
+     collectCoverageFrom: [
+       '**/*.{ts,tsx}',
+       '!**/coverage/**',
+       '!**/node_modules/**',
+       '!**/babel.config.js',
+       '!**/jest.setup.js'
+     ],
+     moduleNameMapper: {
+       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/src/tests/__mocks__/fileMock.js',
+       '\\.(css|less)$': 'identity-obj-proxy'
+     },
+     setupFilesAfterEnv: ['<rootDir>/jest.setup.js']
+   }
+   ```
 
 9. **cypress.config.js**
    - Cypress configuration for end-to-end testing
@@ -248,19 +411,100 @@ The project can be built for multiple platforms:
    - Server deployment with Nginx
    - Continuous deployment with GitHub Actions
 
+## Progressive Web App (PWA) Support
+
+The project includes PWA support with the following files:
+
+### public/manifest.json
+
+```json
+{
+  "short_name": "OL Explorer",
+  "name": "OL Blockchain Explorer",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#E75A5C",
+  "background_color": "#ffffff",
+  "description": "A blockchain explorer for viewing and monitoring blockchain activity",
+  "orientation": "portrait",
+  "scope": "/"
+}
+```
+
 ## Continuous Integration
 
-The project uses GitHub Actions for CI/CD:
+The project uses GitHub Actions for CI/CD with the following workflow:
 
-1. **Workflow Steps**
-   - Run TypeScript type checking
-   - Run ESLint
-   - Run Jest tests
-   - Run Cypress tests
-   - Build for deployment
+```yaml
+name: CI
 
-2. **Workflow File**
-   - Located at `.github/workflows/ci.yml`
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run TypeScript check
+      run: npx tsc --noEmit
+      
+    - name: Run ESLint
+      run: npx eslint . --ext .ts,.tsx
+      
+    - name: Run Jest tests
+      run: npm test
+      
+    - name: Install Cypress dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libnss3 libxss1 libasound2 libxtst6 xauth xvfb
+        
+    - name: Start Expo web server
+      run: npm run web -- --no-dev --minify &
+      
+    - name: Wait for server to start
+      run: npx wait-on http://localhost:19006 -t 60000
+      
+    - name: Run Cypress tests
+      run: npx cypress run
+      
+    - name: Upload test coverage
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
 ## Development Guidelines
 

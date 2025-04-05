@@ -26,9 +26,27 @@ OL Explorer is configured as a Progressive Web App, allowing users to install it
 ### PWA Features
 
 - **Installable**: Users can add the app to their home screen/desktop
-- **Offline Support**: Basic navigation and cached content remain accessible without an internet connection
-- **Fast Loading**: Caches important assets for quick startup
+- **Offline Support**: Basic navigation and cached content remain accessible without internet
+- **Fast Loading**: Critical assets are cached for quick startup
 - **Responsive**: Works on all device sizes
+
+### PWA Implementation
+
+The PWA functionality is implemented with:
+
+- **Web App Manifest**: Defines app metadata, icons, and display preferences
+- **Service Worker**: Handles caching strategies and offline experience
+- **HTML Configuration**: Meta tags for PWA capabilities
+
+### Offline Strategy
+
+The application provides a tailored offline experience:
+
+1. **Cached Routes**: Basic navigation structure remains accessible
+2. **Offline Page**: Custom error page when trying to access uncached content
+3. **Asset Caching**: Critical CSS, JavaScript, and images are cached for offline use
+
+For complete details on the PWA implementation, see [PWA Implementation documentation](context-for-llm/pwa-implementation.md).
 
 ### Installing as PWA
 
@@ -327,6 +345,21 @@ When displaying account details:
 
 This architecture ensures a consistent, maintainable approach to managing blockchain data throughout the application.
 
+## Detailed Documentation
+
+For more in-depth documentation about this project, explore the files in the `context-for-llm` directory:
+
+- [Dependency Installation](context-for-llm/01-dependency-installation.md) - Details about package installation and initialization
+- [Project Structure](context-for-llm/02-project-structure.md) - Comprehensive overview of project organization and architecture
+- [Linting Corrections](context-for-llm/03-linting-corrections.md) - ESLint configuration and code quality standards
+- [Test Summary](context-for-llm/04-test-summary.md) - Testing infrastructure and coverage
+- [Build Summary](context-for-llm/05-build-summary.md) - Build process and output
+- [Deployment Summary](context-for-llm/06-deployment-summary.md) - Deployment options and instructions
+- [Future Updates](context-for-llm/07-future-updates.md) - Guidelines for maintaining and updating the project
+- [Additional Features](context-for-llm/08-additional-features.md) - Instructions for extending the project
+- [NativeWind CSS](context-for-llm/nativewind-css.md) - Details about CSS styling with NativeWind
+- [PWA Implementation](context-for-llm/pwa-implementation.md) - Progressive Web App implementation details
+
 ## Key Technologies
 
 - **React Native & Expo**: Cross-platform mobile and web development
@@ -337,6 +370,33 @@ This architecture ensures a consistent, maintainable approach to managing blockc
 - **open-libra-sdk**: SDK for Open Libra blockchain interactions
 - **Jest & React Testing Library**: Unit and integration testing
 - **Cypress**: End-to-end testing
+
+## Styling with NativeWind
+
+The project uses NativeWind v4, a utility-first CSS framework for React Native based on Tailwind CSS, providing several advantages:
+
+- **Utility-first approach**: Apply styling directly in component markup with className
+- **Consistent design system**: Centralized theme definition in tailwind.config.js
+- **Responsive design**: Breakpoint prefixes for different screen sizes
+- **Dark mode support**: Built-in dark mode with utility classes
+
+### Example Usage
+
+```jsx
+<View className="bg-background p-4 dark:bg-black">
+  <Text className="text-white text-xl font-bold">Hello World</Text>
+</View>
+```
+
+### Theme Configuration
+
+The project's theme includes:
+
+- **Colors**: Primary (`#E75A5C`), background (`#0B1221`), and more
+- **Typography**: Custom font families including Inter and Geist Mono
+- **Responsiveness**: Mobile-first with `md:` and other breakpoint prefixes
+
+For more details on the NativeWind implementation, see [NativeWind CSS documentation](context-for-llm/nativewind-css.md).
 
 ## Deployment
 
