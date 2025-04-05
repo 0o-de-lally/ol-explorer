@@ -448,24 +448,27 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           </View>
 
           {/* Move Payload section up, right after the main transaction details */}
-          <View className="bg-secondary rounded-lg p-6 mb-6">
-            <Text className="text-text-light text-lg font-bold mb-3">Payload</Text>
-            <View className="bg-background rounded p-3 overflow-auto">
-              <Text className="text-white font-mono text-xs whitespace-pre">
-                {JSON.stringify(transaction.payload, null, 2)}
-              </Text>
-            </View>
-            {/* Add copy button at bottom right */}
-            <View className="flex-row justify-end mt-4">
-              <TouchableOpacity
-                onPress={() => copyToClipboard(JSON.stringify(transaction.payload, null, 2))}
-                className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
-              >
-                <MaterialIcons name="content-copy" size={14} color="white" />
-                <Text className="text-white text-xs ml-1.5">Payload</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {transaction.payload &&
+            Object.keys(transaction.payload).length > 0 && (
+              <View className="bg-secondary rounded-lg p-6 mb-6">
+                <Text className="text-text-light text-lg font-bold mb-3">Payload</Text>
+                <View className="bg-background rounded p-3 overflow-auto">
+                  <Text className="text-white font-mono text-xs whitespace-pre">
+                    {JSON.stringify(transaction.payload, null, 2)}
+                  </Text>
+                </View>
+                {/* Add copy button at bottom right */}
+                <View className="flex-row justify-end mt-4">
+                  <TouchableOpacity
+                    onPress={() => copyToClipboard(JSON.stringify(transaction.payload, null, 2))}
+                    className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
+                  >
+                    <MaterialIcons name="content-copy" size={14} color="white" />
+                    <Text className="text-white text-xs ml-1.5">Payload</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
           {transaction.events && transaction.events.length > 0 && (
             <View className="bg-secondary rounded-lg p-6 mb-6">

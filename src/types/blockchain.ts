@@ -23,7 +23,7 @@ export interface Account {
   address: string;
   balance: number;
   sequence_number: number;
-  resources: AccountResource[];
+  resources: AccountResource[] | Record<string, AccountResource>;
 }
 
 export interface AccountResource {

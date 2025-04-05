@@ -1,3 +1,6 @@
+^C
+^C
+^C
 import { observable } from '@legendapp/state';
 import { Account, AccountResource } from '../types/blockchain';
 import { ValidatorGrade } from '../hooks/useSdk';
@@ -155,10 +158,6 @@ export const accountActions = {
     setAccountData: (address: string, account: Account | null) => {
         // Validate account data
         if (account) {
-            console.log('ACCOUNT_STORE: Setting account data for address:', address);
-            console.log('ACCOUNT_STORE: Resources type:', typeof account.resources);
-            console.log('ACCOUNT_STORE: Is resources array?', Array.isArray(account.resources));
-
             // Ensure required fields exist
             if (!account.address) {
                 console.error('Account data missing address field');
@@ -171,15 +170,33 @@ export const accountActions = {
             }
             // Preserve original structure - no conversion to array
 
-            console.log('ACCOUNT_STORE: Final resources type:', typeof account.resources);
-            console.log('ACCOUNT_STORE: Final is resources array?', Array.isArray(account.resources));
+            // Debug logging for resources
+            console.log('ACCOUNT STORE - Setting account data with resources:', {
+                resourcesType: typeof account.resources,
+                isArray: Array.isArray(account.resources),
+                count: Array.isArray(account.resources)
+                    ? account.resources.length
+                    : (typeof account.resources === 'object' ? Object.keys(account.resources).length : 0)
+            });
+
+            // Debug first resource if available
             if (Array.isArray(account.resources) && account.resources.length > 0) {
-                console.log('ACCOUNT_STORE: First resource sample:', account.resources[0]);
-            } else if (typeof account.resources === 'object') {
+                const firstResource = account.resources[0];
+                console.log('ACCOUNT STORE - First resource sample:', {
+                    type: firstResource.type,
+                    dataType: typeof firstResource.data,
+                    dataKeys: Object.keys(firstResource.data || {})
+                });
+            } else if (typeof account.resources === 'object' && account.resources !== null) {
                 const keys = Object.keys(account.resources);
                 if (keys.length > 0) {
-                    console.log('ACCOUNT_STORE: First resource key:', keys[0]);
-                    console.log('ACCOUNT_STORE: First resource sample:', (account.resources as Record<string, AccountResource>)[keys[0]]);
+                    const firstResource = account.resources[keys[0]];
+                    console.log('ACCOUNT STORE - First resource from object:', {
+                        key: keys[0],
+                        type: firstResource.type,
+                        dataType: typeof firstResource.data,
+                        dataKeys: Object.keys(firstResource.data || {})
+                    });
                 }
             }
         }

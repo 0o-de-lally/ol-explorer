@@ -70,23 +70,19 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
             // Create SDK interface that directly uses the client
             const newSdk: BlockchainSDK = {
                 getLatestBlockHeight: async () => {
-                    console.log('Fetching latest block height from blockchain');
                     const info = await client.getLedgerInfo();
                     return parseInt(info.block_height, 10);
                 },
                 getLatestEpoch: async () => {
-                    console.log('Fetching latest epoch from blockchain');
                     const info = await client.getLedgerInfo();
                     return parseInt(info.epoch, 10);
                 },
                 getChainId: async () => {
-                    console.log('Fetching chain ID from blockchain');
                     const info = await client.getLedgerInfo();
                     // Convert chain_id to string to match interface
                     return String(info.chain_id);
                 },
                 getTransactions: async (limit) => {
-                    console.log(`Fetching up to ${limit} transactions from blockchain`);
                     // Use the correct parameter format
                     const txs = await client.getTransactions({ options: { limit } });
 
@@ -116,8 +112,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         console.error('Hash normalization failed for:', hash);
                         return null;
                     }
-
-                    console.log('Fetching transaction details for hash:', normalizedHash);
 
                     try {
                         // Construct proper transaction hash parameter object
@@ -169,31 +163,33 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                     // Normalize the address to ensure proper format
                     const normalizedAddress = normalizeAddress(address);
-                    console.log(`Using normalized address: ${normalizedAddress} (original: ${address})`);
 
                     try {
-                        // The SDK client doesn't have a getAccount method, so we need to use getAccountResources
-                        // and build the account data from the resources
-
-                        // Use type assertion for resources as well
+                        // Get resources using the SDK client
                         const resourcesParams = {
                             accountAddress: normalizedAddress.startsWith('0x') ? normalizedAddress : `0x${normalizedAddress}`
                         };
-
-                        // Get resources first, as the SDK client doesn't have a direct getAccount method
                         const resources = await client.getAccountResources(resourcesParams);
 
-                        // DEBUG: Log resources received from SDK
-                        console.log('SDK DEBUG: Resources received from getAccountResources:', {
-                            isArray: Array.isArray(resources),
-                            length: Array.isArray(resources) ? resources.length : 'not an array',
-                            type: typeof resources,
-                            sample: Array.isArray(resources) && resources.length > 0
-                                ? `${JSON.stringify(resources[0]).substring(0, 100)}...`
-                                : 'no resources'
-                        });
+                        console.log('SDK_CONTEXT: Raw resources from SDK:', typeof resources);
+                        console.log('SDK_CONTEXT: Is resources array?', Array.isArray(resources));
+                        if (Array.isArray(resources) && resources.length > 0) {
+                            console.log('SDK_CONTEXT: First resource type:', resources[0]?.type);
+                            console.log('SDK_CONTEXT: First resource data type:', typeof resources[0]?.data);
+                            console.log('SDK_CONTEXT: First resource data:', resources[0]?.data);
 
-                        // Find coin resource for balance - cast resource data to any to avoid errors
+                            // Check serialization of the first resource
+                            try {
+                                const serialized = JSON.stringify(resources[0]?.data);
+                                console.log('SDK_CONTEXT: Serialized resource data:', serialized);
+                                console.log('SDK_CONTEXT: Same after parse?',
+                                    JSON.stringify(JSON.parse(serialized)) === serialized);
+                            } catch (e) {
+                                console.error('SDK_CONTEXT: Serialization error:', e);
+                            }
+                        }
+
+                        // Extract balance from resources
                         let balance = 0;
                         let sequenceNumber = 0;
 
@@ -205,7 +201,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 r.type.includes('CoinStore<AptosCoin>'))
                         );
 
-                        // Extract balance with safe navigation - using as any to avoid property access errors
                         if (coinResource) {
                             const resourceData = coinResource.data as any;
                             if (resourceData && resourceData.coin &&
@@ -217,8 +212,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                         // Try to get sequence number from account info
                         try {
-                            // Since the SDK type definitions might not match actual implementation,
-                            // use type assertion as a workaround
                             const sdkClient = client as any;
                             if (sdkClient && typeof sdkClient.account === 'function') {
                                 const accountInfo = await sdkClient.account({
@@ -231,29 +224,13 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             // Default to 0 if we can't get it
                         }
 
-                        // Transform and create account object
-                        const accountObject = {
+                        // Create and return the account object with unmodified resources
+                        return {
                             address: normalizedAddress,
                             balance,
                             sequence_number: sequenceNumber,
-                            resources: resources.map((resource: any) => ({
-                                type: resource?.type || '',
-                                data: resource?.data || {}
-                            }))
+                            resources: resources // Pass resources directly without any transformation
                         };
-
-                        // DEBUG: Log final account object before returning
-                        console.log('SDK DEBUG: Final account object:', {
-                            address: accountObject.address,
-                            balance: accountObject.balance,
-                            sequence_number: accountObject.sequence_number,
-                            resourcesLength: accountObject.resources.length,
-                            resourcesSample: accountObject.resources.length > 0
-                                ? `${JSON.stringify(accountObject.resources[0]).substring(0, 100)}...`
-                                : 'no resources'
-                        });
-
-                        return accountObject;
                     } catch (err) {
                         console.error(`Error fetching account ${normalizedAddress}:`, err);
                         return null;
@@ -301,65 +278,30 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     }
                 },
                 view: async (params) => {
-                    console.log('Calling view function:', params.function);
                     try {
-                        // Log original arguments for debugging
-                        console.log('Arguments before conversion:', params.arguments);
+                        // Try the direct API call first
+                        const directPayload = {
+                            function: params.function,
+                            type_arguments: params.typeArguments || [],
+                            arguments: params.arguments || []
+                        };
 
-                        // Try a simpler approach by creating a more direct payload
-                        // Some SDKs expect a very specific format for view functions
-                        const functionParts = params.function.split('::');
+                        // Make a direct API call
+                        const apiUrl = `${sdkConfig.rpcUrl}/view`;
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(directPayload)
+                        });
 
-                        if (functionParts.length >= 3) {
-                            const moduleAddress = functionParts[0];
-                            const moduleName = functionParts[1];
-                            const functionName = functionParts[2];
-
-                            console.log(`Parsed function parts: address=${moduleAddress}, module=${moduleName}, function=${functionName}`);
-
-                            // Format as a direct API call payload
-                            const directPayload = {
-                                function: params.function,
-                                type_arguments: params.typeArguments || [],
-                                arguments: params.arguments || []
-                            };
-
-                            console.log('Attempting direct view call with payload:', JSON.stringify(directPayload));
-
-                            // Try making a direct API call if the SDK isn't working properly
-                            const apiUrl = `${sdkConfig.rpcUrl}/view`;
-                            const response = await fetch(apiUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(directPayload)
-                            });
-
-                            if (!response.ok) {
-                                const errorData = await response.json();
-                                console.error('Direct API call failed:', errorData);
-                                throw new Error(`API error: ${errorData.message || 'Unknown error'}`);
-                            }
-
-                            return await response.json();
-                        } else {
-                            // Fallback to original approach if function format is incorrect
-                            console.log('Invalid function format, falling back to standard SDK call');
-
-                            // Format specifically for the viewJson function
-                            const viewArgs = {
-                                payload: {
-                                    function: params.function,
-                                    type_arguments: params.typeArguments || [],
-                                    arguments: params.arguments || []
-                                }
-                            };
-
-                            console.log('View function payload:', JSON.stringify(viewArgs.payload));
-                            // Use type casting to bypass TS error
-                            return await client.general.viewJson(viewArgs as any);
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(`API error: ${errorData.message || 'Unknown error'}`);
                         }
+
+                        return await response.json();
                     } catch (error) {
                         console.error('Error calling view function:', error);
 
@@ -370,16 +312,12 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                             params.function.includes('is_founder') ||
                             params.function.includes('has_friends') ||
                             params.function.includes('is_voucher_score_valid')) {
-                            console.log(`Returning default false for ${params.function}`);
                             return false;
                         } else if (params.function.includes('get_current_roots_at_registry')) {
-                            console.log(`Returning default ['0x1'] for ${params.function}`);
                             return ['0x1'];
                         } else if (params.function.includes('evaluate_users_vouchers')) {
-                            console.log(`Returning default 0 for ${params.function}`);
                             return 0;
                         } else if (params.function.includes('get_root_registry')) {
-                            console.log(`Returning empty array for ${params.function}`);
                             return [];
                         }
 
@@ -387,8 +325,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     }
                 },
                 ext_getAccountTransactions: async (address, limit = 25, start) => {
-                    console.log(`ext_getAccountTransactions called for address: ${address}, limit: ${limit}, start: ${start || 'none'}`);
-
                     try {
                         // Normalize the address for consistency
                         const normalizedAddress = normalizeAddress(address);
@@ -398,7 +334,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         if (start) {
                             restUrl += `&start=${start}`;
                         }
-                        console.log(`Fetching from REST endpoint: ${restUrl}`);
 
                         const response = await fetch(restUrl);
 
@@ -410,7 +345,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
 
                         // Check if we got valid transactions data
                         if (Array.isArray(data)) {
-                            console.log(`Found ${data.length} transactions for account ${normalizedAddress}`);
                             return data;
                         }
 
@@ -420,11 +354,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         console.error('Error fetching account transactions:', error);
 
                         // Fall back to SDK filtering method if REST API fails
-                        console.log('Falling back to client-side filtering approach');
-
                         try {
-                            // Note: This fallback method doesn't support proper pagination
-                            // For a production app, we might want to implement more sophisticated fallback
+                            // Fallback method for getting transactions
                             const txsParams = { options: { limit: limit * 2 } };
                             const allTxs = await client.getTransactions(txsParams);
 
@@ -435,7 +366,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                     tx.sender.toLowerCase() === normalizedAddress.toLowerCase();
                             }).slice(0, limit);
 
-                            console.log(`Found ${filteredTxs.length} transactions for account ${normalizedAddress} via filtering`);
                             return filteredTxs;
                         } catch (sdkError) {
                             console.error('Error with fallback method:', sdkError);
@@ -444,7 +374,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                     }
                 },
                 viewJson: async (params) => {
-                    console.log('Calling viewJson function:', params.function);
                     try {
                         // Format the parameters according to what the SDK expects
                         const viewArgs = {
@@ -552,7 +481,8 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                     address: normalizedAddress,
                                     balance: 1000000,
                                     sequence_number: sequenceNumber,
-                                    resources: resources || []
+                                    // Use resources directly without transformation to preserve structure
+                                    resources: resources
                                 };
                             } catch (err: any) {
                                 console.error(`Error in mock getAccount: ${err.message}`);

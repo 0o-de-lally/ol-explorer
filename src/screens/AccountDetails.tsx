@@ -28,21 +28,7 @@ const LIBRA_DECIMALS = 6;
 
 // Add a helper function at the top of the component to safely get values from observables
 const getObservableValue = <T,>(value: any, defaultValue: T): T => {
-  if (value === undefined || value === null) {
-    return defaultValue;
-  }
-
-  try {
-    // Check if it's an observable with a get method
-    if (typeof value?.get === 'function') {
-      const result = value.get();
-      return result !== undefined && result !== null ? result : defaultValue;
-    }
-    return value;
-  } catch (error) {
-    console.warn('Error getting observable value:', error);
-    return defaultValue;
-  }
+  return unwrapObservable(value) ?? defaultValue;
 };
 
 // Helper function to convert camelCase to Space Case for display
@@ -196,23 +182,145 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
 // Add auto-refresh interval constant to match TransactionsList
 const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds for auto-refresh
 
-// Fix instances where resources.get() is used to extract raw resources
-// This function properly extracts resources in multiple ways
+// Helper to unwrap observable values recursively
+const unwrapObservable = (value: any): any => {
+  try {
+    // Handle undefined/null
+    if (value === undefined || value === null) {
+      return value;
+    }
+
+    // Handle observable with get() method (LegendState observable)
+    if (typeof value === 'object' && value !== null) {
+      // Check if it has a get method that seems to be a function
+      if (typeof value.get === 'function') {
+        try {
+          const unwrappedValue = value.get();
+          // Recursively unwrap the result
+          return unwrapObservable(unwrappedValue);
+        } catch (e) {
+          console.warn('Error unwrapping observable with get():', e);
+          // Return original value if get() fails
+          return value;
+        }
+      }
+
+      // Handle Observable Proxy objects
+      if (value.constructor && value.constructor.name === 'Proxy') {
+        // Try to access the target if available
+        if (value.valueOf) {
+          try {
+            return unwrapObservable(value.valueOf());
+          } catch (e) {
+            // Silent fail and continue with normal object handling
+          }
+        }
+      }
+
+      // Handle arrays
+      if (Array.isArray(value)) {
+        try {
+          return value.map((item: any) => unwrapObservable(item));
+        } catch (e) {
+          console.warn('Error unwrapping array:', e);
+          return value;
+        }
+      }
+
+      // Handle plain objects
+      try {
+        const result: Record<string, any> = {};
+        for (const key in value) {
+          if (Object.prototype.hasOwnProperty.call(value, key)) {
+            result[key] = unwrapObservable(value[key]);
+          }
+        }
+        return result;
+      } catch (e) {
+        console.warn('Error unwrapping object:', e);
+        return value;
+      }
+    }
+
+    // Return primitives as is
+    return value;
+  } catch (e) {
+    console.warn('Unexpected error in unwrapObservable:', e);
+    // If all else fails, return the original value
+    return value;
+  }
+};
+
+// This function extracts resources with minimal manipulation
+// It maintains both the array and object formats to preserve all data
 const extractResources = (accountData: any): any[] => {
   if (!accountData) return [];
 
-  if (!accountData.resources) return [];
+  // Unwrap the top-level accountData if it's an observable
+  const unwrappedData = unwrapObservable(accountData);
+  if (!unwrappedData) return [];
+  if (!unwrappedData.resources) return [];
 
-  // If resources is an array, return it directly
-  if (Array.isArray(accountData.resources)) {
-    return accountData.resources;
+  console.log('EXTRACT_RESOURCES: Input resources type:', typeof unwrappedData.resources);
+  console.log('EXTRACT_RESOURCES: Is array?', Array.isArray(unwrappedData.resources));
+
+  // Get a sample resource for debugging
+  let firstResource = 'none';
+  try {
+    if (Array.isArray(unwrappedData.resources) && unwrappedData.resources.length > 0) {
+      firstResource = unwrappedData.resources[0];
+    } else if (typeof unwrappedData.resources === 'object' && unwrappedData.resources !== null) {
+      const keys = Object.keys(unwrappedData.resources);
+      if (keys.length > 0) {
+        firstResource = unwrappedData.resources[keys[0]];
+      }
+    }
+  } catch (e) {
+    console.warn('Error getting first resource sample:', e);
   }
 
-  // If resources is an object, convert to array
-  if (typeof accountData.resources === 'object' && accountData.resources !== null) {
-    return Object.values(accountData.resources);
+  console.log('EXTRACT_RESOURCES: First resource sample:', firstResource);
+
+  // If resources is already an array, return it directly with unwrapped values
+  if (Array.isArray(unwrappedData.resources)) {
+    try {
+      // Ensure each resource is fully unwrapped
+      const unwrappedResources = unwrappedData.resources.map((resource: any) => unwrapObservable(resource));
+      console.log('EXTRACT_RESOURCES: Returning array directly, length:', unwrappedResources.length);
+      return unwrappedResources;
+    } catch (e) {
+      console.warn('Error unwrapping resource array:', e);
+      return [];
+    }
   }
 
+  // If resources is an object, preserve all data by keeping key-value pairing
+  // The original key might contain important type information
+  if (typeof unwrappedData.resources === 'object' && unwrappedData.resources !== null) {
+    try {
+      // Convert to array of resources but preserve keys by adding them as a property
+      const result = Object.entries(unwrappedData.resources).map(([key, resource]: [string, any]) => {
+        // Unwrap the resource
+        const unwrappedResource = unwrapObservable(resource);
+
+        // If resource already has a 'key' property, don't overwrite it
+        if (unwrappedResource && typeof unwrappedResource === 'object' && !('resourceKey' in unwrappedResource)) {
+          return { ...unwrappedResource, resourceKey: key };
+        }
+        return unwrappedResource;
+      });
+
+      console.log('EXTRACT_RESOURCES: Converted object to array, length:', result.length);
+      console.log('EXTRACT_RESOURCES: First converted resource:', result[0] || 'none');
+      return result;
+    } catch (e) {
+      console.warn('Error converting resources object to array:', e);
+      return [];
+    }
+  }
+
+  // Default case - empty array
+  console.log('EXTRACT_RESOURCES: Returning empty array (default case)');
   return [];
 };
 
@@ -300,17 +408,14 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     setIsAutoRefreshing(false);
   }, []);
 
-  // Update the refresh button logic to handle loading states properly
+  // Simple refresh function with minimal logging
   const handleRefresh = async () => {
-    console.log('Manual refresh triggered');
     setIsAutoRefreshing(true);
 
     try {
-      // Refresh account data but don't wait for completion
       await refreshAccount();
-      console.log('Manual refresh completed successfully');
     } catch (err) {
-      console.error('Error during manual refresh:', err);
+      console.error('Error during refresh:', err);
     } finally {
       if (isMounted.current) {
         setTimeout(() => setIsAutoRefreshing(false), 500);
@@ -320,104 +425,88 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
   // Extract resource types from account data
   const resourceTypes = useMemo(() => {
-    console.log('Extracting resource types, accountData present:', !!accountData);
-
     // Reset data loaded flag when data changes
     dataLoadedRef.current = false;
 
     if (!accountData) return [];
 
-    // Extract raw account data
-    const rawAccount = accountData;
-    if (!rawAccount) return [];
+    console.log('RESOURCE_TYPES: Raw accountData:', accountData);
+    console.log('RESOURCE_TYPES: accountData.resources type:', typeof accountData.resources);
 
-    // Extract resources array
-    let resourcesArray = [];
-    if (rawAccount.resources) {
-      resourcesArray = extractResources(rawAccount);
-    }
+    try {
+      // Extract raw account data - fully unwrap it to avoid observable issues
+      const rawAccount = unwrapObservable(accountData);
+      if (!rawAccount) return [];
 
-    if (!resourcesArray.length) {
-      console.log('No resources found in account data');
+      // Extract resources array
+      let resourcesArray = [];
+      try {
+        if (rawAccount.resources) {
+          resourcesArray = extractResources(rawAccount);
+        }
+      } catch (e) {
+        console.warn('Error extracting resources:', e);
+      }
+
+      if (!resourcesArray || !resourcesArray.length) {
+        return [];
+      }
+
+      // Extract unique resource types
+      const types = new Set<string>();
+      resourcesArray.forEach(resource => {
+        try {
+          // Ensure resource is fully unwrapped
+          const unwrappedResource = unwrapObservable(resource);
+
+          if (unwrappedResource && typeof unwrappedResource === 'object' && 'type' in unwrappedResource) {
+            const typeStr = String(unwrappedResource.type || '');
+            const matches = typeStr.match(/::([^:]+)::([^<]+)/);
+            if (matches && matches.length >= 3) {
+              const module = matches[1];
+              const typeName = matches[2];
+              types.add(`${module}::${typeName}`);
+            } else {
+              const parts = typeStr.split('::');
+              if (parts.length >= 2) {
+                types.add(`${parts[parts.length - 2]}::${parts[parts.length - 1]}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Error processing resource type:', e);
+        }
+      });
+
+      const typesArray = Array.from(types).sort();
+
+      // Mark data as loaded
+      dataLoadedRef.current = true;
+
+      return typesArray;
+    } catch (e) {
+      console.error('Error in resourceTypes useMemo:', e);
       return [];
     }
-
-    // Track pledge-related resources for debugging
-    const pledgeResources = resourcesArray.filter(resource => {
-      if (resource && typeof resource === 'object' && 'type' in resource) {
-        const typeStr = resource.type.toString().toLowerCase();
-        return typeStr.includes('pledge') || typeStr.includes('vouch');
-      }
-      return false;
-    });
-
-    if (pledgeResources.length > 0) {
-      console.log('Found pledge-related resources:',
-        pledgeResources.map(r => r.type));
-    }
-
-    // Extract unique resource types
-    const types = new Set<string>();
-    resourcesArray.forEach(resource => {
-      if (resource && typeof resource === 'object' && 'type' in resource) {
-        const typeStr = resource.type.toString();
-        const matches = typeStr.match(/::([^:]+)::([^<]+)/);
-        if (matches && matches.length >= 3) {
-          const module = matches[1];
-          const typeName = matches[2];
-          types.add(`${module}::${typeName}`);
-        } else {
-          const parts = typeStr.split('::');
-          if (parts.length >= 2) {
-            types.add(`${parts[parts.length - 2]}::${parts[parts.length - 1]}`);
-          }
-        }
-      }
-    });
-
-    const typesArray = Array.from(types).sort();
-
-    // Mark data as loaded
-    dataLoadedRef.current = true;
-    console.log('Resource types extracted:', typesArray.length, 'types');
-
-    // Map types to slugs for debugging
-    typesArray.forEach(type => {
-      console.log(`Type: ${type} → Slug: ${resourceTypeToSlug(type)}`);
-    });
-
-    return typesArray;
   }, [accountData]);
 
   // Set active resource type based on URL parameter or default
   useEffect(() => {
     if (!dataLoadedRef.current || resourceTypes.length === 0) {
-      console.log('Waiting for data to load before selecting resource type');
       return;
     }
-
-    console.log('Data loaded, selecting resource type from param:', resourceParam);
-    console.log('Available resource types:', resourceTypes.map(t =>
-      `${t} → ${resourceTypeToSlug(t)}`
-    ).join(', '));
 
     if (resourceParam) {
       // Try to find matching resource type
       const matchingType = slugToResourceType(resourceTypes, resourceParam);
 
       if (matchingType) {
-        console.log(`Found matching resource type: ${matchingType} for URL param: ${resourceParam}`);
-        console.log(`Setting active resource type to: ${matchingType}`);
         setActiveResourceType(matchingType);
       } else {
-        console.log(`No matching resource type found for URL param: ${resourceParam}, using default`);
-        console.log(`Setting active resource type to: ${resourceTypes[0]}`);
         setActiveResourceType(resourceTypes[0]);
       }
     } else {
       // No resource parameter, use first available type
-      console.log('No resource parameter, using first type:', resourceTypes[0]);
-      console.log(`Setting active resource type to: ${resourceTypes[0]}`);
       setActiveResourceType(resourceTypes[0]);
     }
   }, [resourceTypes, resourceParam, dataLoadedRef.current]);
@@ -480,14 +569,11 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const startPolling = () => {
     // Only start polling if not already polling and we have the necessary data
     if (!refreshTimerRef.current && isFocused && addressFromParams) {
-      console.log('Starting polling for account details');
-
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
 
       // Force an immediate refresh when starting polling
       setTimeout(() => {
-        console.log('Initial account details refresh');
         if (isMounted.current && isFocused) {
           handleRefresh();
         }
@@ -496,23 +582,15 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       refreshTimerRef.current = setInterval(() => {
         // Only refresh if we're not already refreshing and component is still visible
         if (!isAutoRefreshing && isFocused && isMounted.current) {
-          console.log('[POLL] Auto-refreshing account details - starting refresh');
           handleRefresh();
-        } else {
-          console.log('[POLL] Skipping account refresh, conditions not met:', {
-            isAutoRefreshing, isFocused, isMounted: isMounted.current
-          });
         }
       }, AUTO_REFRESH_INTERVAL);
-
-      console.log(`Auto-refresh interval set to ${AUTO_REFRESH_INTERVAL}ms`);
     }
   };
 
   // Stop polling interval
   const stopPolling = () => {
     if (refreshTimerRef.current) {
-      console.log('Stopping polling for account details');
       clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
 
@@ -525,34 +603,52 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const activeResources = useMemo(() => {
     if (!activeResourceType || !accountData) return [];
 
-    // Extract raw account data
-    const rawAccount = accountData;
-    if (!rawAccount) return [];
+    console.log('ACTIVE_RESOURCES: Active resource type:', activeResourceType);
+    console.log('ACTIVE_RESOURCES: Has accountData with resources:', !!accountData?.resources);
 
-    // Extract resources array
-    let resourcesArray = [];
-    if (rawAccount.resources) {
-      resourcesArray = extractResources(rawAccount);
+    try {
+      // Extract raw account data - fully unwrap it
+      const rawAccount = unwrapObservable(accountData);
+      if (!rawAccount) return [];
+
+      // Extract resources array
+      let resourcesArray = [];
+      try {
+        if (rawAccount.resources) {
+          resourcesArray = extractResources(rawAccount);
+        }
+      } catch (e) {
+        console.warn('Error extracting resources in activeResources:', e);
+      }
+
+      console.log('ACTIVE_RESOURCES: Extracted resourcesArray length:', resourcesArray.length);
+
+      // Filter resources by active type
+      return resourcesArray.filter(resource => {
+        try {
+          // Unwrap the resource to ensure proper type checking
+          const unwrappedResource = unwrapObservable(resource);
+
+          if (!unwrappedResource || typeof unwrappedResource !== 'object' || !('type' in unwrappedResource)) return false;
+
+          const typeStr = String(unwrappedResource.type || '');
+          // Check if the simplified type is contained in the full type
+          return typeStr.includes(activeResourceType);
+        } catch (e) {
+          console.warn('Error filtering resource:', e);
+          return false;
+        }
+      });
+    } catch (e) {
+      console.error('Error in activeResources useMemo:', e);
+      return [];
     }
-
-    // Filter resources by active type
-    return resourcesArray.filter(resource => {
-      if (!resource || typeof resource !== 'object' || !('type' in resource)) return false;
-
-      const typeStr = resource.type.toString();
-      // Check if the simplified type is contained in the full type
-      return typeStr.includes(activeResourceType);
-    });
   }, [accountData, activeResourceType]);
 
   // Handle resource type selection - only update state without URL changes
   const handleResourceTypeChange = (resourceType: string) => {
-    console.log(`Changing resource type to: ${resourceType}`);
-
     // Simply update the state without changing the URL
     setActiveResourceType(resourceType);
-
-    // No router navigation - preventing scroll reset
   };
 
   const handleBackPress = () => {
@@ -627,7 +723,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
         lowerType.includes('pledge_accounts')) {
         // Ensure all pledge and vouch related resources are categorized as Social
         categoryMapping.set(type, 'Social');
-        console.log(`Categorized as Social: ${type}`);
       } else {
         categoryMapping.set(type, 'Other');
       }
@@ -685,7 +780,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
             <TouchableOpacity
               className="bg-primary rounded-lg py-3 px-6 mb-4"
               onPress={() => {
-                console.log('Debug refresh triggered');
                 handleRefresh();
               }}
             >
@@ -1375,13 +1469,37 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               resource?.type && resource.type.toString().includes(currentActiveType)
             );
 
+            console.log('RENDER_RESOURCES: Filtered resources length:', filteredResources.length);
+            console.log('RENDER_RESOURCES: First filtered resource:', filteredResources[0] || 'none');
+
             return (
               <Card className="mb-4">
                 <Row justifyContent="between" alignItems="center" className="mb-3">
                   <Text className="text-text-light text-lg font-bold">
                     Resources ({resources.length})
                   </Text>
-                  <Text className="text-gray-500 text-sm">{filteredResources.length} resources of this type</Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-gray-500 text-sm mr-2">{filteredResources.length} resources of this type</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const resourcesJson = JSON.stringify(unwrapObservable(rawAccount), null, 2);
+                        Clipboard.setString(resourcesJson);
+                        setCopySuccess('Resources copied!');
+                        setTimeout(() => setCopySuccess(null), 2000);
+                      }}
+                      className="p-1.5 bg-primary rounded-md flex items-center justify-center"
+                    >
+                      <View className="flex-row items-center">
+                        <MaterialIcons name="content-copy" size={14} color="white" />
+                        <Text className="text-white text-xs ml-1">Copy All</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {copySuccess && (
+                      <View className="absolute right-0 top-8 bg-green-800/80 px-2 py-1 rounded z-10">
+                        <Text className="text-white text-xs">{copySuccess}</Text>
+                      </View>
+                    )}
+                  </View>
                 </Row>
 
                 {/* Resource Type Navigation and Content with responsive layout */}
@@ -1450,47 +1568,90 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   <Column>
                     {filteredResources.length > 0 ? (
                       filteredResources.map((resource, index) => {
-                        // Determine the appropriate border color based on the resource category
-                        let borderColor = 'border-gray-600'; // Default
-                        const typeStr = resource.type.toLowerCase();
+                        try {
+                          // Unwrap resource to ensure proper access to properties
+                          const unwrappedResource = unwrapObservable(resource);
+                          if (!unwrappedResource) return null;
 
-                        if (typeStr.includes('coin') || typeStr.includes('wallet')) {
-                          borderColor = 'border-green-600'; // Assets
-                        } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
-                          typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
-                          borderColor = 'border-blue-600'; // Validating
-                        } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
-                          typeStr.includes('ancestry')) {
-                          borderColor = 'border-purple-600'; // Social
-                        } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
-                          (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
-                          borderColor = 'border-yellow-600'; // Account
-                        }
+                          // Get the resource type properly
+                          const typeStr = (unwrappedResource.type ?
+                            String(unwrappedResource.type || '') : '').toLowerCase();
 
-                        return (
-                          <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                            <Row
-                              justifyContent="between"
-                              alignItems="center"
-                              className={`p-3 border-l-4 ${borderColor}`}
-                            >
-                              <Text className="text-white font-bold text-sm flex-1">{resource.type}</Text>
-                              <TouchableOpacity
-                                onPress={() => copyToClipboard(JSON.stringify(resource.data, null, 2))}
-                                className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                          // Determine the appropriate border color based on the resource category
+                          let borderColor = 'border-gray-600'; // Default
+
+                          if (typeStr.includes('coin') || typeStr.includes('wallet')) {
+                            borderColor = 'border-green-600'; // Assets
+                          } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
+                            typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
+                            borderColor = 'border-blue-600'; // Validating
+                          } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
+                            typeStr.includes('ancestry')) {
+                            borderColor = 'border-purple-600'; // Social
+                          } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
+                            (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
+                            borderColor = 'border-yellow-600'; // Account
+                          }
+
+                          return (
+                            <View key={index} className="bg-background rounded mb-2 overflow-hidden">
+                              <Row
+                                justifyContent="between"
+                                alignItems="center"
+                                className={`p-3 border-l-4 ${borderColor}`}
                               >
-                                <MaterialIcons name="content-copy" size={14} color="white" />
-                              </TouchableOpacity>
-                            </Row>
-                            <View className="p-3 border-t border-border">
-                              <View className="overflow-auto">
-                                <Text className="text-text-light font-mono text-xs whitespace-pre">
-                                  {JSON.stringify(resource.data, null, 2)}
-                                </Text>
+                                <Text className="text-white font-bold text-sm flex-1">{unwrappedResource.type || 'Unknown Resource'}</Text>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    try {
+                                      const unwrappedData = unwrapObservable(unwrappedResource.data) || {};
+                                      copyToClipboard(JSON.stringify(unwrappedData, null, 2));
+                                    } catch (e) {
+                                      console.warn('Error copying resource data:', e);
+                                    }
+                                  }}
+                                  className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                                >
+                                  <MaterialIcons name="content-copy" size={14} color="white" />
+                                </TouchableOpacity>
+                              </Row>
+                              <View className="p-3 border-t border-border">
+                                {unwrappedResource.resourceKey && (
+                                  <View className="mb-2 bg-gray-700/30 p-2 rounded">
+                                    <Text className="text-text-muted text-xs">Resource Key: {unwrappedResource.resourceKey}</Text>
+                                  </View>
+                                )}
+                                <View className="overflow-auto">
+                                  {(() => {
+                                    try {
+                                      console.log('DISPLAY_LEVEL: Rendering resource data for type', unwrappedResource.type, 'data:', unwrappedResource.data);
+                                      // Unwrap the resource data before stringifying
+                                      const unwrappedData = unwrapObservable(unwrappedResource.data);
+                                      return null;
+                                    } catch (e) {
+                                      console.warn('Error logging resource data:', e);
+                                      return null;
+                                    }
+                                  })()}
+                                  <Text className="text-text-light font-mono text-xs whitespace-pre">
+                                    {(() => {
+                                      try {
+                                        const unwrappedData = unwrapObservable(unwrappedResource.data) || {};
+                                        return JSON.stringify(unwrappedData, null, 2);
+                                      } catch (e) {
+                                        console.warn('Error stringifying resource data:', e);
+                                        return '{}';
+                                      }
+                                    })()}
+                                  </Text>
+                                </View>
                               </View>
                             </View>
-                          </View>
-                        );
+                          );
+                        } catch (e) {
+                          console.warn('Error rendering resource:', e);
+                          return null;
+                        }
                       })
                     ) : (
                       <View className="py-6 bg-background rounded-lg items-center justify-center">
@@ -1510,11 +1671,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                 accountAddress={getObservableValue(accountData.address, '')}
                 initialLimit={appConfig.transactions.defaultLimit}
                 onRefresh={() => {
-                  console.log('Manual refresh triggered');
                   setIsAutoRefreshing(true);
                   refreshAccount()
-                    .then(() => console.log('Manual refresh completed successfully'))
-                    .catch(err => console.error('Error during manual refresh:', err))
+                    .catch(err => console.error('Error during refresh:', err))
                     .finally(() => {
                       setTimeout(() => setIsAutoRefreshing(false), 500);
                     });
