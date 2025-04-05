@@ -1,6 +1,6 @@
 # OL Explorer - Open Libra Blockchain Explorer
 
-A modern, responsive blockchain explorer for the Open Libra blockchain, built with React Native, Expo, TypeScript, and LegendApp for state management.
+A modern, responsive blockchain explorer for the Open Libra blockchain, built with React Native, Expo, TypeScript, and LegendApp for state management. The explorer runs solely on RPC calls and does not require an indexer to function.
 
 ![Open Libra Explorer](public/og-image.png)
 
@@ -37,14 +37,6 @@ The PWA functionality is implemented with:
 - **Web App Manifest**: Defines app metadata, icons, and display preferences
 - **Service Worker**: Handles caching strategies and offline experience
 - **HTML Configuration**: Meta tags for PWA capabilities
-
-### Offline Strategy
-
-The application provides a tailored offline experience:
-
-1. **Cached Routes**: Basic navigation structure remains accessible
-2. **Offline Page**: Custom error page when trying to access uncached content
-3. **Asset Caching**: Critical CSS, JavaScript, and images are cached for offline use
 
 For complete details on the PWA implementation, see [PWA Implementation documentation](context-for-llm/pwa-implementation.md).
 
@@ -163,28 +155,54 @@ docker-compose -f docker-compose.testnet.yml up -d
 For manual setup, follow these steps:
 
 ```bash
+# Clone the repo
 cd $HOME
 rm -rf ./libra-framework
 git clone https://github.com/0o-de-lally/libra-framework
 cd ./libra-framework
-git checkout release-8.0.0-rc.0
+
+# Checkout the rc.1 tag and install dependencies
+git checkout release-8.0.0-rc.1
 sudo bash util/dev_setup.sh
 
-# run the node to catch some blocks
-libra config fullnode-init
-libra node
+# Build the libra binary and copy to .cargo/bin
+cargo b --release -p libra 
+cp -f target/release/libra ~/.cargo/bin/
 
-# check on blocks while this runs
-watch -n1 'echo "\nConnections:";curl 127.0.0.1:9101/metrics 2> /dev/null | grep "_connections"; echo "\nMainnet Version:"; curl -s https://rpc.openlibra.space:8080/v1 | jq .ledger_version; echo "\nYour Node:"; curl -s localhost:9101/metrics | grep diem_state_sync_version;'
+# Verify the libra version
+libra version
 
-# stop the node, prepare the move framework
+# Clean up any previous data
+rm -rf $HOME/.libra
+
+# Build the framework
+export DIEM_FORGE_NODE_BIN_PATH=$HOME/.cargo/bin/libra
 cd $HOME/libra-framework/framework/
 libra move framework release
 
-# create a twin network
-cd $HOME/libra-framework/testsuites/twin
-DIEM_FORGE_NODE_BIN_PATH=/root/.cargo/bin/libra cargo run -- --db-dir $HOME/.libra/data/db &
+# Run the twin testnet
+# This starts a twin network that restores from epoch 353
+libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-epoch-restore=353 smoke
+
+# If you need to restart the twin network later, use:
+# libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-reference-db=$HOME/.libra/db_353 smoke
+
+# The twin network will output the RPC endpoint port - make note of it
+# Test the RPC endpoint (replace THEPORT with the actual port number)
+curl -s http://127.0.0.1:THEPORT/v1 | jq .ledger_version
+
+# Important: Touching the account to initialize it
+# Accounts are lazy-loaded in Open Libra, so you need to "touch" them first
+# If you have a libra-cli-config.yaml (generated when running the testnet):
+libra txs --config-path /path/to/libra-cli-config.yaml user touch
 ```
+
+#### Important Notes About the Twin Network
+
+- **Lazy-loaded accounts**: Accounts must be "touched" with a transaction before they can be fully used
+- **Resource access**: The network uses the same resource structure as mainnet
+- **Module location**: All modules are published on the `0x1` address
+- **Transaction verification**: All transactions go through the same verification process as on mainnet
 
 #### Running Tests with the Twin Network
 
@@ -192,13 +210,13 @@ When running tests with the twin network, set the following environment variable
 
 ```bash
 # For Jest tests
-export LIBRA_RPC_URL=http://127.0.0.1:34597/v1
+export LIBRA_RPC_URL=http://127.0.0.1:THEPORT/v1  # Replace THEPORT with actual port
 export TEST_ACCOUNT=9A710919B1A1E67EDA335269C0085C91
 export TEST_TRANSACTION=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b5406d8dcf22d1834d18
 npm test
 
 # For Cypress tests
-export CYPRESS_twinNetworkRpc=http://127.0.0.1:34597/v1
+export CYPRESS_twinNetworkRpc=http://127.0.0.1:THEPORT/v1  # Replace THEPORT with actual port
 export CYPRESS_testAccount=9A710919B1A1E67EDA335269C0085C91
 export CYPRESS_testTransaction=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b5406d8dcf22d1834d18
 npm run cypress:run
