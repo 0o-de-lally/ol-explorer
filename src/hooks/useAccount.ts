@@ -111,9 +111,7 @@ export const useAccount = (address: string | null): UseAccountResult => {
         let transactions: any[] = [];
         try {
             // Use ext_getAccountTransactions if available for better performance
-            if (typeof sdk.ext_getAccountTransactions === 'function') {
-                transactions = await sdk.ext_getAccountTransactions(address, 10);
-            }
+            transactions = await openLibraSdk.ext_getAccountTransactions(address, 10);
         } catch (error) {
             console.error(`Error fetching account transactions: ${error}`);
         }
@@ -124,112 +122,169 @@ export const useAccount = (address: string | null): UseAccountResult => {
         let isFounder = false;
         let hasFriends = false;
         let isDonorVoice = false;
-        let isDAORoot = false;
+        let isInitializedOnV8 = false;
+        let onboardingTimestamp = 0;
+        let lastActivityTimestamp = 0;
+        let isValidator = false;
+        let currentBid = 0;
+        let validatorGrade = { isCompliant: false, acceptedProposals: 0, failedProposals: 0 };
+        let jailReputation = 0;
+        let countBuddiesJailed = 0;
 
-        try {
-            // Attempt to get vouch score if available
-            const vouchView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`,
-                typeArguments: [],
-                arguments: [[appConfig.network.OL_FRAMEWORK], address]
-            };
-            try {
-                voucherScore = await sdk.view(vouchView) || 0;
-                console.log("Vouch score:", voucherScore);
-                // If result is an array with a single value, get that value
-                if (Array.isArray(voucherScore) && voucherScore.length > 0) {
-                    voucherScore = voucherScore[0];
+        // Use Promise.allSettled to fetch all data in parallel and handle errors individually
+        const results = await Promise.allSettled([
+            // Vouching data
+            openLibraSdk.getVouchScore(address),
+            openLibraSdk.isVoucherScoreValid(address),
+
+            // Founder data
+            openLibraSdk.isFounder(address),
+            openLibraSdk.hasFounderFriends(address),
+
+            // Community wallet data
+            openLibraSdk.isDonorVoice(address),
+
+            // Activity data
+            openLibraSdk.hasEverBeenTouched(address),
+            openLibraSdk.isInitializedOnV8(address),
+            openLibraSdk.getOnboardingUsecs(address),
+            openLibraSdk.getLastActivityUsecs(address),
+
+            // Validator data - first get the list to check if this account is a validator
+            openLibraSdk.getCurrentValidators()
+        ]);
+
+        // Process results
+        if (results[0].status === 'fulfilled') {
+            voucherScore = results[0].value;
+        }
+
+        if (results[1].status === 'fulfilled') {
+            isValidated = results[1].value;
+        }
+
+        if (results[2].status === 'fulfilled') {
+            isFounder = results[2].value;
+        }
+
+        if (results[3].status === 'fulfilled') {
+            hasFriends = results[3].value;
+        }
+
+        if (results[4].status === 'fulfilled') {
+            isDonorVoice = results[4].value;
+        }
+
+        if (results[5].status === 'fulfilled') {
+            // We already have transactions, but this is a more direct check
+            const hasTouched = results[5].value;
+            // Use the result only if we don't have transactions
+            if (!transactions.length) {
+                transactions = hasTouched ? [{}] : [];
+            }
+        }
+
+        if (results[6].status === 'fulfilled') {
+            isInitializedOnV8 = results[6].value;
+        }
+
+        if (results[7].status === 'fulfilled') {
+            onboardingTimestamp = results[7].value;
+        }
+
+        if (results[8].status === 'fulfilled') {
+            lastActivityTimestamp = results[8].value;
+        }
+
+        // Check if account is a validator
+        if (results[9].status === 'fulfilled') {
+            const validators = results[9].value;
+            const normalizedAddress = address.toLowerCase();
+
+            // Check if the address is in the validators list
+            isValidator = validators.some(val =>
+                typeof val === 'string' && val.toLowerCase() === normalizedAddress
+            );
+
+            // If this is a validator, get additional information
+            if (isValidator) {
+                // Use Promise.allSettled again for validator-specific data
+                const validatorResults = await Promise.allSettled([
+                    openLibraSdk.getCurrentBid(address),
+                    openLibraSdk.getValidatorGrade(address),
+                    openLibraSdk.getJailReputation(address),
+                    openLibraSdk.getCountBuddiesJailed(address)
+                ]);
+
+                if (validatorResults[0].status === 'fulfilled') {
+                    currentBid = validatorResults[0].value;
                 }
 
-                // Convert to number if it's a string
-                if (typeof voucherScore === 'string') {
-                    voucherScore = parseFloat(voucherScore);
+                if (validatorResults[1].status === 'fulfilled') {
+                    validatorGrade = validatorResults[1].value;
                 }
 
-                // Ensure we have a valid number
-                voucherScore = !isNaN(voucherScore) && typeof voucherScore === 'number' ? voucherScore : 0;
-                console.log("Vouch score after processing:", voucherScore);
-            } catch (error) {
-                console.error("Error evaluating voucher score:", error);
+                if (validatorResults[2].status === 'fulfilled') {
+                    jailReputation = validatorResults[2].value;
+                }
+
+                if (validatorResults[3].status === 'fulfilled') {
+                    countBuddiesJailed = validatorResults[3].value;
+                }
+            }
+        }
+
+        // Get community wallet detailed data if this is a donor voice
+        let isAuthorized = false;
+        let isReauthProposed = false;
+        let isInitialized = false;
+        let isWithinAuthorizeWindow = false;
+        let vetoTally = 0;
+
+        if (isDonorVoice) {
+            // Fetch community wallet specific data
+            const communityWalletResults = await Promise.allSettled([
+                openLibraSdk.isDonorVoiceAuthorized(address),
+                openLibraSdk.isReauthProposed(address),
+                openLibraSdk.isCommunityWalletInit(address),
+                openLibraSdk.isWithinAuthorizeWindow(address),
+                openLibraSdk.getVetoTally(address)
+            ]);
+
+            if (communityWalletResults[0].status === 'fulfilled') {
+                isAuthorized = communityWalletResults[0].value;
             }
 
-            // Determine if this is a validated account
-            const validatedView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::vouch::is_voucher_score_valid`,
-                typeArguments: [],
-                arguments: [address]
-            };
-            try {
-                isValidated = await sdk.view(validatedView) || false;
-            } catch (error) {
-                console.error("Error checking if account is validated:", error);
+            if (communityWalletResults[1].status === 'fulfilled') {
+                isReauthProposed = communityWalletResults[1].value;
             }
 
-            // Check if the account is a founder
-            const founderView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::founder::is_founder`,
-                typeArguments: [],
-                arguments: [address]
-            };
-            try {
-                isFounder = await sdk.view(founderView) || false;
-            } catch (error) {
-                console.error("Error checking founder status:", error);
+            if (communityWalletResults[2].status === 'fulfilled') {
+                isInitialized = communityWalletResults[2].value;
             }
 
-            // Check if has friends
-            const friendsView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::founder::has_friends`,
-                typeArguments: [],
-                arguments: [address]
-            };
-            try {
-                hasFriends = await sdk.view(friendsView) || false;
-            } catch (error) {
-                console.error("Error checking friends status:", error);
+            if (communityWalletResults[3].status === 'fulfilled') {
+                isWithinAuthorizeWindow = communityWalletResults[3].value;
             }
 
-            // Check if donor voice
-            const donorView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`,
-                typeArguments: [],
-                arguments: [address]
-            };
-            try {
-                isDonorVoice = await sdk.view(donorView) || false;
-            } catch (error) {
-                console.error("Error checking donor voice status:", error);
+            if (communityWalletResults[4].status === 'fulfilled') {
+                vetoTally = communityWalletResults[4].value;
             }
-
-            // Check if account is in the root registry
-            const rootsView = {
-                function: `${appConfig.network.OL_FRAMEWORK}::root_of_trust::get_current_roots_at_registry`,
-                typeArguments: [],
-                arguments: [`${appConfig.network.OL_FRAMEWORK}::donor_voice::DonorVoice`]
-            };
-            try {
-                const roots = await sdk.view(rootsView) || [];
-                isDAORoot = roots.includes(address);
-            } catch (error) {
-                console.error("Error checking root registry:", error);
-            }
-        } catch (error) {
-            console.error("Error fetching extended account data:", error);
         }
 
         // Create and return properly structured extended data
         return {
             communityWallet: {
-                isDonorVoice: isDonorVoice,
-                isAuthorized: false, // Default
-                isReauthProposed: false, // Default
-                isInitialized: false, // Default
-                isWithinAuthorizeWindow: false, // Default
-                vetoTally: 0 // Default
+                isDonorVoice,
+                isAuthorized,
+                isReauthProposed,
+                isInitialized,
+                isWithinAuthorizeWindow,
+                vetoTally
             },
             founder: {
-                isFounder: isFounder,
-                hasFriends: hasFriends
+                isFounder,
+                hasFriends
             },
             vouching: {
                 vouchScore: voucherScore,
@@ -237,16 +292,16 @@ export const useAccount = (address: string | null): UseAccountResult => {
             },
             activity: {
                 hasBeenTouched: transactions.length > 0,
-                onboardingTimestamp: 0, // Default
-                lastActivityTimestamp: 0, // Default
-                isInitializedOnV8: false // Default
+                onboardingTimestamp,
+                lastActivityTimestamp,
+                isInitializedOnV8
             },
             validator: {
-                isValidator: false, // Default
-                currentBid: 0, // Default
-                grade: { isCompliant: false, acceptedProposals: 0, failedProposals: 0 }, // Default
-                jailReputation: 0, // Default
-                countBuddiesJailed: 0 // Default
+                isValidator,
+                currentBid,
+                grade: validatorGrade,
+                jailReputation,
+                countBuddiesJailed
             }
         };
     };

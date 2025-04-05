@@ -732,7 +732,16 @@ export const useSdk = (): BlockchainSDK & {
 
       // Handle the case where the result is an array containing the score
       if (Array.isArray(score) && score.length > 0) {
+        // Handle string value
+        if (typeof score[0] === 'string') {
+          return parseFloat(score[0]) || 0;
+        }
         return typeof score[0] === 'number' ? score[0] : 0;
+      }
+
+      // Handle direct string value
+      if (typeof score === 'string') {
+        return parseFloat(score) || 0;
       }
 
       return typeof score === 'number' ? score : 0;
