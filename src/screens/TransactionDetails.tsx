@@ -345,7 +345,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               <View className="mb-4">
                 <View className="flex-row items-center">
                   <View className="bg-background rounded px-3 py-2 flex-1">
-                    <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, true)}</Text>
+                    <TouchableOpacity onPress={() => copyToClipboard(transaction.hash)}>
+                      <Text className="text-text-light font-mono text-sm">
+                        {isDesktop ? transaction.hash : formatHashForDisplay(transaction.hash, true)}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <TouchableOpacity
                     onPress={() => copyToClipboard(transaction.hash)}
@@ -371,7 +375,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
 
               <View className="flex-row items-center mb-4">
                 <View className="bg-background rounded px-3 py-2 flex-1">
-                  <Text className="text-text-light font-mono text-sm">{formatHashForDisplay(transaction.hash, false)}</Text>
+                  <TouchableOpacity onPress={() => copyToClipboard(transaction.hash)}>
+                    <Text className="text-text-light font-mono text-sm">
+                      {isDesktop ? transaction.hash : formatHashForDisplay(transaction.hash, true)}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <TouchableOpacity
                   onPress={() => copyToClipboard(transaction.hash)}
@@ -390,10 +398,11 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 <View className="flex-row justify-between items-center py-3">
                   <Text className="text-text-muted text-base w-1/3">Address</Text>
                   <View className="w-2/3 flex-row justify-end items-center">
-                    <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
+                    <TouchableOpacity
+                      onPress={() => handleAddressPress(transaction.sender)}
+                    >
                       <Text className="text-primary text-base font-medium text-right mr-2">
-                        <Text className="hidden md:inline">{transaction.sender}</Text>
-                        <Text className="inline md:hidden">{formatAddressForDisplay(transaction.sender, 6, 4)}</Text>
+                        {isDesktop ? transaction.sender : formatAddressForDisplay(transaction.sender, 6, 4)}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -473,9 +482,15 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 {/* First row */}
                 {transaction.state_change_hash && (
                   <DetailGrid>
-                    <DetailCard label="State Change Hash" value={formatHashForDisplay(transaction.state_change_hash)} />
+                    <DetailCard
+                      label="State Change Hash"
+                      value={isDesktop ? transaction.state_change_hash : formatHashForDisplay(transaction.state_change_hash)}
+                    />
                     {transaction.event_root_hash && (
-                      <DetailCard label="Event Root Hash" value={formatHashForDisplay(transaction.event_root_hash)} />
+                      <DetailCard
+                        label="Event Root Hash"
+                        value={isDesktop ? transaction.event_root_hash : formatHashForDisplay(transaction.event_root_hash)}
+                      />
                     )}
                   </DetailGrid>
                 )}
@@ -483,9 +498,15 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 {/* Handle case where we only have event root hash */}
                 {!transaction.state_change_hash && transaction.event_root_hash && (
                   <DetailGrid>
-                    <DetailCard label="Event Root Hash" value={formatHashForDisplay(transaction.event_root_hash)} />
+                    <DetailCard
+                      label="Event Root Hash"
+                      value={isDesktop ? transaction.event_root_hash : formatHashForDisplay(transaction.event_root_hash)}
+                    />
                     {transaction.accumulator_root_hash && (
-                      <DetailCard label="Accumulator Root Hash" value={formatHashForDisplay(transaction.accumulator_root_hash)} />
+                      <DetailCard
+                        label="Accumulator Root Hash"
+                        value={isDesktop ? transaction.accumulator_root_hash : formatHashForDisplay(transaction.accumulator_root_hash)}
+                      />
                     )}
                   </DetailGrid>
                 )}
@@ -493,7 +514,10 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 {/* Show accumulator root hash in second row if we have state_change_hash */}
                 {transaction.state_change_hash && transaction.accumulator_root_hash && (
                   <DetailGrid>
-                    <DetailCard label="Accumulator Root Hash" value={formatHashForDisplay(transaction.accumulator_root_hash)} />
+                    <DetailCard
+                      label="Accumulator Root Hash"
+                      value={isDesktop ? transaction.accumulator_root_hash : formatHashForDisplay(transaction.accumulator_root_hash)}
+                    />
                   </DetailGrid>
                 )}
               </View>
@@ -538,7 +562,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             <View className="bg-secondary rounded-lg p-6 mb-6 border-t-4 border-purple-500">
               <Text className="text-text-light text-lg font-bold mb-3">Events ({transaction.events.length})</Text>
               {transaction.events.map((event, index) => (
-                <View key={index} className="bg-background rounded mb-2 border-l-4 border-purple-500">
+                <View key={index} className="bg-background rounded mb-2">
                   <View className="p-3 flex-row justify-between items-center">
                     <Text className="text-primary text-sm font-bold">{event.type}</Text>
                     <TouchableOpacity
@@ -582,13 +606,13 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                   !(Object.keys(change.data).length === 0 && change.address === "" && change.path === "")
                 )
                 .map((change, index) => (
-                  <View key={index} className="bg-background rounded mb-2 border-l-4 border-amber-500">
+                  <View key={index} className="bg-background rounded mb-2">
                     <View className="p-3 flex-row justify-between items-center">
                       <View>
                         <Text className="text-primary text-sm font-bold">{change.type}</Text>
                         <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
                           <Text className="text-primary text-sm mt-1">
-                            {formatAddressForDisplay(change.address)}
+                            {isDesktop ? change.address : formatAddressForDisplay(change.address)}
                           </Text>
                         </TouchableOpacity>
                       </View>
