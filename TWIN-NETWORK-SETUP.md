@@ -1,6 +1,6 @@
- # Twin Network Setup for Testing OL Explorer
+# Twin Network Setup for Testing OL Explorer
 
-This guide explains how to set up a containerized twin network from Libra mainnet for testing the OL Explorer.
+This guide explains how to set up a twin network from Libra mainnet for testing the OL Explorer.
 
 ## What is a Twin Network?
 
@@ -8,39 +8,15 @@ A twin network is a local copy of the Libra blockchain that mirrors the mainnet,
 
 ## Setup Options
 
-### Option 1: Using Docker (Recommended)
+### Option 1: Using Docker (Not Ready Yet)
 
-This is the simplest approach and is used in our CI pipeline.
+> **Note:** The Docker setup method is not fully implemented yet. We recommend following the manual setup instructions below for the most reliable experience.
 
-#### Prerequisites
-- Docker
-- Docker Compose (optional)
+Docker-based setup will be available in a future update, which will simplify the process of setting up a twin network for testing.
 
-#### Steps
+### Option 2: Manual Setup with setup_twin.sh
 
-1. Build the Docker image:
-   ```bash
-   docker build -t libra-twin-network -f Dockerfile.testnet .
-   ```
-
-2. Run the container:
-   ```bash
-   docker run -d -p 34597:34597 --name libra-twin-network libra-twin-network
-   ```
-
-3. Wait for the twin network to be available:
-   ```bash
-   timeout 300 bash -c 'until curl -s http://127.0.0.1:34597/v1 > /dev/null; do sleep 5; done'
-   ```
-
-Alternatively, use Docker Compose:
-```bash
-docker-compose -f docker-compose.testnet.yml up -d
-```
-
-### Option 2: Manual Setup
-
-For more control or when Docker is not available, you can set up the twin network manually.
+For a reliable twin network setup, we provide a shell script that automates the process.
 
 #### Prerequisites
 - Rust and Cargo
@@ -49,36 +25,38 @@ For more control or when Docker is not available, you can set up the twin networ
 
 #### Steps
 
+1. Run the setup script with the desired epoch number to restore from:
+
 ```bash
-cd $HOME
-rm -rf ./libra-framework
-git clone https://github.com/0o-de-lally/libra-framework
-cd ./libra-framework
-git checkout release-8.0.0-rc.0
-sudo bash util/dev_setup.sh
+# Make the script executable
+chmod +x setup_twin.sh
 
-# run the node to catch some blocks
-libra config fullnode-init
-libra node
+# Run the script with an epoch number (e.g., 353)
+./setup_twin.sh 353
+```
 
-# check on blocks while this runs (in another terminal)
-watch -n1 'echo "\nConnections:";curl 127.0.0.1:9101/metrics 2> /dev/null | grep "_connections"; echo "\nMainnet Version:"; curl -s https://rpc.openlibra.space:8080/v1 | jq .ledger_version; echo "\nYour Node:"; curl -s localhost:9101/metrics | grep diem_state_sync_version;'
+The script will:
+- Clone the libra-framework repository
+- Install dependencies
+- Build the libra binary
+- Set up the framework
+- Start a twin network restoring from the specified epoch
 
-# Once synced, stop the node (Ctrl+C) and prepare the move framework
-cd $HOME/libra-framework/framework/
-libra move framework release
+The output will include the RPC endpoint port number that you'll need for connecting to the twin network.
 
-# create a twin network
-cd $HOME/libra-framework/testsuites/twin
-DIEM_FORGE_NODE_BIN_PATH=/root/.cargo/bin/libra cargo run -- --db-dir $HOME/.libra/data/db
+2. If you need to restart the twin network later, the script provides a command for that:
+
+```bash
+libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-reference-db=$HOME/.libra/db_353 smoke
 ```
 
 ## Using the Twin Network
 
 Once the twin network is running, the RPC endpoint will be available at:
 ```
-http://127.0.0.1:34597/v1
+http://127.0.0.1:<PORT>/v1
 ```
+Where `<PORT>` is the port number displayed when running the setup script.
 
 ### Test Data
 
@@ -93,13 +71,13 @@ Set the following environment variables when running tests:
 
 ```bash
 # For Jest tests
-export LIBRA_RPC_URL=http://127.0.0.1:34597/v1
+export LIBRA_RPC_URL=http://127.0.0.1:<PORT>/v1  # Replace <PORT> with actual port
 export TEST_ACCOUNT=9A710919B1A1E67EDA335269C0085C91
 export TEST_TRANSACTION=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b5406d8dcf22d1834d18
 npm test
 
 # For Cypress tests
-export CYPRESS_twinNetworkRpc=http://127.0.0.1:34597/v1
+export CYPRESS_twinNetworkRpc=http://127.0.0.1:<PORT>/v1  # Replace <PORT> with actual port
 export CYPRESS_testAccount=9A710919B1A1E67EDA335269C0085C91
 export CYPRESS_testTransaction=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b5406d8dcf22d1834d18
 npm run cypress:run
@@ -110,30 +88,26 @@ npm run cypress:run
 When running the development server, set the RPC URL to point to the twin network:
 
 ```bash
-LIBRA_RPC_URL=http://127.0.0.1:34597/v1 npm run web
+LIBRA_RPC_URL=http://127.0.0.1:<PORT>/v1 npm run web
 ```
 
-## CI/CD Integration
+## Important: Initialize Test Accounts
 
-The CI/CD pipeline has been updated to automatically set up and use the twin network for testing. See `.github/workflows/ci.yml` for details on how this is implemented.
+Accounts are lazy-loaded in Open Libra, so you need to "touch" them first:
+
+```bash
+# If you have a libra-cli-config.yaml (generated when running the testnet):
+libra txs --config-path /path/to/libra-cli-config.yaml user touch
+```
 
 ## Troubleshooting
-
-### Docker Container Not Starting
-
-If the Docker container fails to start, check the logs:
-```bash
-docker logs libra-twin-network
-```
 
 ### RPC Endpoint Not Responding
 
 If the RPC endpoint is not responding, ensure that the twin network is running:
-```bash
-# For Docker setup
-docker ps | grep libra-twin-network
 
-# For manual setup
+```bash
+# Check for running processes
 ps aux | grep twin
 ```
 
@@ -142,14 +116,6 @@ ps aux | grep twin
 To stop the twin network:
 
 ```bash
-# For Docker setup
-docker stop libra-twin-network
-docker rm libra-twin-network
-
-# For Docker Compose setup
-docker-compose -f docker-compose.testnet.yml down
-
-# For manual setup
 # Find the process ID and kill it
 ps aux | grep twin
 kill <PID>

@@ -226,7 +226,7 @@ export CYPRESS_testTransaction=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b54
 npm run cypress:run
 ```
 
-For more detailed information, see [TESTNET.md](TESTNET.md).
+For more detailed information, see [TWIN-NETWORK-SETUP.md](TWIN-NETWORK-SETUP.md).
 
 ### End-to-End Testing with Cypress
 
