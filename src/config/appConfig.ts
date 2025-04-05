@@ -2,11 +2,21 @@
  * Application-wide configuration settings
  */
 export const appConfig = {
+  // Blockchain network configuration
+  network: {
+    OL_FRAMEWORK: "0x1"     // OL Framework address (usually 0x1 on mainnet)
+  },
+
   // Transaction display limits
   transactions: {
     defaultLimit: 25,       // Initial number of transactions to load
     incrementSize: 25,      // How many more to load when clicking "Load More"
     maxLimit: 100           // Maximum number of transactions that can be loaded (API limit)
+  },
+
+  // Vouching configuration
+  vouching: {
+    threshold: 2            // Threshold value for valid vouching (100% = this value)
   },
 
   // Blockchain metrics configuration

@@ -6,6 +6,7 @@ import { useObservable } from '@legendapp/state/react';
 import { isValidAddressFormat } from '../utils/addressUtils';
 import { useSdk } from './useSdk';
 import { ValidatorGrade } from './useSdk';
+import appConfig from '../config/appConfig';
 
 // Extended Account interface with the additional data
 interface ExtendedAccountData {
@@ -128,19 +129,33 @@ export const useAccount = (address: string | null): UseAccountResult => {
         try {
             // Attempt to get vouch score if available
             const vouchView = {
-                function: '0x1::vouch_score::evaluate_users_vouchers',
+                function: `${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`,
                 typeArguments: [],
-                arguments: [address]
+                arguments: [[appConfig.network.OL_FRAMEWORK], address]
             };
             try {
                 voucherScore = await sdk.view(vouchView) || 0;
+                console.log("Vouch score:", voucherScore);
+                // If result is an array with a single value, get that value
+                if (Array.isArray(voucherScore) && voucherScore.length > 0) {
+                    voucherScore = voucherScore[0];
+                }
+
+                // Convert to number if it's a string
+                if (typeof voucherScore === 'string') {
+                    voucherScore = parseFloat(voucherScore);
+                }
+
+                // Ensure we have a valid number
+                voucherScore = !isNaN(voucherScore) && typeof voucherScore === 'number' ? voucherScore : 0;
+                console.log("Vouch score after processing:", voucherScore);
             } catch (error) {
                 console.error("Error evaluating voucher score:", error);
             }
 
             // Determine if this is a validated account
             const validatedView = {
-                function: '0x1::vouch::is_voucher_score_valid',
+                function: `${appConfig.network.OL_FRAMEWORK}::vouch::is_voucher_score_valid`,
                 typeArguments: [],
                 arguments: [address]
             };
@@ -152,7 +167,7 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Check if the account is a founder
             const founderView = {
-                function: '0x1::founder::is_founder',
+                function: `${appConfig.network.OL_FRAMEWORK}::founder::is_founder`,
                 typeArguments: [],
                 arguments: [address]
             };
@@ -164,7 +179,7 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Check if has friends
             const friendsView = {
-                function: '0x1::founder::has_friends',
+                function: `${appConfig.network.OL_FRAMEWORK}::founder::has_friends`,
                 typeArguments: [],
                 arguments: [address]
             };
@@ -176,7 +191,7 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Check if donor voice
             const donorView = {
-                function: '0x1::donor_voice::is_donor_voice',
+                function: `${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`,
                 typeArguments: [],
                 arguments: [address]
             };
@@ -188,9 +203,9 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Check if account is in the root registry
             const rootsView = {
-                function: '0x1::root_of_trust::get_current_roots_at_registry',
+                function: `${appConfig.network.OL_FRAMEWORK}::root_of_trust::get_current_roots_at_registry`,
                 typeArguments: [],
-                arguments: ['0x1::donor_voice::DonorVoice']
+                arguments: [`${appConfig.network.OL_FRAMEWORK}::donor_voice::DonorVoice`]
             };
             try {
                 const roots = await sdk.view(rootsView) || [];

@@ -4,6 +4,7 @@ import { useSdk } from '../src/hooks/useSdk';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
+import appConfig from '../src/config/appConfig';
 
 export default function ViewFunction() {
     const sdk = useSdk();
@@ -14,7 +15,7 @@ export default function ViewFunction() {
     const initialPath = params?.initialPath as string | undefined;
     const initialArgs = params?.initialArgs as string | undefined;
 
-    const [functionPath, setFunctionPath] = useState<string>(initialPath || '0x1::stake::get_current_validators');
+    const [functionPath, setFunctionPath] = useState<string>(initialPath || `${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`);
     const [typeArguments, setTypeArguments] = useState<string>('');
     const [arguments_, setArguments] = useState<string>(initialArgs || '');
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -167,7 +168,7 @@ export default function ViewFunction() {
                             <Text className="text-text-light text-base mb-2">Function Path:</Text>
                             <TextInput
                                 className="bg-background rounded px-3 py-2 text-white"
-                                placeholder="e.g. 0x1::stake::get_current_validators"
+                                placeholder={`e.g. ${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`}
                                 placeholderTextColor="#666"
                                 value={functionPath}
                                 onChangeText={setFunctionPath}
@@ -179,7 +180,7 @@ export default function ViewFunction() {
                             <Text className="text-text-light text-base mb-2">Type Arguments (comma-separated):</Text>
                             <TextInput
                                 className="bg-background rounded px-3 py-2 text-white"
-                                placeholder="e.g. 0x1::aptos_coin::AptosCoin"
+                                placeholder={`e.g. ${appConfig.network.OL_FRAMEWORK}::aptos_coin::AptosCoin`}
                                 placeholderTextColor="#666"
                                 value={typeArguments}
                                 onChangeText={setTypeArguments}
@@ -191,7 +192,7 @@ export default function ViewFunction() {
                             <Text className="text-text-light text-base mb-2">Arguments (comma-separated JSON):</Text>
                             <TextInput
                                 className="bg-background rounded px-3 py-2 text-white"
-                                placeholder='e.g. "0x1", 100'
+                                placeholder={`e.g. "${appConfig.network.OL_FRAMEWORK}", 100`}
                                 placeholderTextColor="#666"
                                 value={arguments_}
                                 onChangeText={setArguments}
@@ -261,48 +262,48 @@ export default function ViewFunction() {
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
                             onPress={() => {
-                                setFunctionPath('0x1::stake::get_current_validators');
+                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`);
                                 setTypeArguments('');
                                 setArguments('');
                             }}
                         >
-                            <Text className="text-primary font-medium">0x1::stake::get_current_validators</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`}</Text>
                             <Text className="text-gray-400 text-sm">Get current validators</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
                             onPress={() => {
-                                setFunctionPath('0x1::donor_voice::is_donor_voice');
+                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`);
                                 setTypeArguments('');
                                 setArguments('"0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"');
                             }}
                         >
-                            <Text className="text-primary font-medium">0x1::donor_voice::is_donor_voice</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`}</Text>
                             <Text className="text-gray-400 text-sm">Check if account is a community wallet</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
                             onPress={() => {
-                                setFunctionPath('0x1::founder::is_founder');
+                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::founder::is_founder`);
                                 setTypeArguments('');
                                 setArguments('"0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"');
                             }}
                         >
-                            <Text className="text-primary font-medium">0x1::founder::is_founder</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::founder::is_founder`}</Text>
                             <Text className="text-gray-400 text-sm">Check if account is a founder</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3"
                             onPress={() => {
-                                setFunctionPath('0x1::vouch_score::evaluate_users_vouchers');
+                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`);
                                 setTypeArguments('');
-                                setArguments('["0x1"], "0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"');
+                                setArguments(`["${appConfig.network.OL_FRAMEWORK}"], "0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"`);
                             }}
                         >
-                            <Text className="text-primary font-medium">0x1::vouch_score::evaluate_users_vouchers</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`}</Text>
                             <Text className="text-gray-400 text-sm">Get vouch score for an account</Text>
                         </TouchableOpacity>
                     </View>

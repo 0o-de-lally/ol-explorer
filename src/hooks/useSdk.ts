@@ -3,6 +3,7 @@ import { BlockchainSDK, LedgerInfo } from '../types/blockchain';
 import { useSdkContext } from '../context/SdkContext';
 import { normalizeAddress } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
+import appConfig from '../config/appConfig';
 
 // Interface for validator grade tuple response
 export interface ValidatorGrade {
@@ -54,6 +55,9 @@ export const useSdk = (): BlockchainSDK & {
   useEffect(() => {
     // No need to log SDK status changes
   }, [isInitialized, isInitializing, error, isUsingMockData]);
+
+  // OL Framework module namespace (usually 0x1 on mainnet)
+  const OL_FRAMEWORK = appConfig.network.OL_FRAMEWORK;
 
   // Extension function to get account transactions
   const ext_getAccountTransactions = async (
@@ -114,9 +118,6 @@ export const useSdk = (): BlockchainSDK & {
       }
     }
   };
-
-  // OL Framework module namespace (usually 0x1 on mainnet)
-  const OL_FRAMEWORK = "0x1";
 
   // Activity Status Functions
   const hasEverBeenTouched = async (address: string): Promise<boolean> => {
@@ -712,7 +713,7 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
-  // Get the vouch score for an account
+  // Get the vouch score for an account - SIMPLIFIED based on view.tsx implementation
   const getVouchScore = async (address: string): Promise<number> => {
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get vouch score');
@@ -722,21 +723,11 @@ export const useSdk = (): BlockchainSDK & {
     try {
       const normalizedAddress = normalizeAddress(address);
 
-      // First get the current roots of trust
-      const rootsOfTrust = await sdk.view({
-        function: `${OL_FRAMEWORK}::root_of_trust::get_current_roots_at_registry`,
-        typeArguments: [],
-        arguments: [OL_FRAMEWORK]
-      });
-
-      // Get the roots from the array response if needed
-      const processedRoots = Array.isArray(rootsOfTrust) ? rootsOfTrust : [rootsOfTrust];
-
-      // Get the vouch score
+      // Directly use the hard-coded root of trust ["0x1"] as seen in the working view.tsx implementation
       const score = await sdk.view({
         function: `${OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`,
         typeArguments: [],
-        arguments: [processedRoots, normalizedAddress]
+        arguments: [[OL_FRAMEWORK], normalizedAddress]
       });
 
       // Handle the case where the result is an array containing the score

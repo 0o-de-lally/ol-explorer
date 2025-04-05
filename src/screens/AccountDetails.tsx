@@ -961,7 +961,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::activity::is_initialized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::activity::is_initialized`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -993,7 +993,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         <View className="ml-2">
                           <TouchableOpacity
                             onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::activity::has_ever_been_touched")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::activity::has_ever_been_touched`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                             }}
                             className="rounded-md px-2 py-0.5 bg-blue-800"
                           >
@@ -1023,7 +1023,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                       <View className="ml-2">
                         <TouchableOpacity
                           onPress={() => {
-                            router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_founder")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::founder::is_founder`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                           }}
                           className="rounded-md px-2 py-0.5 bg-blue-800"
                         >
@@ -1047,7 +1047,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         <View className="ml-2">
                           <TouchableOpacity
                             onPress={() => {
-                              router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::has_friends")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                              router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::founder::has_friends`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                             }}
                             className="rounded-md px-2 py-0.5 bg-blue-800"
                           >
@@ -1077,7 +1077,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                       <View className="ml-2">
                         <TouchableOpacity
                           onPress={() => {
-                            router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice::is_donor_voice")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                           }}
                           className="rounded-md px-2 py-0.5 bg-blue-800"
                         >
@@ -1102,7 +1102,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::is_reauth_proposed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1125,7 +1125,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_authorized")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1148,7 +1148,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_reauth::is_within_authorize_window")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_within_authorize_window`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1171,7 +1171,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::community_wallet::is_init")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::community_wallet::is_init`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1190,7 +1190,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                             <View className="ml-2">
                               <TouchableOpacity
                                 onPress={() => {
-                                  router.push(`/view?initialPath=${encodeURIComponent("0x1::donor_voice_governance::get_veto_tally")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_veto_tally`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                                 }}
                                 className="rounded-md px-2 py-0.5 bg-blue-800"
                               >
@@ -1210,11 +1210,18 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                   <View className="bg-background rounded px-3 py-3 mb-4">
                     <Row alignItems="center" className="mb-2">
                       <Text className="text-text-light text-sm mr-2">Score:</Text>
-                      <Text className="text-white font-mono text-sm">{getObservableValue(extendedData?.vouching?.vouchScore, 0)}</Text>
+                      <Text className="text-white font-mono text-sm">
+                        {(() => {
+                          // Calculate the display score as percentage of threshold
+                          const percentScore = getObservableValue(extendedData?.vouching?.vouchScore, 0);
+                          const displayScore = (percentScore / 100) * appConfig.vouching.threshold;
+                          return displayScore.toFixed(1);
+                        })()}
+                      </Text>
                       <View className="ml-2">
                         <TouchableOpacity
                           onPress={() => {
-                            router.push(`/view?initialPath=${encodeURIComponent("0x1::vouch_score::evaluate_users_vouchers")}&initialArgs=${encodeURIComponent(`["0x1"], "${getObservableValue(accountData.address, '')}"`)}`)
+                            router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`)}&initialArgs=${encodeURIComponent(`["${appConfig.network.OL_FRAMEWORK}"], "${getObservableValue(accountData.address, '')}"`)}`)
                           }}
                           className="rounded-md px-2 py-0.5 bg-blue-800"
                         >
@@ -1237,7 +1244,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                       <View className="ml-2">
                         <TouchableOpacity
                           onPress={() => {
-                            router.push(`/view?initialPath=${encodeURIComponent("0x1::founder::is_voucher_score_valid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                            router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::founder::is_voucher_score_valid`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                           }}
                           className="rounded-md px-2 py-0.5 bg-blue-800"
                         >
@@ -1252,14 +1259,14 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         <View
                           className="h-full bg-primary rounded-full"
                           style={{
-                            width: `${Math.min(100, (getObservableValue(extendedData?.vouching?.vouchScore, 0) / 3) * 100)}%`
+                            width: `${Math.min(100, getObservableValue(extendedData?.vouching?.vouchScore, 0))}%`
                           }}
                         />
                       </View>
                       <View className="flex-row justify-between mt-1">
                         <Text className="text-gray-500 text-xs">0</Text>
-                        <Text className="text-gray-500 text-xs">Threshold: 2</Text>
-                        <Text className="text-gray-500 text-xs">3+</Text>
+                        <Text className="text-gray-500 text-xs">Threshold: {appConfig.vouching.threshold}</Text>
+                        <Text className="text-gray-500 text-xs">{appConfig.vouching.threshold}+</Text>
                       </View>
                     </View>
                   </View>
@@ -1283,7 +1290,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                       <View className="ml-2">
                         <TouchableOpacity
                           onPress={() => {
-                            router.push(`/view?initialPath=${encodeURIComponent("0x1::stake::get_current_validators")}&initialArgs=${encodeURIComponent(``)}`)
+                            router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`)}&initialArgs=${encodeURIComponent(``)}`)
                           }}
                           className="rounded-md px-2 py-0.5 bg-blue-800"
                         >
@@ -1302,7 +1309,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::proof_of_fee::current_bid")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::current_bid`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1321,7 +1328,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::grade::get_validator_grade")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::grade::get_validator_grade`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1345,7 +1352,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::jail::get_jail_reputation")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::jail::get_jail_reputation`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
@@ -1362,7 +1369,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           <View className="ml-2">
                             <TouchableOpacity
                               onPress={() => {
-                                router.push(`/view?initialPath=${encodeURIComponent("0x1::jail::get_count_buddies_jailed")}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
+                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::jail::get_count_buddies_jailed`)}&initialArgs=${encodeURIComponent(`"${getObservableValue(accountData.address, '')}"`)}`)
                               }}
                               className="rounded-md px-2 py-0.5 bg-blue-800"
                             >
