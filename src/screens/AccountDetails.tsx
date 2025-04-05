@@ -808,12 +808,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       >
         <Container>
           <Row alignItems="center" className="mb-5 flex-wrap">
-            <TouchableOpacity
-              className="mr-4 mb-2"
-              onPress={handleBackPress}
-            >
-              <Text className="text-primary text-base font-bold">← Back</Text>
-            </TouchableOpacity>
             <Text className="text-white text-2xl font-bold flex-1 flex-wrap">
               Account Details
             </Text>

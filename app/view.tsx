@@ -150,12 +150,6 @@ export default function ViewFunction() {
             <ScrollView className="flex-1">
                 <View className="mx-auto w-full max-w-screen-lg px-4 py-4">
                     <View className="flex-row items-center mb-5">
-                        <TouchableOpacity
-                            className="mr-4"
-                            onPress={handleBackPress}
-                        >
-                            <Text className="text-primary text-base font-bold">← Back</Text>
-                        </TouchableOpacity>
                         <Text className="text-white text-2xl font-bold">View Function</Text>
                     </View>
 
