@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, Text, Platform } from 'react-native';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { AccountDetailsScreen } from '../../src/screens/AccountDetails';
-import { formatAddressForDisplay, normalizeAddress, stripLeadingZeros } from '../../src/utils/addressUtils';
+import {View, ActivityIndicator, Text, Platform} from 'react-native';
+import {useLocalSearchParams, router, Stack} from 'expo-router';
+import {AccountDetailsScreen} from '../../src/screens/AccountDetails';
+import {formatAddressForDisplay, normalizeAddress, stripLeadingZeros} from '../../src/utils/addressUtils';
 
 export default function AccountDetailsPage() {
     const { address } = useLocalSearchParams();

@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { View, Platform } from 'react-native';
-import { SdkProvider } from '../src/context/SdkContext';
-import { StatusBar } from 'expo-status-bar';
-import { SdkLoadingIndicator } from '../src/components/SdkLoadingIndicator';
-import { setupPolyfills } from '../src/utils/polyfills';
-import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration';
-import { Container } from '../src/components/Layout';
+import {Stack} from 'expo-router';
+import {View, Platform} from 'react-native';
+import {SdkProvider} from '../src/context/SdkContext';
+import {StatusBar} from 'expo-status-bar';
+import {SdkLoadingIndicator} from '../src/components/SdkLoadingIndicator';
+import {setupPolyfills} from '../src/utils/polyfills';
+import {registerServiceWorker} from '../src/utils/serviceWorkerRegistration';
+import {Container} from '../src/components/Layout';
 import '../src/utils/bufferPolyfill';
 import '../global.css';
 import ErrorBoundary from '../src/components/ErrorBoundary';
-import { Header } from '../src/components/Header';
-import { Footer } from '../src/components/Footer';
+import {Header} from '../src/components/Header';
+import {Footer} from '../src/components/Footer';
 
 // Setup necessary polyfills
 setupPolyfills();

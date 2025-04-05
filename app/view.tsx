@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
-import { useSdk } from '../src/hooks/useSdk';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import {View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform} from 'react-native';
+import {useSdk} from '../src/hooks/useSdk';
+import {Stack, useLocalSearchParams, router} from 'expo-router';
+import {MaterialIcons} from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
 import appConfig from '../src/config/appConfig';
 

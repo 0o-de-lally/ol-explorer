@@ -1,4 +1,4 @@
-import { Head } from 'expo-router';
+import {Head} from 'expo-router';
 import React from 'react';
 
 // Set base URL for assets

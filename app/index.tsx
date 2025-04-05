@@ -1,11 +1,11 @@
 import React from 'react';
-import { ScrollView, RefreshControl, View, Platform } from 'react-native';
-import { HomeScreen } from '../src/screens/HomeScreen';
-import { useBlockchain } from '../src/hooks/useBlockchain';
-import { useForceUpdate } from '../src/hooks/useForceUpdate';
-import { blockchainActions } from '../src/store/blockchainStore';
-import { useBlockTime } from '../src/hooks/useBlockTime';
-import { Redirect, Link, Stack } from 'expo-router';
+import {ScrollView, RefreshControl, View, Platform} from 'react-native';
+import {HomeScreen} from '../src/screens/HomeScreen';
+import {useBlockchain} from '../src/hooks/useBlockchain';
+import {useForceUpdate} from '../src/hooks/useForceUpdate';
+import {blockchainActions} from '../src/store/blockchainStore';
+import {useBlockTime} from '../src/hooks/useBlockTime';
+import {Redirect, Link, Stack} from 'expo-router';
 
 export default function HomePage() {
   const { refreshData, isLoading } = useBlockchain();

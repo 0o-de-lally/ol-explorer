@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { useLocalSearchParams, useNavigation, router } from 'expo-router';
-import { AccountDetailsScreen } from '../../../src/screens/AccountDetails';
-import { stripLeadingZeros } from '../../../src/utils/addressUtils';
+import {useLocalSearchParams, useNavigation, router} from 'expo-router';
+import {AccountDetailsScreen} from '../../../src/screens/AccountDetails';
+import {stripLeadingZeros} from '../../../src/utils/addressUtils';
 
 export default function AccountResourcePage() {
     const { address, resource } = useLocalSearchParams();
