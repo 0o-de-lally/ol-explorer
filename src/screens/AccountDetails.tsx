@@ -104,8 +104,6 @@ const resourceTypeToSlug = (type: string): string => {
 const slugToResourceType = (types: string[], slug: string): string | null => {
   if (!slug || !types || types.length === 0) return null;
 
-  console.log(`Attempting to match slug: '${slug}' to available resource types`);
-
   // Special case for repeated segments like "ancestry-ancestry"
   if (slug.includes('-')) {
     const segments = slug.split('-');
@@ -113,7 +111,6 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
     const uniqueSegments = Array.from(new Set(segments));
     if (uniqueSegments.length < segments.length) {
       // We have repeated segments - handle specially
-      console.log(`Detected repeated segments in slug: ${slug}`);
 
       // Try to find a resource type that contains the unique segment(s)
       for (const segment of uniqueSegments) {
@@ -121,7 +118,6 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
           type.toLowerCase().includes(segment.toLowerCase())
         );
         if (matchingType) {
-          console.log(`✓ Found match for repeated segment '${segment}': ${matchingType}`);
           return matchingType;
         }
       }
@@ -131,9 +127,7 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
   // First try: exact match on module-type pattern
   for (const type of types) {
     const typeSlug = resourceTypeToSlug(type);
-    console.log(`Comparing: type='${type}', generated slug='${typeSlug}', requested='${slug}'`);
     if (typeSlug === slug) {
-      console.log(`✓ Found exact slug match: ${type}`);
       return type;
     }
   }
@@ -162,7 +156,6 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
   );
 
   if (matchingType) {
-    console.log(`✓ Found keyword match: ${matchingType}`);
     return matchingType;
   }
 
@@ -170,12 +163,10 @@ const slugToResourceType = (types: string[], slug: string): string | null => {
   for (const type of types) {
     if (type.toLowerCase().includes(slug) ||
       slug.includes(type.toLowerCase())) {
-      console.log(`✓ Found partial match: ${type}`);
       return type;
     }
   }
 
-  console.log(`✗ No match found for slug: ${slug}`);
   return null;
 };
 
@@ -261,9 +252,6 @@ const extractResources = (accountData: any): any[] => {
   if (!unwrappedData) return [];
   if (!unwrappedData.resources) return [];
 
-  console.log('EXTRACT_RESOURCES: Input resources type:', typeof unwrappedData.resources);
-  console.log('EXTRACT_RESOURCES: Is array?', Array.isArray(unwrappedData.resources));
-
   // Get a sample resource for debugging
   let firstResource = 'none';
   try {
@@ -279,14 +267,11 @@ const extractResources = (accountData: any): any[] => {
     console.warn('Error getting first resource sample:', e);
   }
 
-  console.log('EXTRACT_RESOURCES: First resource sample:', firstResource);
-
   // If resources is already an array, return it directly with unwrapped values
   if (Array.isArray(unwrappedData.resources)) {
     try {
       // Ensure each resource is fully unwrapped
       const unwrappedResources = unwrappedData.resources.map((resource: any) => unwrapObservable(resource));
-      console.log('EXTRACT_RESOURCES: Returning array directly, length:', unwrappedResources.length);
       return unwrappedResources;
     } catch (e) {
       console.warn('Error unwrapping resource array:', e);
@@ -310,8 +295,6 @@ const extractResources = (accountData: any): any[] => {
         return unwrappedResource;
       });
 
-      console.log('EXTRACT_RESOURCES: Converted object to array, length:', result.length);
-      console.log('EXTRACT_RESOURCES: First converted resource:', result[0] || 'none');
       return result;
     } catch (e) {
       console.warn('Error converting resources object to array:', e);
@@ -320,7 +303,6 @@ const extractResources = (accountData: any): any[] => {
   }
 
   // Default case - empty array
-  console.log('EXTRACT_RESOURCES: Returning empty array (default case)');
   return [];
 };
 
@@ -398,12 +380,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
   // Debug log the parameters
   useEffect(() => {
-    console.log('AccountDetailsScreen mounted with params:', {
-      addressFromParams,
-      resourceParam,
-      hasAccountData: !!accountData
-    });
-
     // Reset auto-refreshing state on mount
     setIsAutoRefreshing(false);
   }, []);
@@ -429,9 +405,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     dataLoadedRef.current = false;
 
     if (!accountData) return [];
-
-    console.log('RESOURCE_TYPES: Raw accountData:', accountData);
-    console.log('RESOURCE_TYPES: accountData.resources type:', typeof accountData.resources);
 
     try {
       // Extract raw account data - fully unwrap it to avoid observable issues
@@ -603,9 +576,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const activeResources = useMemo(() => {
     if (!activeResourceType || !accountData) return [];
 
-    console.log('ACTIVE_RESOURCES: Active resource type:', activeResourceType);
-    console.log('ACTIVE_RESOURCES: Has accountData with resources:', !!accountData?.resources);
-
     try {
       // Extract raw account data - fully unwrap it
       const rawAccount = unwrapObservable(accountData);
@@ -620,8 +590,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       } catch (e) {
         console.warn('Error extracting resources in activeResources:', e);
       }
-
-      console.log('ACTIVE_RESOURCES: Extracted resourcesArray length:', resourcesArray.length);
 
       // Filter resources by active type
       return resourcesArray.filter(resource => {
@@ -1469,9 +1437,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               resource?.type && resource.type.toString().includes(currentActiveType)
             );
 
-            console.log('RENDER_RESOURCES: Filtered resources length:', filteredResources.length);
-            console.log('RENDER_RESOURCES: First filtered resource:', filteredResources[0] || 'none');
-
             return (
               <Card className="mb-4">
                 <Row justifyContent="between" alignItems="center" className="mb-3">
@@ -1624,7 +1589,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                                 <View className="overflow-auto">
                                   {(() => {
                                     try {
-                                      console.log('DISPLAY_LEVEL: Rendering resource data for type', unwrappedResource.type, 'data:', unwrappedResource.data);
                                       // Unwrap the resource data before stringifying
                                       const unwrappedData = unwrapObservable(unwrappedResource.data);
                                       return null;

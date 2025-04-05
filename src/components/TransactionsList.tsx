@@ -58,7 +58,6 @@ export const TransactionsList = observer(({
   useEffect(() => {
     // Only notify if the limit actually changed AND we have an onLimitChange handler
     if (onLimitChange && currentLimit !== previousLimitRef.current) {
-      console.log(`Notifying parent of limit change: ${previousLimitRef.current} -> ${currentLimit}`);
       onLimitChange(currentLimit);
       previousLimitRef.current = currentLimit;
     }
@@ -124,15 +123,12 @@ export const TransactionsList = observer(({
   const startPolling = () => {
     // Only start polling if not already polling and component is visible
     if (!pollingIntervalRef.current && isVisible && isInitialized) {
-      console.log('Starting polling for transactions list');
-
       // Reset any lingering auto-refresh state
       setIsAutoRefreshing(false);
 
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
         if (!isRefreshing && !isLoadingMore && !isAutoRefreshing && isVisible && isMounted.current) {
-          console.log('Auto-refreshing transactions list');
           handleAutoRefresh();
         }
       }, AUTO_REFRESH_INTERVAL);
@@ -142,7 +138,6 @@ export const TransactionsList = observer(({
   // Stop polling interval
   const stopPolling = () => {
     if (pollingIntervalRef.current) {
-      console.log('Stopping polling for transactions list');
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
@@ -164,8 +159,6 @@ export const TransactionsList = observer(({
       if (isMounted.current) {
         blockchainActions.setTransactions(transactions);
       }
-
-      console.log(`Auto-refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
     } catch (error) {
       console.error('Error during auto-refresh:', error);
     } finally {
@@ -195,7 +188,6 @@ export const TransactionsList = observer(({
         // Don't reset to initial limit - keep the user's current view preference
         // First, try to fetch using the SDK directly with the current limit
         const currentStoreLimit = blockchainStore.currentLimit.get();
-        console.log(`Refreshing transactions with current limit: ${currentStoreLimit}`);
 
         // Use forceUpdateTransactions to force only transaction updates, not metrics
         blockchainActions.forceUpdateTransactions();
@@ -205,8 +197,6 @@ export const TransactionsList = observer(({
 
         // Update the store directly with these transactions
         blockchainActions.setTransactions(transactions);
-
-        console.log(`Refreshed ${transactions.length} transactions with limit ${currentStoreLimit}`);
       }
     } catch (error) {
       console.error('Error during direct refresh:', error);
@@ -226,7 +216,6 @@ export const TransactionsList = observer(({
 
       // Calculate the new limit with exact 25 increment
       const newLimit = Math.min(currentLimit + 25, 100);
-      console.log(`Loading more transactions, new limit: ${newLimit}`);
 
       if (externalTransactions && fetchExternalTransactions) {
         // For external transactions, update the limit and trigger the fetch
@@ -238,13 +227,11 @@ export const TransactionsList = observer(({
 
         // Immediately fetch transactions with the new limit - pass newLimit directly to avoid race condition
         const transactions = await sdk.getTransactions(newLimit);  // Use newLimit directly, not currentLimit
-        console.log(`Fetched ${transactions.length} transactions with new limit ${newLimit}`);
 
         // Update the store with the new transactions if the component is still mounted
         if (isMounted.current) {
           // Use transaction-specific actions
           blockchainActions.setTransactions(transactions);
-          console.log(`Successfully loaded ${transactions.length} transactions with limit ${newLimit}`);
         }
       }
     } catch (error) {
@@ -281,8 +268,6 @@ export const TransactionsList = observer(({
       console.error('Invalid transaction hash:', hash);
       return;
     }
-
-    console.log('Navigating to transaction details with normalized hash:', normalizedHash);
 
     // Use Expo Router directly
     router.push(`/tx/${normalizedHash}`);

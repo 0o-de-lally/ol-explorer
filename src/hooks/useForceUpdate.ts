@@ -18,14 +18,12 @@ export const useForceUpdate = (): number => {
 
     // React to changes in lastUpdated
     useEffect(() => {
-        console.log('Force update triggered by lastUpdated change:', lastUpdated.get());
         setUpdateCounter(prev => prev + 1);
     }, [lastUpdated.get()]);
 
     // Update when SDK initialization changes
     useEffect(() => {
         if (isInitialized && !isInitializing) {
-            console.log('Force update triggered by SDK initialization');
             setUpdateCounter(prev => prev + 1);
 
             // Force update blockchain store
@@ -36,7 +34,6 @@ export const useForceUpdate = (): number => {
     // Listen for sdkinitialized events
     useEffect(() => {
         const handleSdkInitialized = () => {
-            console.log('Force update triggered by SDK initialized event');
             setUpdateCounter(prev => prev + 1);
 
             // Force update the blockchain store
@@ -61,7 +58,6 @@ export const useForceUpdate = (): number => {
     // Listen for blockchain-updated events
     useEffect(() => {
         const handleBlockchainUpdated = (event: CustomEvent) => {
-            console.log('Force update triggered by blockchain-updated event', event.detail);
             setUpdateCounter(prev => prev + 1);
         };
 
@@ -83,7 +79,6 @@ export const useForceUpdate = (): number => {
                 const lastUpdateTime = blockchainStore.lastUpdated.get();
                 const now = Date.now();
                 if (now - lastUpdateTime > 5000) {
-                    console.log('Force update triggered by safety timer');
                     setUpdateCounter(prev => prev + 1);
                 }
             }, 2000); // Check every 2 seconds
@@ -112,14 +107,12 @@ export const useForceUpdateMetrics = (): number => {
 
     // React to changes in lastMetricsUpdated
     useEffect(() => {
-        console.log('Metrics update triggered by lastMetricsUpdated change:', lastMetricsUpdated.get());
         setUpdateCounter(prev => prev + 1);
     }, [lastMetricsUpdated.get()]);
 
     // Update when SDK initialization changes
     useEffect(() => {
         if (isInitialized && !isInitializing) {
-            console.log('Metrics update triggered by SDK initialization');
             setUpdateCounter(prev => prev + 1);
 
             // Force update metrics data
@@ -130,7 +123,6 @@ export const useForceUpdateMetrics = (): number => {
     // Listen for sdkinitialized events
     useEffect(() => {
         const handleSdkInitialized = () => {
-            console.log('Metrics update triggered by SDK initialized event');
             setUpdateCounter(prev => prev + 1);
 
             // Force update metrics data
@@ -152,7 +144,6 @@ export const useForceUpdateMetrics = (): number => {
         const handleBlockchainUpdated = (event: CustomEvent) => {
             // Only trigger update if this is a metrics update or all update
             if (event.detail?.updateType === 'metrics' || event.detail?.updateType === 'all') {
-                console.log('Metrics update triggered by blockchain-updated event', event.detail);
                 setUpdateCounter(prev => prev + 1);
             }
         };
@@ -184,14 +175,12 @@ export const useForceUpdateTransactions = (): number => {
 
     // React to changes in lastTransactionsUpdated
     useEffect(() => {
-        console.log('Transactions update triggered by lastTransactionsUpdated change:', lastTransactionsUpdated.get());
         setUpdateCounter(prev => prev + 1);
     }, [lastTransactionsUpdated.get()]);
 
     // Update when SDK initialization changes
     useEffect(() => {
         if (isInitialized && !isInitializing) {
-            console.log('Transactions update triggered by SDK initialization');
             setUpdateCounter(prev => prev + 1);
 
             // Force update transactions data
@@ -202,7 +191,6 @@ export const useForceUpdateTransactions = (): number => {
     // Listen for sdkinitialized events
     useEffect(() => {
         const handleSdkInitialized = () => {
-            console.log('Transactions update triggered by SDK initialized event');
             setUpdateCounter(prev => prev + 1);
 
             // Force update transactions data
@@ -224,7 +212,6 @@ export const useForceUpdateTransactions = (): number => {
         const handleBlockchainUpdated = (event: CustomEvent) => {
             // Only trigger update if this is a transactions update or all update
             if (event.detail?.updateType === 'transactions' || event.detail?.updateType === 'all') {
-                console.log('Transactions update triggered by blockchain-updated event', event.detail);
                 setUpdateCounter(prev => prev + 1);
             }
         };

@@ -155,10 +155,6 @@ export const accountActions = {
     setAccountData: (address: string, account: Account | null) => {
         // Validate account data
         if (account) {
-            console.log('ACCOUNT_STORE: Setting account data for address:', address);
-            console.log('ACCOUNT_STORE: Resources type:', typeof account.resources);
-            console.log('ACCOUNT_STORE: Is resources array?', Array.isArray(account.resources));
-
             // Ensure required fields exist
             if (!account.address) {
                 console.error('Account data missing address field');
@@ -170,18 +166,6 @@ export const accountActions = {
                 account.resources = [];
             }
             // Preserve original structure - no conversion to array
-
-            console.log('ACCOUNT_STORE: Final resources type:', typeof account.resources);
-            console.log('ACCOUNT_STORE: Final is resources array?', Array.isArray(account.resources));
-            if (Array.isArray(account.resources) && account.resources.length > 0) {
-                console.log('ACCOUNT_STORE: First resource sample:', account.resources[0]);
-            } else if (typeof account.resources === 'object') {
-                const keys = Object.keys(account.resources);
-                if (keys.length > 0) {
-                    console.log('ACCOUNT_STORE: First resource key:', keys[0]);
-                    console.log('ACCOUNT_STORE: First resource sample:', (account.resources as Record<string, AccountResource>)[keys[0]]);
-                }
-            }
         }
 
         // Initialize account entry if it doesn't exist

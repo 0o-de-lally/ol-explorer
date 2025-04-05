@@ -171,24 +171,6 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         };
                         const resources = await client.getAccountResources(resourcesParams);
 
-                        console.log('SDK_CONTEXT: Raw resources from SDK:', typeof resources);
-                        console.log('SDK_CONTEXT: Is resources array?', Array.isArray(resources));
-                        if (Array.isArray(resources) && resources.length > 0) {
-                            console.log('SDK_CONTEXT: First resource type:', resources[0]?.type);
-                            console.log('SDK_CONTEXT: First resource data type:', typeof resources[0]?.data);
-                            console.log('SDK_CONTEXT: First resource data:', resources[0]?.data);
-
-                            // Check serialization of the first resource
-                            try {
-                                const serialized = JSON.stringify(resources[0]?.data);
-                                console.log('SDK_CONTEXT: Serialized resource data:', serialized);
-                                console.log('SDK_CONTEXT: Same after parse?',
-                                    JSON.stringify(JSON.parse(serialized)) === serialized);
-                            } catch (e) {
-                                console.error('SDK_CONTEXT: Serialization error:', e);
-                            }
-                        }
-
                         // Extract balance from resources
                         let balance = 0;
                         let sequenceNumber = 0;

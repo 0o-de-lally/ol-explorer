@@ -82,11 +82,8 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
     const timer = setTimeout(() => {
       if (blockchainStore.stats.blockHeight.get() === null && !sdk.error) {
         setLoadingTimeout(true);
-        console.log('Loading timeout reached in debug mode');
-
         // Only use mock data in debug mode
         if (sdkConfig.debugMode) {
-          console.log('Debug mode enabled, using mock data');
           // Set mock stats and transactions
           blockchainActions.setStats({
             blockHeight: 500000,
@@ -122,7 +119,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
   // Handle manual refresh - just fetch data directly
   const handleRefresh = () => {
-    console.log('Manual refresh triggered with current limit:', currentLimit);
     fetchData();
   };
 
@@ -131,7 +127,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
     const currentStoreLimit = blockchainStore.currentLimit.get();
     // Only update if the value actually changed to avoid unnecessary renders
     if (newLimit !== currentStoreLimit) {
-      console.log(`Transaction limit changed to ${newLimit}`);
       // Update the limit in the store
       blockchainActions.setCurrentLimit(newLimit);
     }
@@ -154,13 +149,10 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   // Start polling interval
   const startPolling = () => {
     if (!pollingIntervalRef.current) {
-      console.log('Starting polling interval for blockchain data...');
-
       // Set up polling for new data using the configured interval
       pollingIntervalRef.current = setInterval(() => {
         // Only poll if we're not already loading and component is still visible and mounted
         if (!blockchainStore.isLoading.get() && isScreenVisible && isMounted.current) {
-          console.log('Polling for new blockchain data with current limit:', currentLimit);
           fetchData(true); // Pass true to indicate this is an auto-refresh
         }
       }, sdkConfig.pollingIntervals.homeScreenRefresh);
@@ -170,7 +162,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   // Stop polling interval
   const stopPolling = () => {
     if (pollingIntervalRef.current) {
-      console.log('Stopping polling interval for blockchain data');
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
@@ -178,7 +169,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
   const fetchData = async (isAutoRefresh = false) => {
     try {
-      console.log(`Fetching blockchain data with limit: ${currentLimit}, auto-refresh: ${isAutoRefresh}`);
       dataFetchAttempted.current = true;
 
       if (!isAutoRefresh) {
@@ -198,8 +188,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
       // Only update state if component is still mounted
       if (!isMounted.current) return;
 
-      console.log('Blockchain data fetched:', { blockHeight, epoch, chainId });
-
       // Explicitly update each stat individually to ensure UI updates
       blockchainActions.setStats({
         blockHeight,
@@ -207,21 +195,11 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
         chainId
       });
 
-      // Force update to store values in case the reactive system isn't updating
-      console.log('After setting stats:', {
-        height: blockchainStore.stats.blockHeight.get(),
-        epoch: blockchainStore.stats.epoch.get(),
-        chainId: blockchainStore.stats.chainId.get()
-      });
-
       // Fetch recent transactions - use the current limit to respect user preference
-      console.log(`Fetching transactions with current limit: ${currentLimit}`);
       const transactions = await sdk.getTransactions(currentLimit);
 
       // Only update state if component is still mounted
       if (!isMounted.current) return;
-
-      console.log(`Fetched ${transactions.length} transactions`);
 
       // Add block height to each transaction if needed
       const transactionsWithBlockHeight = transactions.map((tx, index) => ({
@@ -231,9 +209,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
       // Set transactions and force update
       blockchainActions.setTransactions(transactionsWithBlockHeight);
-      console.log('After setting transactions:', {
-        count: blockchainStore.transactions.get().length
-      });
     } catch (error) {
       console.error('Error fetching blockchain data:', error);
 
@@ -244,7 +219,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
       // Only use mock data in debug mode if there's an error
       if (sdkConfig.debugMode) {
-        console.log('Error fetching data, using debug mock data');
         blockchainActions.setStats({
           blockHeight: 500000,
           epoch: 20,
@@ -256,7 +230,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
       // Ensure loading state is cleared only if component is still mounted
       if (isMounted.current) {
         blockchainActions.setLoading(false);
-        console.log('Finished loading data, loading state:', blockchainStore.isLoading.get());
       }
     }
   };
@@ -299,12 +272,8 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
     if (isInitialized && !isInitializing && !blockchainStore.isLoading.get() &&
       ((blockHeight === null || blockHeight === undefined) || !hasTransactions)) {
-      console.log('Detected initialized SDK but missing data, forcing refresh...');
-
       if (!dataFetchAttempted.current) {
         fetchData();
-      } else {
-        console.log('Data fetch already attempted, not retrying automatically');
       }
     }
   }, [isInitialized, isInitializing, blockchainStore.stats.blockHeight.get(),
@@ -312,7 +281,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
   // Handle retry when SDK fails to initialize
   const handleRetryInitialization = () => {
-    console.log('Manual SDK reinitialization triggered');
     setRetryCount(prev => prev + 1);
     reinitialize();
   };
@@ -358,7 +326,6 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
       const timer = setTimeout(() => {
         dataFetchAttempted.current = true;
         blockchainActions.setLoading(false);
-        console.log('Forced exit from loading state due to timeout');
       }, 10000); // 10 second timeout
 
       return () => clearTimeout(timer);
