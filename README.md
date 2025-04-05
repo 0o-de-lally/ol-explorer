@@ -126,9 +126,11 @@ For consistent and reliable testing, we use a containerized "twin network" that 
 
 #### Setting Up the Twin Network
 
+> **Note:** The Docker setup method is not fully implemented yet. We recommend following the manual setup instructions below for the most reliable experience.
+
 There are two ways to set up the twin network:
 
-##### Using Docker (Recommended)
+##### Using Docker (Recommended for future use)
 
 1. Build the Docker image:
    ```bash
