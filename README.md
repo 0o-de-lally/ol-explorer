@@ -19,6 +19,34 @@ A modern, responsive blockchain explorer for the Open Libra blockchain, built wi
 
 Visit the live explorer at [https://explorer.openlibra.space](https://explorer.openlibra.space)
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18.x or newer
+- npm 9.x or newer
+- Git
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sirouk/ol-explorer.git
+   cd ol-explorer
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:8082](http://localhost:8082) in your browser
+
 ## Progressive Web App (PWA)
 
 OL Explorer is configured as a Progressive Web App, allowing users to install it on their devices and access certain features offline.
@@ -61,52 +89,19 @@ npm run verify-pwa
 
 This script checks for all required PWA assets and configurations.
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18.x or newer
-- npm 9.x or newer
-- Git
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/sirouk/ol-explorer.git
-   cd ol-explorer
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open [http://localhost:8082](http://localhost:8082) in your browser
-
 ## Scripts
 
-- `npm start` - Start the Expo server with web support
-- `npm run dev` - Start the Expo server with web support and clear cache
+- `npm run dev` - Start the development server
+- `npm run web` - Start the web development server
 - `npm run ios` - Start the iOS simulator
 - `npm run android` - Start the Android emulator
-- `npm test` - Run all tests
-- `npm run test:watch` - Run tests in watch mode
+- `npm run build` - Build for web deployment
+- `npm test` - Run tests
 - `npm run test:coverage` - Run tests with coverage report
 - `npm run lint` - Run ESLint
-- `npm run lint:fix` - Auto-fix ESLint issues where possible
-- `npm run lint:auto-fix` - Custom script to auto-fix common issues like unused variables
 - `npm run typecheck` - Run TypeScript type checking
-- `npm run build` - Build for web deployment
-- `npm run verify-pwa` - Verify PWA configuration
 - `npm run cypress:open` - Open Cypress for E2E testing
 - `npm run cypress:run` - Run Cypress tests headlessly
-- `npm run validate` - Run all checks (lint, typecheck, tests, build)
 
 ## Code Quality
 
