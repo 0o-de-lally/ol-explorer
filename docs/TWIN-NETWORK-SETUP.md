@@ -14,7 +14,7 @@ A twin network is a local copy of the Libra blockchain that mirrors the mainnet,
 
 Docker-based setup will be available in a future update, which will simplify the process of setting up a twin network for testing.
 
-### Option 2: Manual Setup with setup_twin.sh
+### Option 2: Manual Setup with scripts/setup_twin.sh
 
 For a reliable twin network setup, we provide a shell script that automates the process.
 
@@ -29,10 +29,10 @@ For a reliable twin network setup, we provide a shell script that automates the 
 
 ```bash
 # Make the script executable
-chmod +x setup_twin.sh
+chmod +x scripts/setup_twin.sh
 
 # Run the script with an epoch number (e.g., 353)
-./setup_twin.sh 353
+scripts/setup_twin.sh 353
 ```
 
 The script will:

@@ -223,6 +223,11 @@ docker-compose -f docker-compose.testnet.yml up -d
 For manual setup, follow these steps:
 
 ```bash
+# Option 1: Use the provided setup script
+# Run the script with an epoch number (e.g., 353)
+scripts/setup_twin.sh 353
+
+# OR Option 2: Manual commands if you prefer
 # Clone the repo
 cd $HOME
 rm -rf ./libra-framework
@@ -254,14 +259,15 @@ libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-epoch-restore=
 
 # If you need to restart the twin network later, use:
 # libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-reference-db=$HOME/.libra/db_353 smoke
+```
 
-# The twin network will output the RPC endpoint port - make note of it
-# Test the RPC endpoint (replace THEPORT with the actual port number)
+The twin network will output the RPC endpoint port - make note of it. Test the RPC endpoint (replace THEPORT with the actual port number):
+```bash
 curl -s http://127.0.0.1:THEPORT/v1 | jq .ledger_version
+```
 
-# Important: Touching the account to initialize it
-# Accounts are lazy-loaded in Open Libra, so you need to "touch" them first
-# If you have a libra-cli-config.yaml (generated when running the testnet):
+Important: Touching the account to initialize it. Accounts are lazy-loaded in Open Libra, so you need to "touch" them first. If you have a libra-cli-config.yaml (generated when running the testnet):
+```bash
 libra txs --config-path /path/to/libra-cli-config.yaml user touch
 ```
 
@@ -290,7 +296,7 @@ export CYPRESS_testTransaction=0xcf4776b92c291291e0ee31107ab5984acba3f3ed5a76b54
 npm run cypress:run
 ```
 
-For more detailed information, see [TWIN-NETWORK-SETUP.md](TWIN-NETWORK-SETUP.md).
+For more detailed information, see [TWIN-NETWORK-SETUP.md](docs/TWIN-NETWORK-SETUP.md).
 
 ### End-to-End Testing with Cypress
 

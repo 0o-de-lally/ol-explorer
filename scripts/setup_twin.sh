@@ -41,4 +41,4 @@ libra move framework release
 libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-epoch-restore=$EPOCH smoke
 
 # if you need to stop the twin network, you can start it back up again with the previous db
-libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-reference-db=$HOME/.libra/db_$EPOCH smoke
+libra ops testnet --framework-mrb-path ./releases/head.mrb --twin-reference-db=$HOME/.libra/db_$EPOCH smoke 
