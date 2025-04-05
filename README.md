@@ -2,7 +2,7 @@
 
 A modern, responsive blockchain explorer for the Open Libra blockchain, built with React Native, Expo, TypeScript, and LegendApp for state management. The explorer runs solely on RPC calls and does not require an indexer to function.
 
-![Open Libra Explorer](public/og-image.png)
+<img src="https://raw.githubusercontent.com/sirouk/ol-explorer/refs/heads/main/public/logo.svg" alt="Open Libra Explorer" width="100" />
 
 ## Features
 
