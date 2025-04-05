@@ -482,7 +482,7 @@ export const TransactionsList = observer(({
   return (
     <View className="w-full mb-8">
       <View className="bg-secondary rounded-lg overflow-hidden" testID={testID}>
-        <View className="h-1 bg-white/10" />
+        image.pnghere is the screenshot        <View className="h-1 bg-primary/20" />
         <View className="flex-row justify-between items-center p-4 border-b border-border">
           <Text className="text-lg font-bold text-white">
             {componentTitle} ({transactions.length})
