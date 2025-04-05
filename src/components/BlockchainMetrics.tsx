@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable, useWindowDimensions} from 'react-native';
-import {observer} from '@legendapp/state/react';
-import {observable} from '@legendapp/state';
-import {blockchainStore, blockchainActions} from '../store/blockchainStore';
-import {blockTimeStore} from '../store/blockTimeStore';
-import {formatTimestamp} from '../utils/formatters';
-import {useSdkContext} from '../context/SdkContext';
-import {useForceUpdateMetrics} from '../hooks/useForceUpdate';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
+import { observer } from '@legendapp/state/react';
+import { observable } from '@legendapp/state';
+import { blockchainStore, blockchainActions } from '../store/blockchainStore';
+import { blockTimeStore } from '../store/blockTimeStore';
+import { formatTimestamp } from '../utils/formatters';
+import { useSdkContext } from '../context/SdkContext';
+import { useForceUpdateMetrics } from '../hooks/useForceUpdate';
 import appConfig from '../config/appConfig';
 
 // Use polling interval from config
@@ -75,13 +75,9 @@ const MetricCard = ({ label, value, tooltip, isDesktop }: {
   const isTimestamp = label === 'Ledger Time';
 
   return (
-    <View style={{
-      backgroundColor: 'rgba(26, 34, 53, 0.5)',
-      borderRadius: 8,
-      padding: 12,
-      backdropFilter: 'blur(4px)',
-      gridColumn: isTimestamp && !isDesktop ? 'span 2' : 'span 1'
-    }}>
+    <View
+      className={`bg-[rgba(26,34,53,0.5)] rounded-lg p-3 ${isTimestamp && !isDesktop ? 'flex-grow-2' : 'flex-grow'}`}
+    >
       <TooltipWrapper tooltip={tooltip}>
         <View>
           <Text className="text-text-muted text-xs mb-1">{label}</Text>
@@ -143,21 +139,18 @@ const MetricsGrid = ({
   values: MetricsValues;
   isDesktop: boolean;
 }) => (
-  <View style={{
-    display: 'grid',
-    gridTemplateColumns: isDesktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
-    gap: isDesktop ? 16 : 8
-  }}>
+  <View className={`flex flex-row flex-wrap ${isDesktop ? 'gap-4' : 'gap-2'}`}>
     {Object.entries(metrics)
       .filter(([_, config]) => config.enabled)
       .map(([key, config]) => (
-        <MetricCard
-          key={key}
-          label={config.label}
-          value={getMetricValue(key, values)}
-          tooltip={config.tooltip}
-          isDesktop={isDesktop}
-        />
+        <View key={key} className={`${isDesktop ? 'w-[23%]' : 'w-[48%]'} mb-2`}>
+          <MetricCard
+            label={config.label}
+            value={getMetricValue(key, values)}
+            tooltip={config.tooltip}
+            isDesktop={isDesktop}
+          />
+        </View>
       ))}
   </View>
 );
