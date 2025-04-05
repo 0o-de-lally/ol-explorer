@@ -104,6 +104,57 @@ import { TwoColumn } from '../components/Layout';
 - `spacing`: Classes for controlling spacing (defaults to 'space-y-4 md:space-y-0 md:space-x-4')
 - `stackOnMobile`: Whether to stack on mobile screens (defaults to true)
 
+### Row and Column
+
+The `Row` and `Column` components provide flexible layouts in horizontal and vertical directions.
+
+```tsx
+import { Row, Column } from '../components/Layout';
+
+// Horizontal layout with Row
+<Row alignItems="center" justifyContent="between" wrap={true}>
+  <View>Item 1</View>
+  <View>Item 2</View>
+</Row>
+
+// Vertical layout with Column
+<Column alignItems="start" justifyContent="center">
+  <View>Item 1</View>
+  <View>Item 2</View>
+</Column>
+```
+
+#### Properties
+
+For both Row and Column:
+- `alignItems`: Controls alignment ('start', 'center', 'end', 'stretch', 'baseline')
+- `justifyContent`: Controls distribution ('start', 'center', 'end', 'between', 'around', 'evenly')
+- `className`: Additional Tailwind classes
+- `wrap`: (Row only) Whether items should wrap (defaults to false)
+
+### Card
+
+The `Card` component provides consistent styling for card elements.
+
+```tsx
+import { Card } from '../components/Layout';
+
+// Basic card
+<Card>
+  <Text>Card content</Text>
+</Card>
+
+// Card with custom styling
+<Card className="bg-primary" padded={false}>
+  <Text>Custom card content</Text>
+</Card>
+```
+
+#### Properties
+
+- `padded`: Whether to add internal padding (defaults to true)
+- `className`: Additional Tailwind classes
+
 ## Best Practices
 
 ### 1. Use the Container Component at the Page Level
@@ -232,10 +283,10 @@ Components should not include max-width constraints - these should be handled by
 ```tsx
 <Container width="md">
   <Grid cols={1} gap={4}>
-    <InputField label="Name" />
+    <TextField label="Name" />
     <TwoColumn>
-      <InputField label="First Name" />
-      <InputField label="Last Name" />
+      <TextField label="First Name" />
+      <TextField label="Last Name" />
     </TwoColumn>
     <Button>Submit</Button>
   </Grid>

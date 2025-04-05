@@ -38,7 +38,7 @@ The PWA functionality is implemented with:
 - **Service Worker**: Handles caching strategies and offline experience
 - **HTML Configuration**: Meta tags for PWA capabilities
 
-For complete details on the PWA implementation, see [PWA Implementation documentation](context-for-llm/pwa-implementation.md).
+For complete details on the PWA implementation, see [PWA Implementation documentation](docs/pwa-implementation.md).
 
 ### Installing as PWA
 
@@ -104,6 +104,8 @@ This script checks for all required PWA assets and configurations.
 - `npm run cypress:run` - Run Cypress tests headlessly
 
 ## Testing
+
+> **Note:** The testing suite is currently a work in progress. Tests need to be updated and fleshed out from the ground up to cover all features available in the application. This is an ongoing effort.
 
 The project includes comprehensive testing:
 
@@ -377,8 +379,14 @@ For more in-depth documentation about this project, explore the files in the `co
 - [Deployment Summary](context-for-llm/06-deployment-summary.md) - Deployment options and instructions
 - [Future Updates](context-for-llm/07-future-updates.md) - Guidelines for maintaining and updating the project
 - [Additional Features](context-for-llm/08-additional-features.md) - Instructions for extending the project
-- [NativeWind CSS](context-for-llm/nativewind-css.md) - Details about CSS styling with NativeWind
-- [PWA Implementation](context-for-llm/pwa-implementation.md) - Progressive Web App implementation details
+
+Additional documentation:
+- [NativeWind CSS](docs/nativewind-css.md) - Details about CSS styling with NativeWind
+- [PWA Implementation](docs/pwa-implementation.md) - Progressive Web App implementation details
+- [Responsive Design](docs/responsive-design.md) - Guidelines for responsive design
+- [Grid System](docs/grid-system.md) - Grid system usage
+- [Layout](docs/layout.md) - Layout component documentation
+- [Responsive Improvements](docs/responsive-improvements.md) - Recent responsive design improvements
 
 ## Key Technologies
 
@@ -416,7 +424,7 @@ The project's theme includes:
 - **Typography**: Custom font families including Inter and Geist Mono
 - **Responsiveness**: Mobile-first with `md:` and other breakpoint prefixes
 
-For more details on the NativeWind implementation, see [NativeWind CSS documentation](context-for-llm/nativewind-css.md).
+For more details on the NativeWind implementation, see [NativeWind CSS documentation](docs/nativewind-css.md).
 
 ## Deployment
 
@@ -475,6 +483,8 @@ Or configure Cloudflare Pages to:
 - Output directory: `web-build`
 
 ## CI/CD
+
+> **Note:** The CI/CD pipeline is currently incomplete and under development. The complete implementation will include running all tests (both CLI and headless browser tests), spinning up a testnet instance before testing, and tearing it down afterward. This comprehensive test infrastructure is a work in progress.
 
 The project uses GitHub Actions for continuous integration and deployment. The workflow:
 

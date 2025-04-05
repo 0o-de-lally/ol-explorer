@@ -2,13 +2,21 @@
 
 ## Core Principles
 
-1. **Use Native Responsive Classes**: Always use NativeWind/Tailwind CSS responsive prefixes (`sm:`, `md:`, `lg:`) instead of manually checking screen dimensions.
+1. **Use NativeWind v4 Responsive Classes**: Always use NativeWind responsive prefixes (`sm:`, `md:`, `lg:`) instead of manually checking screen dimensions.
 
 2. **Mobile-First Approach**: Start with mobile styling and add responsive modifiers for larger screens.
 
 3. **Avoid Manual Dimension Checks**: Don't use `useWindowDimensions` to conditionally render different layouts or components.
 
-4. **Use Layout Components**: Use our responsive layout components (`Container`, `TwoColumn`, `Grid`, etc.) which are designed to handle responsiveness properly.
+4. **Use Layout Components**: Use our responsive layout components (`Container`, `Grid`, `TwoColumn`, `Row`, `Column`) which are designed to handle responsiveness properly.
+
+## NativeWind Configuration
+
+The project uses NativeWind v4 with the following key configurations:
+
+- **Dark Mode**: Uses the "class" strategy for dark mode support
+- **Class Separator**: Uses underscore (`_`) as separator for special characters in class names
+- **Fonts**: Uses Inter font for general text and Geist Mono for data display (via `font-data` class)
 
 ## Breakpoints
 
@@ -107,19 +115,56 @@ const MyComponent = () => {
 </Text>
 ```
 
+### Dark Mode Support
+
+```tsx
+<View className="bg-white dark:bg-black">
+  <Text className="text-black dark:text-white">
+    This text adapts to light/dark mode
+  </Text>
+</View>
+```
+
+### Special Font Handling
+
+```tsx
+<Text className="font-sans">Regular text with Inter font</Text>
+<Text className="font-mono">Monospace text</Text>
+<Text className="font-data">Data display with Geist Mono</Text>
+```
+
 ## Using Layout Components
 
 ### Container
 
 ```tsx
+import { Container } from '../components/Layout';
+
 <Container>
   {/* Content with responsive max-width */}
 </Container>
 ```
 
+### Grid
+
+```tsx
+import { Grid } from '../components/Layout';
+
+<Grid
+  cols={1}
+  mdCols={2}
+  lgCols={3}
+  gap={4}
+>
+  {/* Grid items */}
+</Grid>
+```
+
 ### TwoColumn
 
 ```tsx
+import { TwoColumn } from '../components/Layout';
+
 <TwoColumn
   leftWidth="w-full md:w-1/3"
   rightWidth="w-full md:w-2/3"
@@ -134,17 +179,28 @@ const MyComponent = () => {
 </TwoColumn>
 ```
 
-### Grid
+### Row and Column
 
 ```tsx
-<Grid
-  cols={1}
-  mdCols={2}
-  lgCols={3}
-  gap={4}
->
-  {/* Grid items */}
-</Grid>
+import { Row, Column } from '../components/Layout';
+
+<Row alignItems="center" justifyContent="between">
+  {/* Horizontal layout */}
+</Row>
+
+<Column alignItems="center" justifyContent="start">
+  {/* Vertical layout */}
+</Column>
+```
+
+### Card
+
+```tsx
+import { Card } from '../components/Layout';
+
+<Card>
+  {/* Card content with consistent styling */}
+</Card>
 ```
 
 ## Best Practices

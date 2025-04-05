@@ -33,6 +33,18 @@ You can add additional classes with the `className` prop:
 </Container>
 ```
 
+#### Properties
+
+- `width`: Controls the maximum width of the container
+  - `sm`: 640px
+  - `md`: 768px
+  - `lg`: 1024px (default)
+  - `xl`: 1280px
+  - `2xl`: 1536px
+  - `full`: No max width
+- `centered`: Whether to center the container (defaults to true)
+- `className`: Additional Tailwind classes
+
 ### Grid
 
 The `Grid` component implements a responsive CSS grid with configurable columns at different breakpoints.
@@ -50,12 +62,17 @@ import { Grid } from '../components/Layout';
 </Grid>
 ```
 
-#### Props:
+#### Properties
 
 - `cols`: Number of columns on mobile (default: 1)
+- `smCols`: Number of columns on small screens
 - `mdCols`: Number of columns on medium screens (default: 2)
 - `lgCols`: Number of columns on large screens (default: 3)
+- `xlCols`: Number of columns on extra large screens
 - `gap`: Gap between grid items (default: 4)
+- `containerWidth`: Sets the container width (same options as Container)
+- `fullBleed`: Whether to extend to the edges of the container
+- `centered`: Whether to center the grid (defaults to true)
 
 ### TwoColumn
 
@@ -64,7 +81,7 @@ The `TwoColumn` component creates a two-column layout that can stack on mobile.
 ```tsx
 import { TwoColumn } from '../components/Layout';
 
-<TwoColumn leftWidth="w-1/3" rightWidth="w-2/3">
+<TwoColumn leftWidth="w-full md:w-1/3" rightWidth="w-full md:w-2/3">
   <View>
     {/* Left column content */}
   </View>
@@ -74,10 +91,11 @@ import { TwoColumn } from '../components/Layout';
 </TwoColumn>
 ```
 
-#### Props:
+#### Properties
 
-- `leftWidth`: Width class for the left column (default: 'w-1/3')
-- `rightWidth`: Width class for the right column (default: 'w-2/3')
+- `leftWidth`: Width class for the left column (default: 'w-full md:w-1/3')
+- `rightWidth`: Width class for the right column (default: 'w-full md:w-2/3')
+- `spacing`: Classes for controlling spacing (default: 'space-y-4 md:space-y-0 md:space-x-4')
 - `stackOnMobile`: Whether to stack the columns on mobile (default: true)
 
 ### Row
@@ -94,11 +112,12 @@ import { Row } from '../components/Layout';
 </Row>
 ```
 
-#### Props:
+#### Properties
 
 - `alignItems`: Vertical alignment ('start', 'center', 'end', 'stretch', 'baseline')
 - `justifyContent`: Horizontal distribution ('start', 'center', 'end', 'between', 'around', 'evenly')
 - `wrap`: Whether items should wrap to next line (default: false)
+- `className`: Additional Tailwind classes
 
 ### Column
 
@@ -114,10 +133,32 @@ import { Column } from '../components/Layout';
 </Column>
 ```
 
-#### Props:
+#### Properties
 
 - `alignItems`: Horizontal alignment ('start', 'center', 'end', 'stretch', 'baseline')
 - `justifyContent`: Vertical distribution ('start', 'center', 'end', 'between', 'around', 'evenly')
+- `className`: Additional Tailwind classes
+
+### Card
+
+The `Card` component provides consistent styling for card elements.
+
+```tsx
+import { Card } from '../components/Layout';
+
+<Card>
+  <Text>Basic card content</Text>
+</Card>
+
+<Card padded={false} className="border border-border">
+  <Text>Custom card without padding</Text>
+</Card>
+```
+
+#### Properties
+
+- `padded`: Whether to add internal padding (default: true)
+- `className`: Additional Tailwind classes
 
 ## Responsive Breakpoints
 
@@ -145,6 +186,7 @@ You can use these breakpoints in your own styles:
    - `TwoColumn` for simple side-by-side content
    - `Row` for horizontal flex layouts
    - `Column` for vertical flex layouts
+   - `Card` for consistent card styling
 3. Use responsive classes to adapt layouts for different screen sizes
 4. Nest components as needed for complex layouts
 
@@ -153,17 +195,17 @@ You can use these breakpoints in your own styles:
 ### Page Layout with Grid
 
 ```tsx
-import { Container, Grid } from '../components/Layout';
+import { Container, Grid, Card } from '../components/Layout';
 
 <Container>
   <Text className="text-2xl font-bold mb-4">Featured Items</Text>
   <Grid cols={1} mdCols={2} lgCols={3} gap={4}>
-    <View className="bg-secondary p-4 rounded">Item 1</View>
-    <View className="bg-secondary p-4 rounded">Item 2</View>
-    <View className="bg-secondary p-4 rounded">Item 3</View>
-    <View className="bg-secondary p-4 rounded">Item 4</View>
-    <View className="bg-secondary p-4 rounded">Item 5</View>
-    <View className="bg-secondary p-4 rounded">Item 6</View>
+    <Card className="bg-secondary">Item 1</Card>
+    <Card className="bg-secondary">Item 2</Card>
+    <Card className="bg-secondary">Item 3</Card>
+    <Card className="bg-secondary">Item 4</Card>
+    <Card className="bg-secondary">Item 5</Card>
+    <Card className="bg-secondary">Item 6</Card>
   </Grid>
 </Container>
 ```
@@ -188,7 +230,7 @@ import { Container, TwoColumn } from '../components/Layout';
 ### Responsive Card Layout with Header
 
 ```tsx
-import { Container, Row, Column } from '../components/Layout';
+import { Container, Row, Card } from '../components/Layout';
 
 <Container>
   <Row justifyContent="between" className="mb-4">
@@ -198,11 +240,10 @@ import { Container, Row, Column } from '../components/Layout';
     </TouchableOpacity>
   </Row>
   
-  <View className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {/* Cards */}
-    <View className="bg-secondary p-4 rounded">Card 1</View>
-    <View className="bg-secondary p-4 rounded">Card 2</View>
-    <View className="bg-secondary p-4 rounded">Card 3</View>
-  </View>
+  <Grid cols={1} mdCols={2} lgCols={3} gap={4}>
+    <Card>Card 1</Card>
+    <Card>Card 2</Card>
+    <Card>Card 3</Card>
+  </Grid>
 </Container>
 ``` 

@@ -1,6 +1,6 @@
 # Responsive Design Improvements in Open Libra Explorer
 
-We've improved the responsive design approach across the codebase by replacing JavaScript-based responsive logic with proper Tailwind/NativeWind CSS classes. This enables a more maintainable, scalable approach to responsive design.
+We've improved the responsive design approach across the codebase by replacing JavaScript-based responsive logic with proper NativeWind v4 CSS classes. This enables a more maintainable, scalable approach to responsive design.
 
 ## Key Changes Made
 
@@ -33,7 +33,7 @@ The following components were updated:
 ```
 
 #### Footer Component
-Same approach as the Header component, using responsive classes instead of JavaScript conditions.
+Updated to use responsive classes instead of JavaScript conditions, following the same pattern as the Header component.
 
 #### TransactionsList and AccountTransactionsList
 - Table headers now use `hidden md:flex` instead of conditional rendering
@@ -46,8 +46,10 @@ Same approach as the Header component, using responsive classes instead of JavaS
 
 ### 3. Layout Component Improvements
 
-- Updated TwoColumn component to use responsive classes instead of JavaScript width calculations
-- Improved Grid component to use NativeWind's responsive grid classes
+- Updated `TwoColumn` component to use responsive classes instead of JavaScript width calculations
+- Improved `Grid` component to use NativeWind's responsive grid classes
+- Added appropriate `Row` and `Column` components for flex layouts
+- Created responsive `Card` component with consistent styling
 - Removed manual dimension checks that caused inconsistent responsive behavior
 
 ## Benefits of the New Approach
@@ -56,7 +58,9 @@ Same approach as the Header component, using responsive classes instead of JavaS
 2. **Better Maintainability**: Responsive logic is centralized in CSS classes
 3. **Consistency**: All components follow the same pattern for responsiveness
 4. **Scalability**: Easier to extend responsive patterns to new components
-5. **Standards Compliance**: Follows best practices for React Native with NativeWind/Tailwind CSS
+5. **Standards Compliance**: Follows best practices for React Native with NativeWind v4
+6. **Dark Mode Support**: Better integration with the "class" strategy for dark mode
+7. **Font Consistency**: Proper handling of font families including Inter and Geist Mono
 
 ## Continuing Improvements
 
@@ -65,6 +69,8 @@ To maintain this approach going forward:
 1. Always use responsive Tailwind classes (`md:`, `lg:`) for breakpoint-specific styling
 2. Avoid manual dimension checks with `useWindowDimensions`
 3. Follow the mobile-first approach (design for mobile, then add responsive classes for larger screens)
-4. Use the responsive Grid and TwoColumn components for layout
+4. Use the layout components from `/components/Layout` for consistent layouts
+5. Use `font-data` class for numerical data display
+6. Use `dark:` prefix for dark mode specific styling
 
-Refer to the [responsive-design.md](./responsive-design.md) guide for detailed patterns and examples. 
+Refer to the [responsive-design.md](./responsive-design.md) guide for detailed patterns and examples and [grid-system.md](./grid-system.md) for layout component usage. 
