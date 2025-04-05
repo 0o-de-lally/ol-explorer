@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Platform, useWindowDimensions } from 'react-native';
 import { TransactionDetail } from '../types/blockchain';
 import { useObservable } from '@legendapp/state/react';
 import { blockTimeStore } from '../store/blockTimeStore';
@@ -56,6 +56,71 @@ const formatHashForDisplay = (hash: string, abbreviate = true): string => {
   return hash;
 };
 
+// Format number with commas for thousands
+const formatNumber = (num: number | string | null | undefined): string => {
+  if (num === null || num === undefined || isNaN(Number(num))) return '-';
+  return Number(num).toLocaleString();
+};
+
+// Transaction detail card component for consistent styling
+const DetailCard = ({ label, value, style = {} }: { label: string; value: React.ReactNode, style?: any }) => {
+  return (
+    <View style={[{
+      backgroundColor: 'rgba(26, 34, 53, 0.5)',
+      borderRadius: 8,
+      padding: 12,
+    }, style]}>
+      <Text className="text-text-muted text-xs mb-1">{label}</Text>
+      <View className="flex-row items-center flex-wrap">
+        {typeof value === 'string' ? (
+          <Text className="text-text-light font-bold text-base">{value}</Text>
+        ) : (
+          value
+        )}
+      </View>
+    </View>
+  );
+};
+
+// Two-column grid container that works on both web and native
+const DetailGrid = ({ children }: { children: React.ReactNode }) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
+  // Convert children to array and chunk into pairs for desktop
+  const childrenArray = React.Children.toArray(children);
+
+  if (isDesktop) {
+    // Desktop layout - 2 items per row
+    const rows = [];
+    for (let i = 0; i < childrenArray.length; i += 2) {
+      const pair = childrenArray.slice(i, i + 2);
+      rows.push(
+        <View key={i} className="flex-row gap-4 mb-4">
+          {pair.map((child, index) => (
+            <View key={index} style={{ flex: 1 }}>
+              {child}
+            </View>
+          ))}
+          {pair.length === 1 && <View style={{ flex: 1 }} />} {/* Empty space for odd items */}
+        </View>
+      );
+    }
+    return <>{rows}</>;
+  } else {
+    // Mobile layout - 1 item per row
+    return (
+      <>
+        {childrenArray.map((child, index) => (
+          <View key={index} className="mb-2">
+            {child}
+          </View>
+        ))}
+      </>
+    );
+  }
+};
+
 type TransactionDetailsScreenProps = {
   route?: { params: { hash: string } };
   hash?: string;
@@ -73,6 +138,8 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
   const [error, setError] = useState<string | null>(null);
   const blockTimeMs = useObservable(blockTimeStore.blockTimeMs);
   const isCalculatingBlockTime = useObservable(blockTimeStore.isCalculating);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   // Update hash in state if route params change
   useEffect(() => {
@@ -315,123 +382,120 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               </View>
             </View>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Version</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.version}</Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Timestamp</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{formatTimestamp(transaction.timestamp)}</Text>
-            </View>
-
+            {/* Sender Information */}
             {transaction.sender && transaction.sender.trim() !== '' && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">Sender</Text>
-                <View className="w-2/3 flex-row justify-end items-center">
-                  <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
-                    <Text className="text-primary text-sm text-right mr-2">
-                      <Text className="hidden md:inline">{transaction.sender}</Text>
-                      <Text className="inline md:hidden">{formatAddressForDisplay(transaction.sender, 6, 4)}</Text>
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => copyToClipboard(transaction.sender)}
-                    className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
-                  >
-                    <MaterialIcons name="content-copy" size={14} color="white" />
-                  </TouchableOpacity>
+              <View className="border-b border-border/20 pb-4 mb-4">
+                <Text className="text-white font-bold text-base mb-3">Sender Information</Text>
+
+                <View className="flex-row justify-between items-center py-3">
+                  <Text className="text-text-muted text-base w-1/3">Address</Text>
+                  <View className="w-2/3 flex-row justify-end items-center">
+                    <TouchableOpacity onPress={() => handleAddressPress(transaction.sender)}>
+                      <Text className="text-primary text-base font-medium text-right mr-2">
+                        <Text className="hidden md:inline">{transaction.sender}</Text>
+                        <Text className="inline md:hidden">{formatAddressForDisplay(transaction.sender, 6, 4)}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(transaction.sender)}
+                      className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                    >
+                      <MaterialIcons name="content-copy" size={14} color="white" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )}
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Sequence Number</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.sequence_number}</Text>
+            {/* Basic Information */}
+            <View className="border-b border-border/20 pb-4 mb-4">
+              <Text className="text-white font-bold text-base mb-3">Basic Information</Text>
+
+              <DetailGrid>
+                <DetailCard
+                  label="Transaction Type"
+                  value={
+                    <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type,
+                      transaction.payload?.function?.split('::').pop() || undefined)}`}>
+                      <Text className="text-sm font-bold">
+                        {(() => {
+                          if (transaction.payload?.function) {
+                            const functionPath = transaction.payload.function;
+                            const parts = functionPath.split('::');
+                            if (parts.length >= 3) {
+                              return parts[parts.length - 1];
+                            }
+                          }
+                          if (transaction.type.endsWith('_transaction')) {
+                            return transaction.type.replace('_transaction', '');
+                          }
+                          return transaction.type;
+                        })()}
+                      </Text>
+                    </View>
+                  }
+                />
+                <DetailCard label="Version" value={formatNumber(transaction.version)} />
+              </DetailGrid>
+
+              <DetailGrid>
+                <DetailCard label="Timestamp" value={formatTimestamp(transaction.timestamp)} />
+                <DetailCard label="Sequence Number" value={transaction.sequence_number.toString()} />
+              </DetailGrid>
+
+              {(transaction.epoch || transaction.round) && (
+                <DetailGrid>
+                  {transaction.epoch && <DetailCard label="Epoch" value={transaction.epoch.toString()} />}
+                  {transaction.round && <DetailCard label="Round" value={transaction.round.toString()} />}
+                </DetailGrid>
+              )}
             </View>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Transaction Type</Text>
-              <View className="w-2/3 flex items-end justify-end">
-                <View className={`px-3 py-1 rounded-full ${getFunctionPillColor(transaction.type,
-                  // Get function name from payload if available
-                  transaction.payload?.function?.split('::').pop() || undefined)}`}>
-                  <Text className="text-xs font-medium">
-                    {(() => {
-                      // Extract specific function name from payload if available
-                      if (transaction.payload?.function) {
-                        const functionPath = transaction.payload.function;
-                        const parts = functionPath.split('::');
-                        if (parts.length >= 3) {
-                          // Return the last part (e.g., "vouch_for" from "0x1::vouch::vouch_for")
-                          return parts[parts.length - 1];
-                        }
-                      }
+            {/* Gas and Execution */}
+            <View className="border-b border-border/20 pb-4 mb-4">
+              <Text className="text-white font-bold text-base mb-3">Gas and Execution</Text>
 
-                      // Fall back to transaction type
-                      if (transaction.type.endsWith('_transaction')) {
-                        return transaction.type.replace('_transaction', '');
-                      }
-                      return transaction.type;
-                    })()}
-                  </Text>
-                </View>
-              </View>
+              <DetailGrid>
+                <DetailCard label="Gas Used" value={transaction.gas_used || 'N/A'} />
+                <DetailCard label="Gas Unit Price" value={transaction.gas_unit_price || 'N/A'} />
+              </DetailGrid>
+
+              <DetailGrid>
+                <DetailCard label="VM Status" value={transaction.vm_status || 'N/A'} />
+              </DetailGrid>
             </View>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Gas Used</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.gas_used || 'N/A'}</Text>
-            </View>
+            {/* Cryptographic Hashes */}
+            {(transaction.state_change_hash || transaction.event_root_hash || transaction.accumulator_root_hash) && (
+              <View>
+                <Text className="text-white font-bold text-base mb-3">Cryptographic Hashes</Text>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">Gas Unit Price</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.gas_unit_price || 'N/A'}</Text>
-            </View>
+                {/* First row */}
+                {transaction.state_change_hash && (
+                  <DetailGrid>
+                    <DetailCard label="State Change Hash" value={formatHashForDisplay(transaction.state_change_hash)} />
+                    {transaction.event_root_hash && (
+                      <DetailCard label="Event Root Hash" value={formatHashForDisplay(transaction.event_root_hash)} />
+                    )}
+                  </DetailGrid>
+                )}
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-text-muted text-sm w-1/3">VM Status</Text>
-              <Text className="text-white text-sm w-2/3 text-right">{transaction.vm_status || 'N/A'}</Text>
-            </View>
+                {/* Handle case where we only have event root hash */}
+                {!transaction.state_change_hash && transaction.event_root_hash && (
+                  <DetailGrid>
+                    <DetailCard label="Event Root Hash" value={formatHashForDisplay(transaction.event_root_hash)} />
+                    {transaction.accumulator_root_hash && (
+                      <DetailCard label="Accumulator Root Hash" value={formatHashForDisplay(transaction.accumulator_root_hash)} />
+                    )}
+                  </DetailGrid>
+                )}
 
-            {transaction.epoch && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">Epoch</Text>
-                <Text className="text-white text-sm w-2/3 text-right">{transaction.epoch}</Text>
-              </View>
-            )}
-
-            {transaction.round && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">Round</Text>
-                <Text className="text-white text-sm w-2/3 text-right">{transaction.round}</Text>
-              </View>
-            )}
-
-            {transaction.state_change_hash && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">State Change Hash</Text>
-                <Text className="text-white text-sm w-2/3 break-all text-right">
-                  {formatHashForDisplay(transaction.state_change_hash)}
-                </Text>
-              </View>
-            )}
-
-            {transaction.event_root_hash && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">Event Root Hash</Text>
-                <Text className="text-white text-sm w-2/3 break-all text-right">
-                  {formatHashForDisplay(transaction.event_root_hash)}
-                </Text>
-              </View>
-            )}
-
-            {transaction.accumulator_root_hash && (
-              <View className="flex-row justify-between items-center py-2">
-                <Text className="text-text-muted text-sm w-1/3">Accumulator Root Hash</Text>
-                <Text className="text-white text-sm w-2/3 break-all text-right">
-                  {formatHashForDisplay(transaction.accumulator_root_hash)}
-                </Text>
+                {/* Show accumulator root hash in second row if we have state_change_hash */}
+                {transaction.state_change_hash && transaction.accumulator_root_hash && (
+                  <DetailGrid>
+                    <DetailCard label="Accumulator Root Hash" value={formatHashForDisplay(transaction.accumulator_root_hash)} />
+                  </DetailGrid>
+                )}
               </View>
             )}
 
@@ -450,7 +514,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
           {/* Move Payload section up, right after the main transaction details */}
           {transaction.payload &&
             Object.keys(transaction.payload).length > 0 && (
-              <View className="bg-secondary rounded-lg p-6 mb-6">
+              <View className="bg-secondary rounded-lg p-6 mb-6 border-t-4 border-green-500">
                 <Text className="text-text-light text-lg font-bold mb-3">Payload</Text>
                 <View className="bg-background rounded p-3 overflow-auto">
                   <Text className="text-white font-mono text-xs whitespace-pre">
@@ -461,7 +525,7 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                 <View className="flex-row justify-end mt-4">
                   <TouchableOpacity
                     onPress={() => copyToClipboard(JSON.stringify(transaction.payload, null, 2))}
-                    className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
+                    className="p-1.5 bg-green-500 rounded-md flex-row items-center justify-center px-3"
                   >
                     <MaterialIcons name="content-copy" size={14} color="white" />
                     <Text className="text-white text-xs ml-1.5">Payload</Text>
@@ -471,15 +535,25 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
             )}
 
           {transaction.events && transaction.events.length > 0 && (
-            <View className="bg-secondary rounded-lg p-6 mb-6">
+            <View className="bg-secondary rounded-lg p-6 mb-6 border-t-4 border-purple-500">
               <Text className="text-text-light text-lg font-bold mb-3">Events ({transaction.events.length})</Text>
               {transaction.events.map((event, index) => (
-                <View key={index} className="bg-background rounded p-3 mb-2">
-                  <Text className="text-primary text-sm font-bold mb-2">{event.type}</Text>
-                  <View className="overflow-auto">
-                    <Text className="text-white font-mono text-xs whitespace-pre">
-                      {JSON.stringify(event.data, null, 2)}
-                    </Text>
+                <View key={index} className="bg-background rounded mb-2 border-l-4 border-purple-500">
+                  <View className="p-3 flex-row justify-between items-center">
+                    <Text className="text-primary text-sm font-bold">{event.type}</Text>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(JSON.stringify(event.data, null, 2))}
+                      className="p-1.5 bg-purple-500 rounded-md flex items-center justify-center w-8 h-8"
+                    >
+                      <MaterialIcons name="content-copy" size={14} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                  <View className="p-3 border-t border-border bg-background">
+                    <View className="overflow-auto">
+                      <Text className="text-white font-mono text-xs whitespace-pre">
+                        {JSON.stringify(event.data, null, 2)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ))}
@@ -487,17 +561,17 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               <View className="flex-row justify-end mt-4">
                 <TouchableOpacity
                   onPress={() => copyToClipboard(JSON.stringify(transaction.events, null, 2))}
-                  className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
+                  className="p-1.5 bg-purple-500 rounded-md flex-row items-center justify-center px-3"
                 >
                   <MaterialIcons name="content-copy" size={14} color="white" />
-                  <Text className="text-white text-xs ml-1.5">Events</Text>
+                  <Text className="text-white text-xs ml-1.5">All Events</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
           {transaction.changes && transaction.changes.length > 0 && (
-            <View className="bg-secondary rounded-lg p-6 mb-6">
+            <View className="bg-secondary rounded-lg p-6 mb-6 border-t-4 border-amber-500">
               <Text className="text-text-light text-lg font-bold mb-3">
                 State Changes ({transaction.changes.filter(change =>
                   !(Object.keys(change.data).length === 0 && change.address === "" && change.path === "")
@@ -508,17 +582,29 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
                   !(Object.keys(change.data).length === 0 && change.address === "" && change.path === "")
                 )
                 .map((change, index) => (
-                  <View key={index} className="bg-background rounded p-3 mb-2">
-                    <Text className="text-primary text-sm font-bold mb-1">{change.type}</Text>
-                    <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
-                      <Text className="text-primary text-sm mb-2">
-                        {formatAddressForDisplay(change.address)}
-                      </Text>
-                    </TouchableOpacity>
-                    <View className="overflow-auto">
-                      <Text className="text-white font-mono text-xs whitespace-pre">
-                        {JSON.stringify(change.data, null, 2)}
-                      </Text>
+                  <View key={index} className="bg-background rounded mb-2 border-l-4 border-amber-500">
+                    <View className="p-3 flex-row justify-between items-center">
+                      <View>
+                        <Text className="text-primary text-sm font-bold">{change.type}</Text>
+                        <TouchableOpacity onPress={() => handleAddressPress(change.address)}>
+                          <Text className="text-primary text-sm mt-1">
+                            {formatAddressForDisplay(change.address)}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => copyToClipboard(JSON.stringify(change.data, null, 2))}
+                        className="p-1.5 bg-amber-500 rounded-md flex items-center justify-center w-8 h-8"
+                      >
+                        <MaterialIcons name="content-copy" size={14} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                    <View className="p-3 border-t border-border bg-background">
+                      <View className="overflow-auto">
+                        <Text className="text-white font-mono text-xs whitespace-pre">
+                          {JSON.stringify(change.data, null, 2)}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -526,10 +612,10 @@ export const TransactionDetailsScreen: React.FC<TransactionDetailsScreenProps> =
               <View className="flex-row justify-end mt-4">
                 <TouchableOpacity
                   onPress={() => copyToClipboard(JSON.stringify(transaction.changes, null, 2))}
-                  className="p-1.5 bg-primary rounded-md flex-row items-center justify-center px-3"
+                  className="p-1.5 bg-amber-500 rounded-md flex-row items-center justify-center px-3"
                 >
                   <MaterialIcons name="content-copy" size={14} color="white" />
-                  <Text className="text-white text-xs ml-1.5">State Changes</Text>
+                  <Text className="text-white text-xs ml-1.5">All Changes</Text>
                 </TouchableOpacity>
               </View>
             </View>
