@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ testID }) => {
   };
 
   return (
-    <View className="bg-background py-4" testID={testID}>
+    <View className="bg-background pt-2 pb-1" testID={testID}>
       <Container className="py-0">
         <View
           className={`flex w-full items-center ${isMobile ? 'flex-col' : 'flex-row justify-between'}`}

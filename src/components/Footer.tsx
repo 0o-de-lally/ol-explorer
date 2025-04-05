@@ -1,12 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { Logo } from './Logo';
 import { Container } from './Layout';
 
 export const Footer: React.FC = () => {
-    const { width } = useWindowDimensions();
-    const isMobile = width < 768;
-
     const handleLinkPress = (url: string) => {
         Linking.openURL(url);
     };
@@ -17,34 +14,28 @@ export const Footer: React.FC = () => {
         { url: 'http://github.com/0LNetworkCommunity', label: 'GitHub' }
     ];
 
+    const websiteUrl = links[0].url;
+
     return (
-        <View className="bg-background py-4 w-full border-t border-border">
+        <View className="bg-background pt-1 pb-2 w-full">
             <Container className="py-0">
-                <View
-                    className={`flex w-full items-center ${isMobile ? 'flex-col' : 'flex-row justify-between'}`}
-                >
-                    {/* Logo and title */}
-                    <View className={`flex flex-row items-center ${isMobile ? 'mb-6' : ''}`}>
-                        <Logo size={28} className="mr-2" />
-                        <Text className="text-white font-medium">
-                            Open Libra Blockchain Explorer
-                        </Text>
-                    </View>
+                <View className="flex flex-row items-center justify-center">
+                    <TouchableOpacity onPress={() => handleLinkPress(websiteUrl)}>
+                        <Logo size={24} className="mr-6" />
+                    </TouchableOpacity>
 
                     {/* Navigation links */}
-                    <View className="flex flex-row">
-                        {links.map((link, index) => (
-                            <TouchableOpacity
-                                key={link.url}
-                                onPress={() => handleLinkPress(link.url)}
-                                className={index > 0 ? "ml-6" : ""}
-                            >
-                                <Text className="text-white">
-                                    {link.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    {links.map((link, index) => (
+                        <TouchableOpacity
+                            key={link.url}
+                            onPress={() => handleLinkPress(link.url)}
+                            className={`mx-3 ${index === links.length - 1 ? 'mr-0' : ''}`}
+                        >
+                            <Text className="text-white text-sm">
+                                {link.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </Container>
         </View>
