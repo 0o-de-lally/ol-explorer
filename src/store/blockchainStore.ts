@@ -1,5 +1,5 @@
-import { observable } from '@legendapp/state';
-import { Transaction } from '../types/blockchain';
+import {observable} from '@legendapp/state';
+import {Transaction} from '../types/blockchain';
 import appConfig from '../config/appConfig';
 
 // Define the store structure

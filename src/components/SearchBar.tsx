@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated } from 'react-native';
-import { useSdk } from '../hooks/useSdk';
-import { isValidAddressFormat, stripLeadingZeros } from '../utils/addressUtils';
-import { router } from 'expo-router';
+import {View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated} from 'react-native';
+import {useSdk} from '../hooks/useSdk';
+import {isValidAddressFormat, stripLeadingZeros} from '../utils/addressUtils';
+import {router} from 'expo-router';
 
 export const SearchBar: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');

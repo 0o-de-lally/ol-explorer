@@ -1,6 +1,8 @@
 node_modules
 .expo
 dist
+build
+web-build
 examples
 cypress/screenshots
 cypress/videos

@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { blockchainStore } from '../store/blockchainStore';
-import { blockTimeStore, updateMeasurements } from '../store/blockTimeStore';
-import { useSdkContext } from '../context/SdkContext';
+import {useEffect} from 'react';
+import {blockchainStore} from '../store/blockchainStore';
+import {blockTimeStore, updateMeasurements} from '../store/blockTimeStore';
+import {useSdkContext} from '../context/SdkContext';
 
 /**
  * Hook to calculate and update block time metrics

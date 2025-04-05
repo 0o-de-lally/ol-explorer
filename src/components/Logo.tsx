@@ -1,6 +1,6 @@
 import React from 'react';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { View } from 'react-native';
+import {View} from 'react-native';
 
 type LogoProps = {
     size?: number;

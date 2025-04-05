@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Linking } from 'react-native';
-import { Logo } from './Logo';
-import { Container } from './Layout';
+import {View, Text, TouchableOpacity, Linking} from 'react-native';
+import {Logo} from './Logo';
+import {Container} from './Layout';
 
 export const Footer: React.FC = () => {
     const handleLinkPress = (url: string) => {

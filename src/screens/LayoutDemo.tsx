@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, View, useWindowDimensions, TouchableOpacity } from 'react-native';
-import { Container, Row, Column, Card, Grid, TwoColumn } from '../components';
-import { useNavigation } from '@react-navigation/native';
+import {Text, View, useWindowDimensions, TouchableOpacity} from 'react-native';
+import {Container, Row, Column, Card, Grid, TwoColumn} from '../components';
+import {useNavigation} from '@react-navigation/native';
 
 const ColorBlock = ({ color, title }: { color: string, title: string }) => (
     <View className={`${color} p-3 rounded-lg shadow-sm`}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import {View, useWindowDimensions} from 'react-native';
 
 type LayoutProps = {
     children: React.ReactNode;

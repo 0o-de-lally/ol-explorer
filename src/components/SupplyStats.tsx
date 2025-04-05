@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { observer } from '@legendapp/state/react';
-import { observable } from '@legendapp/state';
-import { useSdk } from '../hooks/useSdk';
-import { useSdkContext } from '../context/SdkContext';
-import { SupplyStats as SupplyStatsType } from '../hooks/useSdk';
+import {View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, useWindowDimensions} from 'react-native';
+import {observer} from '@legendapp/state/react';
+import {observable} from '@legendapp/state';
+import {useSdk} from '../hooks/useSdk';
+import {useSdkContext} from '../context/SdkContext';
+import {SupplyStats as SupplyStatsType} from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
 
 // Use polling interval from config

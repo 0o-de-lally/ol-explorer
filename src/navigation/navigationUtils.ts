@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
-import { router } from 'expo-router';
-import { RootStackParamList } from './types';
-import { stripLeadingZeros } from '../utils/addressUtils';
+import {Platform} from 'react-native';
+import {router} from 'expo-router';
+import {RootStackParamList} from './types';
+import {stripLeadingZeros} from '../utils/addressUtils';
 
 /**
  * Navigate to a screen in the app using Expo Router

@@ -91,17 +91,58 @@ This script checks for all required PWA assets and configurations.
 
 ## Scripts
 
-- `npm run dev` - Start the development server
-- `npm run web` - Start the web development server
+- `npm start` - Start the Expo server with web support
+- `npm run dev` - Start the Expo server with web support and clear cache
 - `npm run ios` - Start the iOS simulator
 - `npm run android` - Start the Android emulator
-- `npm run build` - Build for web deployment
-- `npm test` - Run tests
+- `npm test` - Run all tests
+- `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Run tests with coverage report
 - `npm run lint` - Run ESLint
+- `npm run lint:fix` - Auto-fix ESLint issues where possible
+- `npm run lint:auto-fix` - Custom script to auto-fix common issues like unused variables
 - `npm run typecheck` - Run TypeScript type checking
+- `npm run build` - Build for web deployment
+- `npm run verify-pwa` - Verify PWA configuration
 - `npm run cypress:open` - Open Cypress for E2E testing
 - `npm run cypress:run` - Run Cypress tests headlessly
+- `npm run validate` - Run all checks (lint, typecheck, tests, build)
+
+## Code Quality
+
+### ESLint Configuration
+
+The project uses ESLint v9 with a flat configuration format in `eslint.config.js`. The configuration includes:
+
+- JavaScript/TypeScript best practices
+- React and React Hooks rules
+- Special handling for test files
+
+To run linting:
+```bash
+# Check for linting issues
+npm run lint
+
+# Fix automatically fixable issues
+npm run lint:fix
+
+# Run custom auto-fixer for issues like unused variables
+npm run lint:auto-fix
+```
+
+### Type Checking
+
+To verify TypeScript types:
+```bash
+npm run typecheck
+```
+
+### Validation
+
+Before submitting code changes, run the validation script to ensure everything passes:
+```bash
+npm run validate
+```
 
 ## Testing
 
@@ -110,6 +151,11 @@ This script checks for all required PWA assets and configurations.
 The project includes comprehensive testing:
 
 ### Unit and Integration Tests with Jest
+
+The project uses Jest for unit testing with a configuration in `jest.config.js` and setup in `jest.setup.js`. The setup includes:
+
+- Mock implementations for React Native, Expo, and other dependencies
+- Mock implementation for the SDK context and useSdk hook
 
 ```bash
 # Run all tests
@@ -579,4 +625,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Open Libra team for their blockchain technology
 - Expo team for their excellent React Native framework
-- LegendApp team for their state management library 
+- LegendApp team for their state management library
+
+## Development
+
+For detailed development guidelines, linting information, and testing procedures, please see the [Development Guide](DEVELOPMENT.md). 

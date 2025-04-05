@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Platform, ScrollView } from 'react-native';
+import {useRef} from 'react';
+import {Platform, ScrollView} from 'react-native';
 
 /**
  * Hook to provide scrolling functionality across web and native platforms

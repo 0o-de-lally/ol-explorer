@@ -1,23 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  AppState,
-  AppStateStatus,
-  useWindowDimensions
-} from 'react-native';
-import { observer } from '@legendapp/state/react';
-import { blockchainStore, blockchainActions } from '../store/blockchainStore';
-import { formatTimestamp } from '../utils/formatters';
-import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
-import { useSdkContext } from '../context/SdkContext';
-import { useForceUpdateTransactions } from '../hooks/useForceUpdate';
-import { router } from 'expo-router';
-import { useSdk } from '../hooks/useSdk';
+import {View, Text, TouchableOpacity, ActivityIndicator, AppState, AppStateStatus, useWindowDimensions} from 'react-native';
+import {observer} from '@legendapp/state/react';
+import {blockchainStore, blockchainActions} from '../store/blockchainStore';
+import {formatTimestamp} from '../utils/formatters';
+import {formatAddressForDisplay, normalizeTransactionHash} from '../utils/addressUtils';
+import {useSdkContext} from '../context/SdkContext';
+import {useForceUpdateTransactions} from '../hooks/useForceUpdate';
+import {router} from 'expo-router';
+import {useSdk} from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
-import { getTransactionStatus, getStatusPillStyle } from '../utils/transactionUtils';
+import {getTransactionStatus, getStatusPillStyle} from '../utils/transactionUtils';
 
 type TransactionsListProps = {
   testID?: string;

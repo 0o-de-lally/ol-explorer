@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { SearchBar } from './SearchBar';
-import { Logo } from './Logo';
-import { router } from 'expo-router';
-import { Container } from './Layout';
+import {View, Text, TouchableOpacity, useWindowDimensions} from 'react-native';
+import {SearchBar} from './SearchBar';
+import {Logo} from './Logo';
+import {router} from 'expo-router';
+import {Container} from './Layout';
 
 type HeaderProps = {
   testID?: string;

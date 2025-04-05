@@ -1,4 +1,4 @@
-import { Transaction, TransactionDetail, Account, TransactionEvent, StateChange } from '../types/blockchain';
+import {Transaction, TransactionDetail, Account, TransactionEvent, StateChange} from '../types/blockchain';
 import sdkConfig from '../config/sdkConfig';
 
 // Mock transaction data

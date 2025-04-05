@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
-import { Account, AccountResource } from '../types/blockchain';
-import { accountStore, accountActions } from '../store/accountStore';
-import { useSdkContext } from '../context/SdkContext';
-import { useObservable } from '@legendapp/state/react';
-import { isValidAddressFormat } from '../utils/addressUtils';
-import { useSdk } from './useSdk';
-import { ValidatorGrade } from './useSdk';
+import {useEffect} from 'react';
+import {Account, AccountResource} from '../types/blockchain';
+import {accountStore, accountActions} from '../store/accountStore';
+import {useSdkContext} from '../context/SdkContext';
+import {useObservable} from '@legendapp/state/react';
+import {isValidAddressFormat} from '../utils/addressUtils';
+import {useSdk} from './useSdk';
+import {ValidatorGrade} from './useSdk';
 import appConfig from '../config/appConfig';
 
 // Extended Account interface with the additional data

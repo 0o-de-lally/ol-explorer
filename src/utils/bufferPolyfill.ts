@@ -1,5 +1,5 @@
 // Import the Buffer class directly
-import { Buffer } from 'buffer';
+import {Buffer} from 'buffer';
 
 // Make Buffer available globally
 if (typeof window !== 'undefined') {

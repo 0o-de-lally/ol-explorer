@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { BlockchainSDK, LedgerInfo } from '../types/blockchain';
-import { useSdkContext } from '../context/SdkContext';
-import { normalizeAddress } from '../utils/addressUtils';
+import {useEffect} from 'react';
+import {BlockchainSDK, LedgerInfo} from '../types/blockchain';
+import {useSdkContext} from '../context/SdkContext';
+import {normalizeAddress} from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
 

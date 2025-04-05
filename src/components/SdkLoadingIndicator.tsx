@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { useSdkContext } from '../context/SdkContext';
+import {View, Text, ActivityIndicator, StyleSheet} from 'react-native';
+import {useSdkContext} from '../context/SdkContext';
 
 export const SdkLoadingIndicator: React.FC = () => {
     const { isInitialized, isInitializing, error } = useSdkContext();

@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
-import { observer } from '@legendapp/state/react';
-import { observable } from '@legendapp/state';
-import { blockchainStore, blockchainActions } from '../store/blockchainStore';
-import { blockTimeStore } from '../store/blockTimeStore';
-import { formatTimestamp } from '../utils/formatters';
-import { useSdkContext } from '../context/SdkContext';
-import { useForceUpdateMetrics } from '../hooks/useForceUpdate';
+import {View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, Pressable, useWindowDimensions} from 'react-native';
+import {observer} from '@legendapp/state/react';
+import {observable} from '@legendapp/state';
+import {blockchainStore, blockchainActions} from '../store/blockchainStore';
+import {blockTimeStore} from '../store/blockTimeStore';
+import {formatTimestamp} from '../utils/formatters';
+import {useSdkContext} from '../context/SdkContext';
+import {useForceUpdateMetrics} from '../hooks/useForceUpdate';
 import appConfig from '../config/appConfig';
 
 // Use polling interval from config

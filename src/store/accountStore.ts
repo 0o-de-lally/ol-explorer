@@ -1,6 +1,6 @@
-import { observable } from '@legendapp/state';
-import { Account, AccountResource } from '../types/blockchain';
-import { ValidatorGrade } from '../hooks/useSdk';
+import {observable} from '@legendapp/state';
+import {Account, AccountResource} from '../types/blockchain';
+import {ValidatorGrade} from '../hooks/useSdk';
 
 // Config for data freshness
 export const ACCOUNT_DATA_CONFIG = {

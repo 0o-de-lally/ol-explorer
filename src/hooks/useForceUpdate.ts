@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { blockchainActions, blockchainStore } from '../store/blockchainStore';
-import { useSdkContext } from '../context/SdkContext';
-import { useObservable } from '@legendapp/state/react';
+import {useState, useEffect} from 'react';
+import {blockchainActions, blockchainStore} from '../store/blockchainStore';
+import {useSdkContext} from '../context/SdkContext';
+import {useObservable} from '@legendapp/state/react';
 
 /**
  * Hook that forces a component to update when any blockchain data changes

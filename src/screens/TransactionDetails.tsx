@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Platform, useWindowDimensions } from 'react-native';
-import { TransactionDetail } from '../types/blockchain';
-import { useObservable } from '@legendapp/state/react';
-import { blockTimeStore } from '../store/blockTimeStore';
-import { formatTimestamp } from '../utils/formatters';
-import { normalizeAddress, formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
-import { useSdkContext } from '../context/SdkContext';
-import { MaterialIcons } from '@expo/vector-icons';
+import {View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Platform, useWindowDimensions} from 'react-native';
+import {TransactionDetail} from '../types/blockchain';
+import {useObservable} from '@legendapp/state/react';
+import {blockTimeStore} from '../store/blockTimeStore';
+import {formatTimestamp} from '../utils/formatters';
+import {normalizeAddress, formatAddressForDisplay, normalizeTransactionHash} from '../utils/addressUtils';
+import {useSdkContext} from '../context/SdkContext';
+import {MaterialIcons} from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { navigate } from '../navigation/navigationUtils';
+import {navigate} from '../navigation/navigationUtils';
 import appConfig from '../config/appConfig';
-import { getTransactionStatus, getStatusPillStyle } from '../utils/transactionUtils';
+import {getTransactionStatus, getStatusPillStyle} from '../utils/transactionUtils';
 
 /**
  * Get color for function pill based on function type using alphabetical index
