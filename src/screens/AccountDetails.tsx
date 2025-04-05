@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus, ScrollViewProps, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus, ScrollViewProps, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform, findNodeHandle } from 'react-native';
 import { AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { navigate } from '../navigation/navigationUtils';
@@ -16,6 +16,7 @@ import { ExtendedAccountData } from '../store/accountStore';
 import { Container, Row, Column, Card, TwoColumn } from '../components';
 import { useSdk } from '../hooks/useSdk';
 import { useSdkContext } from '../context/SdkContext';
+import { useScrollToElement } from '../hooks/useScrollToElement';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -487,6 +488,12 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   // Refs for scrolling
   const scrollViewRef = useRef<ScrollView>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
+  // Resource content ref for native scrolling
+  const resourceContentRef = useRef<View>(null);
+  const resourceContentLayout = useRef<{ y: number, height: number }>({ y: 0, height: 0 });
+
+  // Use our custom scroll hook
+  const { scrollToElement, registerElementPosition } = useScrollToElement();
 
   // Set isMounted ref on mount/unmount
   useEffect(() => {
@@ -613,10 +620,25 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     }
   }, [accountData, activeResourceType]);
 
-  // Handle resource type selection - only update state without URL changes
+  // Update onScroll handler to also log position for debugging
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    setScrollPosition(y);
+  };
+
+  // Handle resource type selection using our custom hook
   const handleResourceTypeChange = (resourceType: string) => {
-    // Simply update the state without changing the URL
+    // Update the active resource type
     setActiveResourceType(resourceType);
+
+    // Use the elementName parameter which will use the position we registered
+    scrollToElement({
+      elementId: 'resource-data-content',     // For web
+      elementName: 'resource-content',        // For native - using the registered position
+      scrollViewRef: scrollViewRef,           // Pass the ScrollView ref
+      offset: 20,                             // Small offset from the top
+      delay: 100                              // Short delay to ensure rendering
+    });
   };
 
   const handleBackPress = () => {
@@ -782,10 +804,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       <ScrollView
         ref={scrollViewRef}
         scrollEventThrottle={16}
-        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          const y = event.nativeEvent.contentOffset.y;
-          setScrollPosition(y);
-        }}
+        onScroll={handleScroll}
       >
         <Container>
           <Row alignItems="center" className="mb-5 flex-wrap">
@@ -1439,33 +1458,34 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
             return (
               <Card className="mb-4">
-                <Row justifyContent="between" alignItems="center" className="mb-3">
-                  <Text className="text-text-light text-lg font-bold">
-                    Resources ({resources.length})
-                  </Text>
-                  <View className="flex-row items-center">
-                    <Text className="text-gray-500 text-sm mr-2">{filteredResources.length} resources of this type</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        const resourcesJson = JSON.stringify(unwrapObservable(rawAccount), null, 2);
-                        Clipboard.setString(resourcesJson);
-                        setCopySuccess('Resources copied!');
-                        setTimeout(() => setCopySuccess(null), 2000);
-                      }}
-                      className="p-1.5 bg-primary rounded-md flex items-center justify-center"
-                    >
-                      <View className="flex-row items-center">
-                        <MaterialIcons name="content-copy" size={14} color="white" />
-                        <Text className="text-white text-xs ml-1">Copy All</Text>
-                      </View>
-                    </TouchableOpacity>
-                    {copySuccess && (
-                      <View className="absolute right-0 top-8 bg-green-800/80 px-2 py-1 rounded z-10">
-                        <Text className="text-white text-xs">{copySuccess}</Text>
-                      </View>
-                    )}
-                  </View>
-                </Row>
+                <View>
+                  <Row justifyContent="between" alignItems="center" className="mb-3">
+                    <Text className="text-text-light text-lg font-bold">
+                      Resources ({resources.length})
+                    </Text>
+                    <View className="flex-row items-center">
+                      <TouchableOpacity
+                        onPress={() => {
+                          const resourcesJson = JSON.stringify(unwrapObservable(rawAccount), null, 2);
+                          Clipboard.setString(resourcesJson);
+                          setCopySuccess('Resources copied!');
+                          setTimeout(() => setCopySuccess(null), 2000);
+                        }}
+                        className="p-1.5 bg-primary rounded-md flex items-center justify-center"
+                      >
+                        <View className="flex-row items-center">
+                          <MaterialIcons name="content-copy" size={14} color="white" />
+                          <Text className="text-white text-xs ml-1">Copy All</Text>
+                        </View>
+                      </TouchableOpacity>
+                      {copySuccess && (
+                        <View className="absolute right-0 top-8 bg-green-800/80 px-2 py-1 rounded z-10">
+                          <Text className="text-white text-xs">{copySuccess}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </Row>
+                </View>
 
                 {/* Resource Type Navigation and Content with responsive layout */}
                 <TwoColumn
@@ -1531,97 +1551,111 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
                   {/* Right Side - Resource Content */}
                   <Column>
-                    {filteredResources.length > 0 ? (
-                      filteredResources.map((resource, index) => {
-                        try {
-                          // Unwrap resource to ensure proper access to properties
-                          const unwrappedResource = unwrapObservable(resource);
-                          if (!unwrappedResource) return null;
+                    <View
+                      ref={resourceContentRef}
+                      onLayout={(event) => {
+                        const { y, height } = event.nativeEvent.layout;
+                        resourceContentLayout.current = { y, height };
+                        // Register this position with our scroll utility
+                        registerElementPosition('resource-content', y);
+                      }}
+                      id="resource-data-content"
+                    >
+                      {filteredResources.length > 0 ? (
+                        filteredResources.map((resource, index) => {
+                          try {
+                            // Unwrap resource to ensure proper access to properties
+                            const unwrappedResource = unwrapObservable(resource);
+                            if (!unwrappedResource) return null;
 
-                          // Get the resource type properly
-                          const typeStr = (unwrappedResource.type ?
-                            String(unwrappedResource.type || '') : '').toLowerCase();
+                            // Get the resource type properly
+                            const typeStr = (unwrappedResource.type ?
+                              String(unwrappedResource.type || '') : '').toLowerCase();
 
-                          // Determine the appropriate border color based on the resource category
-                          let borderColor = 'border-gray-600'; // Default
+                            // Determine the appropriate border color based on the resource category
+                            let borderColor = 'border-gray-600'; // Default
 
-                          if (typeStr.includes('coin') || typeStr.includes('wallet')) {
-                            borderColor = 'border-green-600'; // Assets
-                          } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
-                            typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
-                            borderColor = 'border-blue-600'; // Validating
-                          } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
-                            typeStr.includes('ancestry')) {
-                            borderColor = 'border-purple-600'; // Social
-                          } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
-                            (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
-                            borderColor = 'border-yellow-600'; // Account
-                          }
+                            if (typeStr.includes('coin') || typeStr.includes('wallet')) {
+                              borderColor = 'border-green-600'; // Assets
+                            } else if (typeStr.includes('stake') || typeStr.includes('validator') ||
+                              typeStr.includes('jail') || typeStr.includes('proof_of_fee')) {
+                              borderColor = 'border-blue-600'; // Validating
+                            } else if (typeStr.includes('pledge') || typeStr.includes('vouch') ||
+                              typeStr.includes('ancestry')) {
+                              borderColor = 'border-purple-600'; // Social
+                            } else if (typeStr.includes('receipts') || typeStr.includes('fee_maker') ||
+                              (typeStr.includes('account') && !typeStr.includes('pledge_accounts'))) {
+                              borderColor = 'border-yellow-600'; // Account
+                            }
 
-                          return (
-                            <View key={index} className="bg-background rounded mb-2 overflow-hidden">
-                              <Row
-                                justifyContent="between"
-                                alignItems="center"
-                                className={`p-3 border-l-4 ${borderColor}`}
+                            return (
+                              <View
+                                key={index}
+                                className="bg-background rounded mb-2 overflow-hidden"
                               >
-                                <Text className="text-white font-bold text-sm flex-1">{unwrappedResource.type || 'Unknown Resource'}</Text>
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    try {
-                                      const unwrappedData = unwrapObservable(unwrappedResource.data) || {};
-                                      copyToClipboard(JSON.stringify(unwrappedData, null, 2));
-                                    } catch (e) {
-                                      console.warn('Error copying resource data:', e);
-                                    }
-                                  }}
-                                  className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                                <Row
+                                  justifyContent="between"
+                                  alignItems="center"
+                                  className={`p-3 border-l-4 ${borderColor}`}
                                 >
-                                  <MaterialIcons name="content-copy" size={14} color="white" />
-                                </TouchableOpacity>
-                              </Row>
-                              <View className="p-3 border-t border-border">
-                                {unwrappedResource.resourceKey && (
-                                  <View className="mb-2 bg-gray-700/30 p-2 rounded">
-                                    <Text className="text-text-muted text-xs">Resource Key: {unwrappedResource.resourceKey}</Text>
-                                  </View>
-                                )}
-                                <View className="overflow-auto">
-                                  {(() => {
-                                    try {
-                                      // Unwrap the resource data before stringifying
-                                      const unwrappedData = unwrapObservable(unwrappedResource.data);
-                                      return null;
-                                    } catch (e) {
-                                      console.warn('Error logging resource data:', e);
-                                      return null;
-                                    }
-                                  })()}
-                                  <Text className="text-text-light font-mono text-xs whitespace-pre">
-                                    {(() => {
+                                  <Text className="text-white font-bold text-sm flex-1">{unwrappedResource.type || 'Unknown Resource'}</Text>
+                                  <TouchableOpacity
+                                    onPress={() => {
                                       try {
                                         const unwrappedData = unwrapObservable(unwrappedResource.data) || {};
-                                        return JSON.stringify(unwrappedData, null, 2);
+                                        copyToClipboard(JSON.stringify(unwrappedData, null, 2));
                                       } catch (e) {
-                                        console.warn('Error stringifying resource data:', e);
-                                        return '{}';
+                                        console.warn('Error copying resource data:', e);
+                                      }
+                                    }}
+                                    className="p-1.5 bg-primary rounded-md flex items-center justify-center w-8 h-8"
+                                  >
+                                    <MaterialIcons name="content-copy" size={14} color="white" />
+                                  </TouchableOpacity>
+                                </Row>
+                                <View className="p-3 border-t border-border">
+                                  {unwrappedResource.resourceKey && (
+                                    <View className="mb-2 bg-gray-700/30 p-2 rounded">
+                                      <Text className="text-text-muted text-xs">Resource Key: {unwrappedResource.resourceKey}</Text>
+                                    </View>
+                                  )}
+                                  <View className="overflow-auto">
+                                    {(() => {
+                                      try {
+                                        // Unwrap the resource data before stringifying
+                                        const unwrappedData = unwrapObservable(unwrappedResource.data);
+                                        return null;
+                                      } catch (e) {
+                                        console.warn('Error logging resource data:', e);
+                                        return null;
                                       }
                                     })()}
-                                  </Text>
+                                    <Text className="text-text-light font-mono text-xs whitespace-pre">
+                                      {(() => {
+                                        try {
+                                          const unwrappedData = unwrapObservable(unwrappedResource.data) || {};
+                                          return JSON.stringify(unwrappedData, null, 2);
+                                        } catch (e) {
+                                          console.warn('Error stringifying resource data:', e);
+                                          return '{}';
+                                        }
+                                      })()}
+                                    </Text>
+                                  </View>
                                 </View>
                               </View>
-                            </View>
-                          );
-                        } catch (e) {
-                          console.warn('Error rendering resource:', e);
-                          return null;
-                        }
-                      })
-                    ) : (
-                      <View className="py-6 bg-background rounded-lg items-center justify-center">
-                        <Text className="text-white text-base">No resources found for this type</Text>
-                      </View>
-                    )}
+                            );
+                          } catch (e) {
+                            console.warn('Error rendering resource:', e);
+                            return null;
+                          }
+                        })
+                      ) : (
+                        <View className="py-6 bg-background rounded-lg items-center justify-center">
+                          <Text className="text-white text-base">No resources found for this type</Text>
+                        </View>
+                      )}
+                    </View>
                   </Column>
                 </TwoColumn>
               </Card>
