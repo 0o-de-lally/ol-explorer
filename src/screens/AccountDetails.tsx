@@ -17,6 +17,7 @@ import { Container, Row, Column, Card, TwoColumn } from '../components';
 import { useSdk } from '../hooks/useSdk';
 import { useSdkContext } from '../context/SdkContext';
 import { useScrollToElement } from '../hooks/useScrollToElement';
+import { normalizeAddress, formatAddressForDisplay, stripLeadingZeros } from '../utils/addressUtils';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -363,6 +364,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const appState = useRef(AppState.currentState);
   const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   // Data loaded tracking
   const dataLoadedRef = useRef(false);
@@ -676,8 +678,8 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
   const copyToClipboard = (text: string) => {
     try {
-      // Remove 0x prefix if present for consistency with the example
-      const addressToCopy = text.startsWith('0x') ? text.substring(2) : text;
+      // Use the same stripLeadingZeros function for consistency
+      const addressToCopy = stripLeadingZeros(text);
       Clipboard.setString(addressToCopy);
       setCopySuccess('Address copied!');
       setTimeout(() => setCopySuccess(null), 2000);
@@ -835,7 +837,13 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
             <Row alignItems="center" className="mb-4">
               <View className="bg-background rounded px-3 py-2 flex-1">
-                <Text className="text-text-light font-mono text-sm">{getObservableValue(accountData.address, '')}</Text>
+                <TouchableOpacity onPress={() => copyToClipboard(getObservableValue(accountData.address, ''))}>
+                  <Text className="text-text-light font-mono text-sm">
+                    {isDesktop
+                      ? getObservableValue(accountData.address, '')
+                      : formatAddressForDisplay(getObservableValue(accountData.address, ''), 6, 4)}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
                 onPress={() => copyToClipboard(getObservableValue(accountData.address, ''))}

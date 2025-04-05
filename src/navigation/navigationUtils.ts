@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { RootStackParamList } from './types';
+import { stripLeadingZeros } from '../utils/addressUtils';
 
 /**
  * Navigate to a screen in the app using Expo Router
@@ -26,7 +27,9 @@ export function navigate<RouteName extends keyof RootStackParamList>(
             break;
         case 'AccountDetails':
             if (params && 'address' in params) {
-                path = `/account/${params.address}`;
+                // Strip leading zeros from the address for cleaner URLs
+                const cleanAddress = stripLeadingZeros(params.address);
+                path = `/account/${cleanAddress}`;
             }
             break;
         default:

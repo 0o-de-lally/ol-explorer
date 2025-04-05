@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Animated } from 'react-native';
 import { useSdk } from '../hooks/useSdk';
-import { isValidAddressFormat } from '../utils/addressUtils';
+import { isValidAddressFormat, stripLeadingZeros } from '../utils/addressUtils';
 import { router } from 'expo-router';
 
 export const SearchBar: React.FC = () => {
@@ -38,18 +38,19 @@ export const SearchBar: React.FC = () => {
         try {
             const query = searchQuery.trim();
 
-            // Check if query looks like an address 
-            // console.log(`BEFORE: Searching for: ${query}`);
-            if (isValidAddressFormat(query)) {
-                // console.log(`WITHIN: Searching for account: ${query}`);
+            // Ensure query has 0x prefix for testing as address or transaction hash
+            const normalizedQuery = query.startsWith('0x') ? query : `0x${query}`;
 
-                // Address validation and normalization happens in the SDK
-                const accountData = await sdk.getAccount(query);
+            // Check if query looks like an address
+            if (isValidAddressFormat(normalizedQuery)) {
+                // Use normalized query for the SDK call
+                const accountData = await sdk.getAccount(normalizedQuery);
 
                 if (accountData) {
-                    //console.log(JSON.stringify(accountData, null, 2));
                     console.log('Account found, navigating to account details');
-                    router.push(`/account/${query}`);
+                    // Strip leading zeros before navigation
+                    const cleanAddress = stripLeadingZeros(normalizedQuery);
+                    router.push(`/account/${cleanAddress}`);
                     setSearchQuery('');
                     setIsSearching(false);
                     return;
@@ -57,12 +58,13 @@ export const SearchBar: React.FC = () => {
             }
 
             // If account lookup fails or not an address format, try transaction hash lookup
-            console.log('Trying transaction lookup for:', query);
-            const txDetails = await sdk.getTransactionByHash(query);
+            console.log('Trying transaction lookup for:', normalizedQuery);
+            const txDetails = await sdk.getTransactionByHash(normalizedQuery);
 
             if (txDetails) {
                 console.log('Transaction found, navigating to transaction details');
-                router.push(`/tx/${query}`);
+                // Use normalized query with 0x prefix for transaction URLs as well
+                router.push(`/tx/${normalizedQuery}`);
                 setSearchQuery('');
                 setIsSearching(false);
                 return;

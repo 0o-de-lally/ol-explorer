@@ -19,6 +19,35 @@ export function normalizeAddress(address: string): string {
 }
 
 /**
+ * Strips 32 leading zeros from an address while preserving the 0x prefix
+ * This is useful for display and URL purposes where we don't want padded zeros
+ * 
+ * @param address The address to strip leading zeros from
+ * @returns Address with 0x prefix but without 32 leading zeros if present
+ */
+export function stripLeadingZeros(address: string): string {
+    // If address is empty or null, return as is
+    if (!address) return address;
+
+    // Check if address has 0x prefix
+    const hasPrefix = address.startsWith('0x');
+
+    // Remove prefix temporarily
+    const withoutPrefix = hasPrefix ? address.slice(2) : address;
+
+    // Check if there are exactly 32 leading zeros
+    const hasThirtyTwoLeadingZeros = /^0{32}[^0]/.test(withoutPrefix);
+
+    // Only strip zeros if there are exactly 32 of them
+    const stripped = hasThirtyTwoLeadingZeros
+        ? withoutPrefix.substring(32)
+        : withoutPrefix;
+
+    // Always add 0x prefix back, regardless of whether it was there originally
+    return '0x' + stripped;
+}
+
+/**
  * Validates if a string looks like an address
  * 
  * @param value String to validate
@@ -40,15 +69,18 @@ export function isValidAddressFormat(value: string): boolean {
 export function formatAddressForDisplay(address: string, startChars = 6, endChars = 4): string {
     if (!address) return '';
 
-    // Keep 0x prefix if present plus the specified start and end characters
-    const prefix = address.startsWith('0x') ? '0x' : '';
-    const start = address.startsWith('0x') ?
-        address.slice(2, 2 + startChars) :
-        address.slice(0, startChars);
+    // First, strip leading zeros but keep the 0x prefix
+    const strippedAddress = stripLeadingZeros(address);
 
-    const end = address.startsWith('0x') ?
-        address.slice(address.length - endChars) :
-        address.slice(address.length - endChars);
+    // Keep 0x prefix if present plus the specified start and end characters
+    const prefix = strippedAddress.startsWith('0x') ? '0x' : '';
+    const start = strippedAddress.startsWith('0x') ?
+        strippedAddress.slice(2, 2 + startChars) :
+        strippedAddress.slice(0, startChars);
+
+    const end = strippedAddress.startsWith('0x') ?
+        strippedAddress.slice(strippedAddress.length - endChars) :
+        strippedAddress.slice(strippedAddress.length - endChars);
 
     return `${prefix}${start}...${end}`;
 }
