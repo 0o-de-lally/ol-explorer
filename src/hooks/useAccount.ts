@@ -60,12 +60,13 @@ export const useAccount = (address: string | null): UseAccountResult => {
     const { sdk } = useSdkContext();
     const openLibraSdk = useSdk();
 
-    // Get data from store using observables to track changes
-    const accountData = address ? useObservable(accountStore.accounts[address]?.data) : null;
-    const extendedData = address ? useObservable(accountStore.accounts[address]?.extendedData) : null;
-    const isLoading = address ? useObservable(accountStore.accounts[address]?.isLoading) : false;
-    const error = address ? useObservable(accountStore.accounts[address]?.error) : null;
-    const lastUpdated = address ? useObservable(accountStore.accounts[address]?.lastUpdated) : 0;
+    // Get data from store using observables to track changes - always call hooks unconditionally
+    const accountDataObservable = useObservable(address ? accountStore.accounts[address]?.data : null);
+    const extendedDataObservable = useObservable(address ? accountStore.accounts[address]?.extendedData : null);
+    const isLoadingObservable = useObservable(address ? accountStore.accounts[address]?.isLoading : false);
+    const errorObservable = useObservable(address ? accountStore.accounts[address]?.error : null);
+    const lastUpdatedObservable = useObservable(address ? accountStore.accounts[address]?.lastUpdated : 0);
+    const _lastUpdated = lastUpdatedObservable?.get(); // Handle unused variable warning
 
     // Determine if data is stale
     const isStale = address ? accountActions.isDataStale(address) : false;
@@ -364,10 +365,10 @@ export const useAccount = (address: string | null): UseAccountResult => {
     }, [address, sdk]);
 
     return {
-        account: accountData?.get() || null,
-        extendedData: extendedData?.get() || null,
-        isLoading: isLoading ? isLoading.get() : false,
-        error: error ? (error.get() as unknown as string) : null,
+        account: accountDataObservable?.get ? (accountDataObservable.get() as Account | null) : null,
+        extendedData: extendedDataObservable?.get ? (extendedDataObservable.get() as ExtendedAccountData | null) : null,
+        isLoading: isLoadingObservable ? Boolean(isLoadingObservable.get()) : false,
+        error: errorObservable ? (errorObservable.get() as unknown as string) : null,
         refresh: () => fetchAccount(true),
         isStale
     };

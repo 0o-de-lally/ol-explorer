@@ -34,8 +34,9 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Try to use navigation focus hook if available
   let isFocused = true;
+  const isFocusedFromHook = useIsFocused();
   try {
-    isFocused = useIsFocused();
+    isFocused = isFocusedFromHook;
   } catch (e) {
     // If hook is not available, default to true
     isFocused = true;

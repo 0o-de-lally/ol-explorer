@@ -7,3 +7,6 @@ examples
 cypress/screenshots
 cypress/videos
 coverage/lcov-report
+coverage/coverage-final.json
+coverage/clover.xml
+coverage/lcov.info

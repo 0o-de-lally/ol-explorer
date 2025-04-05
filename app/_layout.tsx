@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import {Stack} from 'expo-router';
-import {View, Platform} from 'react-native';
+import {View} from 'react-native';
 import {SdkProvider} from '../src/context/SdkContext';
 import {StatusBar} from 'expo-status-bar';
 import {SdkLoadingIndicator} from '../src/components/SdkLoadingIndicator';

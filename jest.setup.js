@@ -103,7 +103,7 @@ jest.mock('react-native-css-interop', () => ({
 }));
 
 // Mock SDK Context and useSdk hook
-jest.mock('../src/context/SdkContext', () => ({
+jest.mock('./src/context/SdkContext', () => ({
   useSdkContext: jest.fn().mockReturnValue({
     sdk: {
       getTransactions: jest.fn().mockResolvedValue([]),
@@ -127,7 +127,7 @@ jest.mock('../src/context/SdkContext', () => ({
   }),
 }));
 
-jest.mock('../src/hooks/useSdk', () => ({
+jest.mock('./src/hooks/useSdk', () => ({
   useSdk: jest.fn().mockReturnValue({
     getTransactions: jest.fn().mockResolvedValue([]),
     getBlockByHeight: jest.fn().mockResolvedValue({}),
