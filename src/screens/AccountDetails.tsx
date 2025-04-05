@@ -1211,12 +1211,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                     <Row alignItems="center" className="mb-2">
                       <Text className="text-text-light text-sm mr-2">Score:</Text>
                       <Text className="text-white font-mono text-sm">
-                        {(() => {
-                          // Calculate the display score as percentage of threshold
-                          const percentScore = getObservableValue(extendedData?.vouching?.vouchScore, 0);
-                          const displayScore = (percentScore / 100) * appConfig.vouching.threshold;
-                          return displayScore.toFixed(1);
-                        })()}
+                        {getObservableValue(extendedData?.vouching?.vouchScore, 0)}
                       </Text>
                       <View className="ml-2">
                         <TouchableOpacity
@@ -1259,7 +1254,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         <View
                           className="h-full bg-primary rounded-full"
                           style={{
-                            width: `${Math.min(100, getObservableValue(extendedData?.vouching?.vouchScore, 0))}%`
+                            width: `${Math.min(100, (getObservableValue(extendedData?.vouching?.vouchScore, 0) / appConfig.vouching.threshold) * 100)}%`
                           }}
                         />
                       </View>
