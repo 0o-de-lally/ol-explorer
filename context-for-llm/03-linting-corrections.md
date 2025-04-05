@@ -53,16 +53,38 @@ The project uses strict TypeScript configuration to catch type errors and improv
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-native",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-native"
-  }
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "nativewind-env.d.ts"
+  ]
 }
 ```
+
+### Module Resolution Strategy
+
+The TypeScript configuration uses the "bundler" moduleResolution strategy, which is specifically designed for modern JavaScript bundlers like webpack, Vite, and Metro (used by React Native/Expo). This offers several advantages:
+
+1. **Enhanced compatibility with ES modules**: Libraries like React Navigation, which use the ECMAScript module format, are properly resolved without requiring custom type declaration files.
+
+2. **Improved import resolution**: The "bundler" strategy better supports modern import patterns, including package exports field in package.json files and path aliases.
+
+3. **Support for TypeScript extensions**: With `allowImportingTsExtensions: true`, you can import TypeScript files with their `.ts` or `.tsx` extensions explicitly, which helps with some bundler configurations.
+
+4. **Path alias support**: The configuration includes a path alias for `@/*` to make imports cleaner and more maintainable.
+
+When working with dependencies that use modern packaging formats, "bundler" is the recommended moduleResolution option rather than older options like "node" or "node16". This prevents common TypeScript errors related to importing ES modules with CommonJS syntax.
 
 ## Linting Corrections
 

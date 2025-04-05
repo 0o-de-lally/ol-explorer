@@ -3,6 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "paths": {
       "@/*": [
         "./*"
@@ -12,6 +16,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    "src/types/react-navigation.d.ts"
   ]
 }

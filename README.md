@@ -125,6 +125,29 @@ npm run lint:fix
 npm run lint:auto-fix
 ```
 
+### TypeScript Configuration
+
+The project uses TypeScript with a modern module resolution strategy, configured in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  }
+}
+```
+
+The `"bundler"` moduleResolution setting ensures compatibility with:
+- ES modules like React Navigation
+- Modern import/export syntax
+- Libraries using package.json "exports" field
+- Path aliases and TypeScript extensions
+
+This configuration prevents common errors when importing modern libraries and provides better integration with the Metro bundler used by Expo.
+
 ### Type Checking
 
 To verify TypeScript types:
