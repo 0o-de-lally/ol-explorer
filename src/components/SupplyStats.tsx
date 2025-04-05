@@ -38,7 +38,7 @@ const formatLibraAmount = (amount: number): string => {
     // Format with commas for thousands and fixed decimal places
     return value.toLocaleString(undefined, {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 0
     }) + ' LIBRA';
 };
 
