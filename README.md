@@ -268,6 +268,65 @@ ol-explorer/
 └── tsconfig.json           # TypeScript configuration
 ```
 
+## Data Flow Architecture
+
+This application follows a clear, unidirectional data flow pattern that separates concerns between data fetching, state management, and UI rendering:
+
+### Architectural Layers
+
+1. **SDK Layer**: 
+   - `SdkContext.tsx` - Initializes the blockchain connection and provides core SDK methods
+   - `useSdk.ts` - Extends the SDK with utility methods and normalizes inputs/outputs
+
+2. **Store Layer**:
+   - Observable stores using LegendApp (`accountStore`, `blockchainStore`, `blockTimeStore`)
+   - Stores maintain application state with well-defined actions for updates
+   - Each store focuses on a specific domain (accounts, blockchain, metrics)
+
+3. **Hook Layer**:
+   - Custom hooks (`useAccount`, `useBlockchain`, `useBlockTime`) fetch data and update stores
+   - Hooks handle lifecycle (initialization, polling, cleanup)
+   - Provide loading states, error handling, and refresh mechanisms
+
+4. **Component Layer**:
+   - UI components observe stores and render data
+   - Components don't fetch data directly; they consume it from stores via hooks
+   - Specialized components focus on specific data views (metrics, transactions, accounts)
+
+### Data Flow Pattern
+
+```
+Blockchain → SDK → Hooks → Stores → UI Components
+              ↑        ↓         ↑
+              └────────┴─────────┘
+               (Bidirectional for
+                refreshing data)
+```
+
+1. **Initialization**: SDK context connects to the blockchain on application start
+2. **Data Fetching**: Hooks request data from the SDK and update stores
+3. **Reactivity**: Stores notify components of state changes
+4. **Rendering**: Components re-render with new data
+5. **User Actions**: User triggers refresh → Hooks fetch new data → Cycle repeats
+
+### Key Benefits
+
+- **Separation of Concerns**: Data fetching logic is isolated from rendering logic
+- **Consistent State Management**: All state changes flow through observable stores
+- **Automatic UI Updates**: Components react to state changes without manual wiring
+- **Optimized Performance**: Updates are granular and only affect relevant components
+- **Maintainability**: Clear boundaries between layers make code easier to maintain
+
+### Example Flow
+
+When displaying account details:
+1. `useAccount` hook fetches account data using the SDK
+2. Account data is stored in `accountStore`
+3. `AccountDetails` component observes the store and renders when data changes
+4. User actions (refresh, change account) trigger the hook to fetch new data
+
+This architecture ensures a consistent, maintainable approach to managing blockchain data throughout the application.
+
 ## Key Technologies
 
 - **React Native & Expo**: Cross-platform mobile and web development
