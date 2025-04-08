@@ -1,11 +1,11 @@
 import React from 'react';
-import {ScrollView, RefreshControl, View, Platform} from 'react-native';
-import {HomeScreen} from '../src/screens/HomeScreen';
-import {useBlockchain} from '../src/hooks/useBlockchain';
-import {useForceUpdate} from '../src/hooks/useForceUpdate';
-import {blockchainActions} from '../src/store/blockchainStore';
-import {useBlockTime} from '../src/hooks/useBlockTime';
-import {Redirect, Link, Stack} from 'expo-router';
+import { ScrollView, RefreshControl, View, Platform } from 'react-native';
+import { HomeScreen } from '../src/screens/HomeScreen';
+import { useBlockchain } from '../src/hooks/useBlockchain';
+import { useForceUpdate } from '../src/hooks/useForceUpdate';
+import { blockchainActions } from '../src/store/blockchainStore';
+import { useBlockTime } from '../src/hooks/useBlockTime';
+import { Redirect, Link, Stack } from 'expo-router';
 
 export default function HomePage() {
   const { refreshData, isLoading } = useBlockchain();
@@ -27,7 +27,7 @@ export default function HomePage() {
 
     // Set document title for web
     if (Platform.OS === 'web') {
-      document.title = 'Open Libra Explorer';
+      document.title = 'Twin Open Libra Explorer';
     }
   }, []);
 
@@ -35,8 +35,8 @@ export default function HomePage() {
     <View className="flex-1 bg-background">
       <Stack.Screen
         options={{
-          title: 'Open Libra Explorer',
-          headerTitle: 'Open Libra Explorer'
+          title: 'Twin Open Libra Explorer',
+          headerTitle: 'Twin Open Libra Explorer'
         }}
       />
       <HomeScreen />

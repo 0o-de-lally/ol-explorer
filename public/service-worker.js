@@ -25,7 +25,7 @@ const OFFLINE_HTML = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Offline - Open Libra Explorer</title>
+  <title>Offline - Twin Open Libra Explorer</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -62,7 +62,7 @@ const OFFLINE_HTML = `
 </head>
 <body>
   <h1>You're Offline</h1>
-  <p>Open Libra Explorer requires an internet connection to fetch blockchain data. Please check your connection and try again.</p>
+  <p>Twin Open Libra Explorer requires an internet connection to fetch blockchain data. Please check your connection and try again.</p>
   <button onclick="window.location.reload()">Try Again</button>
 </body>
 </html>

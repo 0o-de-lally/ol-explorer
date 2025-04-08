@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {Platform} from 'react-native';
-import {useLocalSearchParams, router, Stack} from 'expo-router';
-import {AccountDetailsScreen} from '../../src/screens/AccountDetails';
-import {formatAddressForDisplay, stripLeadingZeros} from '../../src/utils/addressUtils';
+import { Platform } from 'react-native';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
+import { AccountDetailsScreen } from '../../src/screens/AccountDetails';
+import { formatAddressForDisplay, stripLeadingZeros } from '../../src/utils/addressUtils';
 
 export default function AccountDetailsPage() {
     const { address } = useLocalSearchParams();
@@ -58,7 +58,7 @@ export default function AccountDetailsPage() {
 
                 // Set document.title directly for web
                 if (Platform.OS === 'web') {
-                    document.title = `${pageTitle} | Open Libra Explorer`;
+                    document.title = `${pageTitle} | Twin Open Libra Explorer`;
                 }
             } catch (e) {
                 console.error('Error formatting address for title:', e);

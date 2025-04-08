@@ -1,6 +1,6 @@
 {
   "short_name": "OL Explorer",
-  "name": "Open Libra Blockchain Explorer",
+  "name": "Twin Open Libra Blockchain Explorer",
   "icons": [
     {
       "src": "favicon.svg",
@@ -22,7 +22,7 @@
   "display": "standalone",
   "theme_color": "#E75A5C",
   "background_color": "#0B1221",
-  "description": "Explore transactions, accounts, and blocks on the Open Libra network",
+  "description": "Explore transactions, accounts, and blocks on the Twin Open Libra network",
   "orientation": "portrait",
   "scope": "/"
 }

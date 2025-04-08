@@ -1,19 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {View, Text, ActivityIndicator, TouchableOpacity, ScrollView, AppState, AppStateStatus} from 'react-native';
-import {BlockchainStats} from '../components/BlockchainStats';
-import {TransactionsList} from '../components/TransactionsList';
-import {blockchainActions, blockchainStore} from '../store/blockchainStore';
-import {useSdk} from '../hooks/useSdk';
-import {useSdkContext} from '../context/SdkContext';
-import {Transaction} from '../types/blockchain';
-import {BlockchainMetrics} from '../components/BlockchainMetrics';
-import {SupplyStats} from '../components/SupplyStats';
-import {SearchBar} from '../components/SearchBar';
+import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView, AppState, AppStateStatus } from 'react-native';
+import { BlockchainStats } from '../components/BlockchainStats';
+import { TransactionsList } from '../components/TransactionsList';
+import { blockchainActions, blockchainStore } from '../store/blockchainStore';
+import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
+import { Transaction } from '../types/blockchain';
+import { BlockchainMetrics } from '../components/BlockchainMetrics';
+import { SupplyStats } from '../components/SupplyStats';
+import { SearchBar } from '../components/SearchBar';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
-import {useIsFocused} from '@react-navigation/native';
-import {useRouter} from 'expo-router';
-import {Container, Grid} from '../components/Layout';
+import { useIsFocused } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Container, Grid } from '../components/Layout';
 
 // Debug flag - must match the one in SdkContext.tsx
 const DEBUG_MODE = false;
@@ -354,7 +354,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
           <Text className="text-primary text-2xl font-bold mb-4">RPC Connection Error</Text>
           <Text className="text-white text-base text-center mb-2">{error.message}</Text>
           <Text className="text-white text-base text-center mb-4">
-            Connection to Open Libra RPC at {sdkConfig.rpcUrl} failed
+            Connection to Twin Open Libra RPC at {sdkConfig.rpcUrl} failed
           </Text>
           <Text className="text-text-muted text-sm text-center mb-6">
             Please check your internet connection or try again later.
@@ -379,7 +379,7 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
           {isUsingMockData && (
             <View className="bg-primary/20 p-2.5 rounded mb-4">
               <Text className="text-white text-sm text-center">
-                DEBUG MODE: Using sample data - Unable to connect to Open Libra RPC
+                DEBUG MODE: Using sample data - Unable to connect to Twin Open Libra RPC
               </Text>
               <Text className="text-white text-xs text-center">
                 This is simulated data for development purposes only

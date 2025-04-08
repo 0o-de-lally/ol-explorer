@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {useLocalSearchParams, Stack, router} from 'expo-router';
-import {TransactionDetailsScreen} from '../../src/screens/TransactionDetails';
-import {formatAddressForDisplay, normalizeTransactionHash} from '../../src/utils/addressUtils';
-import {Platform} from 'react-native';
+import { useLocalSearchParams, Stack, router } from 'expo-router';
+import { TransactionDetailsScreen } from '../../src/screens/TransactionDetails';
+import { formatAddressForDisplay, normalizeTransactionHash } from '../../src/utils/addressUtils';
+import { Platform } from 'react-native';
 
 export default function TransactionDetailsPage() {
     const { hash } = useLocalSearchParams();
@@ -58,7 +58,7 @@ export default function TransactionDetailsPage() {
 
                 // Set document.title directly for web
                 if (Platform.OS === 'web') {
-                    document.title = `${pageTitle} | Open Libra Explorer`;
+                    document.title = `${pageTitle} | Twin Open Libra Explorer`;
                 }
             } catch (e) {
                 console.error('Error formatting hash for title:', e);

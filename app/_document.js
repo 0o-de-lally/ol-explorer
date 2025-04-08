@@ -1,4 +1,4 @@
-import {Head} from 'expo-router';
+import { Head } from 'expo-router';
 import React from 'react';
 
 // Set base URL for assets
@@ -28,8 +28,8 @@ export default function CustomDocument() {
             <meta name="msapplication-TileColor" content="#0B1221" />
 
             {/* Open Graph meta tags for better sharing */}
-            <meta property="og:title" content="Open Libra Explorer" />
-            <meta property="og:description" content="Explore the Open Libra blockchain" />
+            <meta property="og:title" content="Twin Open Libra Explorer" />
+            <meta property="og:description" content="Explore the Twin Open Libra blockchain" />
             <meta property="og:image" content={`${BASE_URL}/logo192.png`} />
             <meta property="og:url" content={BASE_URL} />
 

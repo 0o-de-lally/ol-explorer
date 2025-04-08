@@ -4,7 +4,7 @@
  */
 
 // const RPC_URL = 'https://rpc.openlibra.space:8080/v1';
-const RPC_URL = 'https://testnet-rpc.openlibra.space:8081/v1';
+const RPC_URL = 'https://twin-rpc.openlibra.space/v1';
 
 export interface SdkConfig {
     // RPC Connection Settings
