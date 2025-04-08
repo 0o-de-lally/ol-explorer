@@ -21,8 +21,8 @@ export interface TokenConfig {
 const tokenConfig: TokenConfig = {
     tokens: {
         libraToken: {
-            symbol: "LIBRA",
-            name: "Libra Coin",
+            symbol: "LBR",
+            name: "Libra",
             decimals: 6,
             icon: "libra-icon" // If we have an icon for the token
         },

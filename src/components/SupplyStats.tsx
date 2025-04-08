@@ -1,17 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, useWindowDimensions} from 'react-native';
-import {observer} from '@legendapp/state/react';
-import {observable} from '@legendapp/state';
-import {useSdk} from '../hooks/useSdk';
-import {useSdkContext} from '../context/SdkContext';
-import {SupplyStats as SupplyStatsType} from '../hooks/useSdk';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { observer } from '@legendapp/state/react';
+import { observable } from '@legendapp/state';
+import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
+import { SupplyStats as SupplyStatsType } from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
+import tokenConfig from '../config/tokenConfig';
 
 // Use polling interval from config
 const AUTO_REFRESH_INTERVAL = appConfig.metrics.calculations.updateInterval;
 
-// LIBRA decimals for formatting
-const LIBRA_DECIMALS = 6;
+// Get token decimals from config
+const TOKEN_DECIMALS = tokenConfig.tokens.libraToken.decimals;
 
 // Create observable state for supply stats
 const supplyStore = observable({
@@ -27,19 +28,19 @@ const supplyStore = observable({
     lastUpdated: 0
 });
 
-// Format a coin amount with proper LIBRA decimals
+// Format a coin amount with proper token decimals
 const formatLibraAmount = (amount: number): string => {
     if (!amount && amount !== 0) return '-';
 
-    // Convert to human-readable format with 6 decimal places
-    const divisor = Math.pow(10, LIBRA_DECIMALS);
+    // Convert to human-readable format with configured decimal places
+    const divisor = Math.pow(10, TOKEN_DECIMALS);
     const value = amount / divisor;
 
     // Format with commas for thousands and fixed decimal places
     return value.toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }) + ' LIBRA';
+    }) + ` ${tokenConfig.tokens.libraToken.symbol}`;
 };
 
 // Metric card component for consistent styling

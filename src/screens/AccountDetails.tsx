@@ -1,32 +1,32 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import {View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus, ScrollViewProps, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform, findNodeHandle} from 'react-native';
-import {AccountResource} from '../types/blockchain';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, AppState, AppStateStatus, ScrollViewProps, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform, findNodeHandle } from 'react-native';
+import { AccountResource } from '../types/blockchain';
 import Clipboard from '@react-native-clipboard/clipboard';
-import {navigate} from '../navigation/navigationUtils';
-import {useLocalSearchParams, router} from 'expo-router';
-import {observer} from '@legendapp/state/react';
-import {useAccount} from '../hooks/useAccount';
-import {ACCOUNT_DATA_CONFIG} from '../store/accountStore';
-import {MaterialIcons} from '@expo/vector-icons';
-import {AccountTransactionsList} from '../components/AccountTransactionsList';
+import { navigate } from '../navigation/navigationUtils';
+import { useLocalSearchParams, router } from 'expo-router';
+import { observer } from '@legendapp/state/react';
+import { useAccount } from '../hooks/useAccount';
+import { ACCOUNT_DATA_CONFIG } from '../store/accountStore';
+import { MaterialIcons } from '@expo/vector-icons';
+import { AccountTransactionsList } from '../components/AccountTransactionsList';
 import appConfig from '../config/appConfig';
-import {useIsFocused} from '@react-navigation/native';
-import {MaterialCommunityIcons} from '@expo/vector-icons';
-import {ExtendedAccountData} from '../store/accountStore';
-import {Container, Row, Column, Card, TwoColumn} from '../components';
-import {useSdk} from '../hooks/useSdk';
-import {useSdkContext} from '../context/SdkContext';
-import {useScrollToElement} from '../hooks/useScrollToElement';
-import {normalizeAddress, formatAddressForDisplay, stripLeadingZeros} from '../utils/addressUtils';
+import tokenConfig from '../config/tokenConfig';
+import { useIsFocused } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ExtendedAccountData } from '../store/accountStore';
+import { Container, Row, Column, Card, TwoColumn } from '../components';
+import { useSdk } from '../hooks/useSdk';
+import { useSdkContext } from '../context/SdkContext';
+import { useScrollToElement } from '../hooks/useScrollToElement';
+import { normalizeAddress, formatAddressForDisplay, stripLeadingZeros } from '../utils/addressUtils';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
   address?: string;
 };
 
-// Coin resource type for LibraCoin
-const LIBRA_COIN_RESOURCE_TYPE = "0x1::coin::CoinStore<0x1::libra_coin::LibraCoin>";
-const LIBRA_DECIMALS = 6;
+// Get token decimals from config
+const TOKEN_DECIMALS = tokenConfig.tokens.libraToken.decimals;
 
 // Add a helper function at the top of the component to safely get values from observables
 const getObservableValue = <T,>(value: any, defaultValue: T): T => {
@@ -653,9 +653,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
       ? rawBalance.get()
       : rawBalance;
 
-    // Calculate whole and fractional parts based on LIBRA_DECIMALS
+    // Calculate whole and fractional parts based on TOKEN_DECIMALS
     const balance = Number(balanceValue);
-    const divisor = Math.pow(10, LIBRA_DECIMALS);
+    const divisor = Math.pow(10, TOKEN_DECIMALS);
     const wholePart = Math.floor(balance / divisor);
     const fractionalPart = balance % divisor;
 
@@ -663,7 +663,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
     const wholePartFormatted = wholePart.toLocaleString();
 
     // Convert fractional part to string with proper padding
-    const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
+    const fractionalStr = fractionalPart.toString().padStart(TOKEN_DECIMALS, '0');
 
     // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
     const trimmedFractional = fractionalPart > 0
@@ -872,7 +872,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                 </Row>
 
                 <View className="bg-background rounded px-3 py-2 mb-4">
-                  <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} LIBRA</Text>
+                  <Text className="text-text-light font-mono text-sm">{formatBalance(getObservableValue(accountData.balance, 0))} {tokenConfig.tokens.libraToken.symbol}</Text>
                 </View>
 
                 <Row justifyContent="between" alignItems="center" className="mb-3">
@@ -898,9 +898,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                       );
 
                       if (slowWallet?.data?.unlocked) {
-                        // Calculate whole and fractional parts based on LIBRA_DECIMALS
+                        // Calculate whole and fractional parts based on TOKEN_DECIMALS
                         const balance = Number(slowWallet.data.unlocked);
-                        const divisor = Math.pow(10, LIBRA_DECIMALS);
+                        const divisor = Math.pow(10, TOKEN_DECIMALS);
                         const wholePart = Math.floor(balance / divisor);
                         const fractionalPart = balance % divisor;
 
@@ -908,7 +908,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                         const wholePartFormatted = wholePart.toLocaleString();
 
                         // Convert fractional part to string with proper padding
-                        const fractionalStr = fractionalPart.toString().padStart(LIBRA_DECIMALS, '0');
+                        const fractionalStr = fractionalPart.toString().padStart(TOKEN_DECIMALS, '0');
 
                         // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
                         const trimmedFractional = fractionalPart > 0
@@ -920,9 +920,9 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                           ? wholePartFormatted
                           : `${wholePartFormatted}.${trimmedFractional}`;
 
-                        return `${formattedBalance} LIBRA`;
+                        return `${formattedBalance} ${tokenConfig.tokens.libraToken.symbol}`;
                       }
-                      return '0 LIBRA';
+                      return `0 ${tokenConfig.tokens.libraToken.symbol}`;
                     })()}
                   </Text>
                 </View>
