@@ -123,7 +123,7 @@ server {
     listen 80;
     listen [::]:80;
     
-    server_name explorer.openlibra.space;
+    server_name twin-explorer.openlibra.space;
     
     root /var/www/ol-explorer;
     index index.html;
@@ -182,7 +182,7 @@ sudo systemctl reload nginx
 ### 1. Obtain SSL Certificate
 
 ```bash
-sudo certbot --nginx -d explorer.openlibra.space
+sudo certbot --nginx -d twin-explorer.openlibra.space
 ```
 
 Follow the prompts to:
@@ -195,7 +195,7 @@ Follow the prompts to:
 After Certbot completes, your Nginx configuration will be automatically updated. Verify the SSL setup:
 
 ```bash
-curl -I https://explorer.openlibra.space
+curl -I https://twin-explorer.openlibra.space
 ```
 
 The response should include:
@@ -270,7 +270,7 @@ sudo tail -f /var/log/nginx/ol-explorer-access.log
 
 After deployment, verify that the application is working correctly:
 
-1. Visit https://explorer.openlibra.space in a browser
+1. Visit https://twin-explorer.openlibra.space in a browser
 2. Test core functionality:
    - Home page loading
    - Transaction list display

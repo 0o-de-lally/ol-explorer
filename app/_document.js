@@ -2,7 +2,7 @@ import { Head } from 'expo-router';
 import React from 'react';
 
 // Set base URL for assets
-const BASE_URL = 'https://explorer.openlibra.space';
+const BASE_URL = 'https://twin-explorer.openlibra.space';
 
 export default function CustomDocument() {
     return (

@@ -17,7 +17,7 @@ A modern, responsive blockchain explorer for the Open Libra blockchain, built wi
 
 ## Live Demo
 
-Visit the live explorer at [https://explorer.openlibra.space](https://explorer.openlibra.space)
+Visit the live explorer at [https://twin-explorer.openlibra.space](https://twin-explorer.openlibra.space)
 
 ## Getting Started
 
@@ -520,7 +520,7 @@ For more details on the NativeWind implementation, see [NativeWind CSS documenta
    ```nginx
    server {
        listen 80;
-       server_name explorer.openlibra.space;
+       server_name twin-explorer.openlibra.space;
        
        root /var/www/ol-explorer;
        index index.html;
@@ -533,7 +533,7 @@ For more details on the NativeWind implementation, see [NativeWind CSS documenta
 
 5. Set up SSL with Certbot:
    ```bash
-   sudo certbot --nginx -d explorer.openlibra.space
+   sudo certbot --nginx -d twin-explorer.openlibra.space
    ```
 
 ### Static Hosting (GitHub Pages, Cloudflare Pages)

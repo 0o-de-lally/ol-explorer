@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
-import {Stack} from 'expo-router';
-import {View} from 'react-native';
-import {SdkProvider} from '../src/context/SdkContext';
-import {StatusBar} from 'expo-status-bar';
-import {SdkLoadingIndicator} from '../src/components/SdkLoadingIndicator';
-import {setupPolyfills} from '../src/utils/polyfills';
-import {registerServiceWorker} from '../src/utils/serviceWorkerRegistration';
-import {Container} from '../src/components/Layout';
+import { Stack } from 'expo-router';
+import { View } from 'react-native';
+import { SdkProvider } from '../src/context/SdkContext';
+import { StatusBar } from 'expo-status-bar';
+import { SdkLoadingIndicator } from '../src/components/SdkLoadingIndicator';
+import { setupPolyfills } from '../src/utils/polyfills';
+import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration';
+import { Container } from '../src/components/Layout';
 import '../src/utils/bufferPolyfill';
 import '../global.css';
 import ErrorBoundary from '../src/components/ErrorBoundary';
-import {Header} from '../src/components/Header';
-import {Footer} from '../src/components/Footer';
+import { Header } from '../src/components/Header';
+import { Footer } from '../src/components/Footer';
 
 // Setup necessary polyfills
 setupPolyfills();
@@ -23,18 +23,18 @@ if (typeof document !== 'undefined') {
     // Add favicon links directly in document head
     const favicon = document.createElement('link');
     favicon.rel = 'icon';
-    favicon.href = 'https://explorer.openlibra.space/favicon.svg';
+    favicon.href = 'https://twin-explorer.openlibra.space/favicon.svg';
     favicon.type = 'image/svg+xml';
     document.head.appendChild(favicon);
 
     const shortcutIcon = document.createElement('link');
     shortcutIcon.rel = 'shortcut icon';
-    shortcutIcon.href = 'https://explorer.openlibra.space/favicon.ico';
+    shortcutIcon.href = 'https://twin-explorer.openlibra.space/favicon.ico';
     document.head.appendChild(shortcutIcon);
 
     const appleTouchIcon = document.createElement('link');
     appleTouchIcon.rel = 'apple-touch-icon';
-    appleTouchIcon.href = 'https://explorer.openlibra.space/logo192.png';
+    appleTouchIcon.href = 'https://twin-explorer.openlibra.space/logo192.png';
     document.head.appendChild(appleTouchIcon);
 }
 
