@@ -2,6 +2,21 @@
 
 This document provides comprehensive guidance for extending the OL Explorer blockchain explorer project with new features, ensuring that additions maintain code quality, test coverage, and adhere to project architecture.
 
+## Standard Data Flow Architecture
+
+The OL Explorer follows a consistent data flow pattern that should be maintained for all new features:
+
+```
+SDK → SDK Context → LegendApp Store → Hooks → Unwrap State → Component → View
+```
+
+This architecture promotes:
+- Separation of concerns
+- Consistent state management
+- Efficient data fetching and caching
+- Proper memory management
+- Reactive UI updates
+
 ## Feature Development Process
 
 ### 1. Planning Phase
@@ -19,9 +34,17 @@ Before writing any code, follow these planning steps:
    - Evaluate changes to existing code
    - Consider performance implications
    - Plan state management approach
+   - Ensure alignment with existing data flow patterns
 
 3. **Task Breakdown**:
-   - Break the feature into smaller, manageable tasks
+   - Break the feature into smaller, manageable tasks following the data flow:
+     1. SDK Extension (adding methods to useSdk.ts)
+     2. Store Implementation (creating or extending an observable store)
+     3. Hook Implementation (connecting SDK to store)
+     4. Component Creation (rendering the UI)
+     5. Integration (adding component to screens)
+   - Further break down complex tasks (difficulty > 5) into subtasks
+   - Assign difficulty ratings (1-10) for each task and subtask
    - Prioritize tasks
    - Estimate effort required
    - Identify dependencies between tasks
@@ -41,182 +64,621 @@ Follow these steps during implementation:
    - Extend existing types as needed
    - Locate type definitions in `src/types/` directory
 
-3. **Store Enhancements**:
-   - Add new state in the appropriate store file (e.g., `src/store/blockchainStore.ts`)
-   - Implement actions for state manipulation
-   - Follow the patterns established in existing stores
+3. **SDK Extension**:
+   - Add new methods to `src/hooks/useSdk.ts`
+   - Follow error handling patterns from existing methods
+   - Add proper address normalization if working with addresses
+   - Use Promise.allSettled for handling multiple parallel API calls
 
-   Example of adding to a store:
+   Example based on existing useSdk.ts pattern:
    ```typescript
-   // Example: Adding a new feature to blockchainStore.ts
-   import { observable } from '@legendapp/state';
+   // Adding a new method to useSdk.ts
+   const getNewFeatureData = async (param: string): Promise<ResultType> => {
+     if (!isInitialized || !sdk) {
+       console.warn('SDK not initialized, cannot get new feature data');
+       return defaultReturnValue;
+     }
 
-   // Extend existing store
-   export const blockchainStore = {
-     // ... existing store properties
-     newFeature: observable({
-       data: null,
-       isLoading: false,
-       error: null
-     })
+     try {
+       const normalizedParam = normalizeParameter(param);
+       
+       const result = await sdk.view({
+         function: `${OL_FRAMEWORK}::module::function_name`,
+         typeArguments: [],
+         arguments: [normalizedParam]
+       });
+       
+       // Handle different response formats
+       if (Array.isArray(result) && result.length > 0) {
+         return processResult(result[0]);
+       }
+       
+       return processResult(result);
+     } catch (error) {
+       console.error(`Error fetching new feature data for ${param}:`, error);
+       return defaultReturnValue;
+     }
+   };
+   
+   // Add to return object
+   return {
+     ...sdk,
+     // Existing methods
+     getNewFeatureData
+   };
+   ```
+
+4. **Store Implementation**:
+   - Create a new store file in `src/store/` or extend an existing one
+   - Use `observable` from '@legendapp/state'
+   - Implement a record-based structure for data when appropriate
+   - Add store actions for state manipulation
+   - Implement notifyUpdate mechanism for UI reactivity
+   - Add data staleness checks
+
+   Example based on existing store patterns:
+   ```typescript
+   // src/store/newFeatureStore.ts
+   import { observable } from '@legendapp/state';
+   import appConfig from '../config/appConfig';
+
+   // Config for data freshness
+   export const NEW_FEATURE_CONFIG = {
+     MIN_FRESHNESS_MS: 30000, // 30 seconds
+     REFRESH_INTERVAL_MS: 60000 // 1 minute
    };
 
-   // Add actions for the new feature
-   export const blockchainActions = {
-     // ... existing actions
-     setNewFeatureData: (data) => {
-       blockchainStore.newFeature.data.set(data);
+   // Define data interface
+   export interface NewFeatureData {
+     id: string;
+     value: string;
+     timestamp: number;
+   }
+
+   // Define store structure
+   export interface NewFeatureStoreType {
+     items: Record<string, {
+       data: NewFeatureData | null;
+       lastUpdated: number;
+     }>;
+     isLoading: boolean;
+     error: string | null;
+     lastUpdated: number;
+   }
+
+   // Initialize store with defaults
+   export const newFeatureStore = observable<NewFeatureStoreType>({
+     items: {},
+     isLoading: false,
+     error: null,
+     lastUpdated: 0
+   });
+
+   // Function to notify UI updates
+   const notifyUpdate = () => {
+     // Update lastUpdated timestamp to trigger reactivity
+     newFeatureStore.set(prev => ({
+       ...prev,
+       lastUpdated: Date.now()
+     }));
+     
+     // Dispatch event for components
+     if (typeof window !== 'undefined') {
+       const event = new CustomEvent('new-feature-updated', {
+         detail: { timestamp: Date.now() }
+       });
+       window.dispatchEvent(event);
+     }
+   };
+
+   // Store actions
+   export const newFeatureActions = {
+     setItem: (id: string, data: NewFeatureData) => {
+       // Initialize if doesn't exist
+       if (!newFeatureStore.items[id].peek()) {
+         newFeatureStore.items[id].set({
+           data: data,
+           lastUpdated: Date.now()
+         });
+       } else {
+         // Update existing entry
+         newFeatureStore.items[id].data.set(data);
+         newFeatureStore.items[id].lastUpdated.set(Date.now());
+       }
+       
+       notifyUpdate();
      },
-     setNewFeatureLoading: (isLoading) => {
-       blockchainStore.newFeature.isLoading.set(isLoading);
+     
+     setLoading: (isLoading: boolean) => {
+       newFeatureStore.isLoading.set(isLoading);
+       notifyUpdate();
      },
-     setNewFeatureError: (error) => {
-       blockchainStore.newFeature.error.set(error);
+     
+     setError: (error: string | null) => {
+       newFeatureStore.error.set(error);
+       notifyUpdate();
+     },
+     
+     isDataStale: (id?: string): boolean => {
+       if (id) {
+         const item = newFeatureStore.items[id].peek();
+         if (!item) return true;
+         
+         const now = Date.now();
+         return now - item.lastUpdated > NEW_FEATURE_CONFIG.MIN_FRESHNESS_MS;
+       }
+       
+       // Check global staleness
+       const lastUpdated = newFeatureStore.lastUpdated.peek();
+       const now = Date.now();
+       return now - lastUpdated > NEW_FEATURE_CONFIG.MIN_FRESHNESS_MS;
+     },
+     
+     forceUpdate: () => {
+       newFeatureStore.isLoading.set(true);
+       notifyUpdate();
+       
+       setTimeout(() => {
+         newFeatureStore.isLoading.set(false);
+         notifyUpdate();
+       }, 50);
+       
+       return true;
      }
    };
    ```
 
-4. **SDK Integration**:
-   - Add new SDK functions or extend existing ones in `src/hooks/useSdk.ts`
-   - Ensure proper error handling
-   - Document parameters and return types
+5. **Hook Implementation**:
+   - Create a new hook file in `src/hooks/`
+   - Connect SDK methods to store actions
+   - Implement proper component lifecycle management
+   - Use AppState for handling app foreground/background
+   - Add polling mechanism
+   - Handle errors gracefully
+   - Use Promise.allSettled for parallel data fetching
+   - Add memory management with isMounted ref
 
-   Example of extending SDK integration:
+   Example based on existing hook patterns:
    ```typescript
-   // Example: Adding a new SDK function
-   export const useSdk = () => {
-     const { sdk } = useSdkContext();
+   // src/hooks/useNewFeature.ts
+   import { useEffect, useRef, useState } from 'react';
+   import { AppState, AppStateStatus } from 'react-native';
+   import { useObservable } from '@legendapp/state/react';
+   import { useSdk } from './useSdk';
+   import { useSdkContext } from '../context/SdkContext';
+   import { newFeatureStore, newFeatureActions, NewFeatureData } from '../store/newFeatureStore';
+   import { NEW_FEATURE_CONFIG } from '../store/newFeatureStore';
+
+   interface UseNewFeatureResult {
+     data: NewFeatureData | null;
+     isLoading: boolean;
+     error: string | null;
+     refresh: (force?: boolean) => Promise<void>;
+     isStale: boolean;
+   }
+
+   export const useNewFeature = (id: string, isVisible = true): UseNewFeatureResult => {
+     const sdk = useSdk();
+     const { isInitialized } = useSdkContext();
+     const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+     const [fetchRequested, setFetchRequested] = useState(false);
+     const isStale = newFeatureActions.isDataStale(id);
      
-     // ... existing functions
+     // Get store data using observables
+     const itemObservable = useObservable(id ? newFeatureStore.items[id]?.data : null);
+     const isLoadingObservable = useObservable(newFeatureStore.isLoading);
+     const errorObservable = useObservable(newFeatureStore.error);
      
-     const newFeatureFunction = async (param1: string, param2: number): Promise<NewFeatureType> => {
-       try {
-         const result = await sdk.callNewFeatureEndpoint(param1, param2);
-         return result;
-       } catch (error) {
-         console.error('Error calling new feature endpoint:', error);
-         throw error;
+     // Refs for state management
+     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+     const appState = useRef(AppState.currentState);
+     const isMounted = useRef(true);
+     
+     // Set isMounted ref on mount/unmount
+     useEffect(() => {
+       isMounted.current = true;
+       return () => {
+         isMounted.current = false;
+       };
+     }, []);
+     
+     // App state change handler
+     useEffect(() => {
+       const subscription = AppState.addEventListener('change', handleAppStateChange);
+       return () => {
+         subscription.remove();
+       };
+     }, []);
+     
+     const handleAppStateChange = (nextAppState: AppStateStatus) => {
+       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+         // App has come to the foreground
+         if (isVisible && isMounted.current && id) {
+           fetchData(true);
+         }
+       }
+       appState.current = nextAppState;
+     };
+     
+     // Set up polling based on visibility
+     useEffect(() => {
+       if (isVisible && isInitialized && id) {
+         startPolling();
+         // Initial fetch
+         fetchData();
+       } else {
+         stopPolling();
+       }
+       
+       return () => {
+         stopPolling();
+       };
+     }, [isVisible, isInitialized, id]);
+     
+     const startPolling = () => {
+       if (!pollingIntervalRef.current && isVisible) {
+         pollingIntervalRef.current = setInterval(() => {
+           if (!isAutoRefreshing && !fetchRequested && isVisible && isMounted.current && id) {
+             fetchData();
+           }
+         }, NEW_FEATURE_CONFIG.REFRESH_INTERVAL_MS);
        }
      };
      
+     const stopPolling = () => {
+       if (pollingIntervalRef.current) {
+         clearInterval(pollingIntervalRef.current);
+         pollingIntervalRef.current = null;
+       }
+     };
+     
+     const fetchData = async (force = false) => {
+       // Skip if already fetching
+       if (fetchRequested) return;
+       
+       // Skip fetch if data is fresh enough and force is false
+       if (!force && !newFeatureActions.isDataStale(id)) {
+         return;
+       }
+       
+       try {
+         if (isMounted.current) {
+           setIsAutoRefreshing(true);
+           setFetchRequested(true);
+           newFeatureActions.setLoading(true);
+         }
+         
+         const result = await sdk.getNewFeatureData(id);
+         
+         if (isMounted.current) {
+           if (result) {
+             newFeatureActions.setItem(id, result);
+           }
+           newFeatureActions.setError(null);
+         }
+       } catch (error) {
+         console.error(`Error fetching data for ${id}:`, error);
+         
+         if (isMounted.current) {
+           newFeatureActions.setError(
+             error instanceof Error ? error.message : 'Unknown error occurred'
+           );
+         }
+       } finally {
+         if (isMounted.current) {
+           newFeatureActions.setLoading(false);
+           setFetchRequested(false);
+           
+           // Small delay before turning off refresh indicator
+           setTimeout(() => {
+             if (isMounted.current) {
+               setIsAutoRefreshing(false);
+             }
+           }, 500);
+         }
+       }
+     };
+     
+     // Public refresh function
+     const refresh = async (force = true) => {
+       await fetchData(force);
+     };
+     
      return {
-       // ... existing return values
-       newFeatureFunction
+       data: itemObservable?.get ? itemObservable.get() : null,
+       isLoading: isLoadingObservable?.get ? Boolean(isLoadingObservable.get()) : false,
+       error: errorObservable?.get ? String(errorObservable.get()) : null,
+       refresh,
+       isStale
      };
    };
    ```
 
-5. **Component Development**:
-   - Create new components in `src/components/`
-   - Ensure responsive design
-   - Use NativeWind for consistent styling
-   - Follow existing component patterns
+6. **Component Implementation**:
+   - Create new component in `src/components/`
+   - Use LegendApp's observer pattern
+   - Implement unwrapObservable function for safe access to observables
+   - Add responsive design with useWindowDimensions
+   - Include loading, error, and empty states
+   - Use consistent styling with NativeWind classes
 
-   Example of a new component:
+   Example based on existing component patterns:
    ```tsx
-   // Example: src/components/NewFeatureComponent.tsx
-   import React from 'react';
-   import { View, Text } from 'react-native';
-   import { useObservable } from '@legendapp/state/react';
-   import { blockchainStore } from '../store/blockchainStore';
+   // src/components/NewFeatureComponent.tsx
+   import React, { useState } from 'react';
+   import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+   import { observer } from '@legendapp/state/react';
+   import { useNewFeature } from '../hooks/useNewFeature';
+   import { Card, Row, Column } from '../components/Layout';
 
-   export const NewFeatureComponent: React.FC = () => {
-     const data = useObservable(blockchainStore.newFeature.data);
-     const isLoading = useObservable(blockchainStore.newFeature.isLoading);
-     const error = useObservable(blockchainStore.newFeature.error);
-     
-     if (isLoading) {
-       return (
-         <View className="p-4">
-           <Text className="text-white">Loading...</Text>
-         </View>
-       );
+   // Helper to unwrap observable values recursively
+   const unwrapObservable = (value: any): any => {
+     try {
+       // Handle undefined/null
+       if (value === undefined || value === null) {
+         return value;
+       }
+
+       // Handle observable with get method (LegendState observable)
+       if (typeof value === 'object' && value !== null) {
+         // Check if it has a get method that seems to be a function
+         if (typeof value.get === 'function') {
+           try {
+             const unwrappedValue = value.get();
+             // Recursively unwrap the result
+             return unwrapObservable(unwrappedValue);
+           } catch (e) {
+             console.warn('Error unwrapping observable with get():', e);
+             // Return original value if get() fails
+             return value;
+           }
+         }
+
+         // Handle Observable Proxy objects
+         if (value.constructor && value.constructor.name === 'Proxy') {
+           // Try to access the target if available
+           if (value.valueOf) {
+             try {
+               return unwrapObservable(value.valueOf());
+             } catch (e) {
+               // Silent fail and continue with normal object handling
+             }
+           }
+         }
+
+         // Handle arrays
+         if (Array.isArray(value)) {
+           try {
+             return value.map((item: any) => unwrapObservable(item));
+           } catch (e) {
+             console.warn('Error unwrapping array:', e);
+             return value;
+           }
+         }
+
+         // Handle plain objects
+         try {
+           const result: Record<string, any> = {};
+           for (const key in value) {
+             if (Object.prototype.hasOwnProperty.call(value, key)) {
+               result[key] = unwrapObservable(value[key]);
+             }
+           }
+           return result;
+         } catch (e) {
+           console.warn('Error unwrapping object:', e);
+           return value;
+         }
+       }
+
+       // Return primitives as is
+       return value;
+     } catch (e) {
+       console.warn('Unexpected error in unwrapObservable:', e);
+       // If all else fails, return the original value
+       return value;
      }
+   };
+
+   // Helper function to safely get values from observables
+   const getObservableValue = <T,>(value: any, defaultValue: T): T => {
+     return unwrapObservable(value) ?? defaultValue;
+   };
+
+   type NewFeatureComponentProps = {
+     id: string;
+     isVisible?: boolean;
+   };
+
+   export const NewFeatureComponent = observer(({ id, isVisible = true }: NewFeatureComponentProps) => {
+     const { width } = useWindowDimensions();
+     const isDesktop = width >= 768;
      
-     if (error) {
-       return (
-         <View className="p-4">
-           <Text className="text-red-500">Error: {error.message}</Text>
-         </View>
-       );
-     }
+     // Use our custom hook
+     const { data, isLoading, error, refresh, isStale } = useNewFeature(id, isVisible);
+     
+     const handleRefresh = () => {
+       refresh(true);
+     };
      
      return (
-       <View className="p-4 bg-gray-800 rounded-lg">
-         <Text className="text-white text-lg font-bold">New Feature</Text>
-         {data && (
-           <Text className="text-white mt-2">{JSON.stringify(data)}</Text>
-         )}
+       <View className="w-full mb-5">
+         <Card>
+           <View className="h-1 bg-primary/20" />
+           <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+             <Text className="text-white font-bold text-base">
+               Feature Details
+             </Text>
+             <View className="w-8 h-8 justify-center items-center">
+               {isLoading ? (
+                 <ActivityIndicator size="small" color="#E75A5C" />
+               ) : (
+                 <TouchableOpacity onPress={handleRefresh} className="p-2">
+                   <Text className="text-primary">Refresh</Text>
+                 </TouchableOpacity>
+               )}
+             </View>
+           </Row>
+           
+           <View className="p-4">
+             {/* Loading state */}
+             {isLoading && !data && (
+               <View className="py-4 items-center">
+                 <ActivityIndicator size="large" color="#E75A5C" />
+                 <Text className="text-white text-base mt-2">Loading data...</Text>
+               </View>
+             )}
+             
+             {/* Error state */}
+             {error && (
+               <View className="py-4 px-2">
+                 <Text className="text-red-500 text-base mb-2">Error: {error}</Text>
+                 <TouchableOpacity 
+                   className="bg-primary rounded-lg py-2 px-3 self-start"
+                   onPress={handleRefresh}
+                 >
+                   <Text className="text-white text-sm font-medium">Retry</Text>
+                 </TouchableOpacity>
+               </View>
+             )}
+             
+             {/* Data display */}
+             {!isLoading && !error && data && (
+               <View>
+                 <Row className="mb-4">
+                   <Column className="flex-1">
+                     <Text className="text-text-muted text-sm mb-1">ID</Text>
+                     <Text className="text-text-light text-base">{getObservableValue(data.id, '')}</Text>
+                   </Column>
+                   <Column className="flex-1">
+                     <Text className="text-text-muted text-sm mb-1">Value</Text>
+                     <Text className="text-text-light text-base">{getObservableValue(data.value, '')}</Text>
+                   </Column>
+                 </Row>
+                 
+                 <Text className="text-text-muted text-sm mb-1">Timestamp</Text>
+                 <Text className="text-text-light text-base">
+                   {new Date(getObservableValue(data.timestamp, 0)).toLocaleString()}
+                 </Text>
+               </View>
+             )}
+             
+             {/* Empty state */}
+             {!isLoading && !error && !data && (
+               <View className="py-6 items-center">
+                 <Text className="text-white text-base text-center">
+                   No data found
+                 </Text>
+               </View>
+             )}
+           </View>
+         </Card>
        </View>
      );
-   };
+   });
    ```
 
-6. **Screen Integration**:
-   - Add new screens in `src/screens/` or modify existing ones
-   - Integrate new components
-   - Implement navigation logic
+7. **Screen Integration**:
+   - Add new component to appropriate screen
+   - Pass required props
+   - Consider screen visibility for data fetching
 
-7. **Routing Updates**:
-   - Update or add route definitions in `app` directory
-   - Ensure proper parameter passing
-   - Implement deep linking support if needed
-
-   Example of adding a new route:
+   Example based on existing patterns:
    ```tsx
-   // Example: app/new-feature/[id].tsx
-   import React from 'react';
-   import { useLocalSearchParams } from 'expo-router';
-   import { NewFeatureScreen } from '../../src/screens/NewFeatureScreen';
+   // In src/screens/HomeScreen.tsx
 
-   export default function NewFeaturePage() {
-     const { id } = useLocalSearchParams();
-     return <NewFeatureScreen id={id as string} />;
-   }
+   // Add import
+   import { NewFeatureComponent } from '../components/NewFeatureComponent';
+
+   // In the render section
+   <Grid cols={1} gap={6} fullBleed={true} className="mb-4">
+     {/* Existing components */}
+     <BlockchainMetrics />
+     <SupplyStats isVisible={isScreenVisible} />
+     
+     {/* New feature component */}
+     <NewFeatureComponent id="feature-id" isVisible={isScreenVisible} />
+
+     {/* Other components */}
+     <TransactionsList
+       testID="transactions-list"
+       onRefresh={handleRefresh}
+       initialLimit={appConfig.transactions.defaultLimit}
+       onLimitChange={handleLimitChange}
+     />
+   </Grid>
    ```
 
 ### 3. Testing Phase
 
-Implement comprehensive tests for the new feature:
+Implement comprehensive tests for the new feature, following established patterns:
 
-1. **Unit Tests**:
-   - Add tests for new functions and hooks
-   - Test store actions and state updates
-   - Place tests in `src/tests/` directory
+1. **Unit Testing**:
+   - Test SDK extension methods
+     - Test successful data fetching
+     - Test error handling
+     - Test data normalization
+   - Test store actions
+     - Test state updates
+     - Test data staleness checks
+   - Test hook functionality with mocked SDK
+     - Test fetching logic
+     - Test polling behavior
+     - Test app state change handling
 
-   Example of a unit test:
-   ```tsx
-   // Example: src/tests/hooks/useNewFeature.test.tsx
+   Example based on existing testing patterns:
+   ```typescript
+   // src/tests/hooks/useNewFeature.test.ts
    import { renderHook, act } from '@testing-library/react-hooks';
    import { useNewFeature } from '../../hooks/useNewFeature';
    import { useSdk } from '../../hooks/useSdk';
+   import { newFeatureStore, newFeatureActions } from '../../store/newFeatureStore';
 
    // Mock dependencies
    jest.mock('../../hooks/useSdk', () => ({
      useSdk: jest.fn()
    }));
 
+   jest.mock('../../context/SdkContext', () => ({
+     useSdkContext: () => ({
+       isInitialized: true
+     })
+   }));
+
+   jest.mock('react-native', () => ({
+     AppState: {
+       currentState: 'active',
+       addEventListener: jest.fn(() => ({
+         remove: jest.fn()
+       }))
+     }
+   }));
+
    describe('useNewFeature', () => {
      beforeEach(() => {
        jest.clearAllMocks();
+       
+       // Reset store
+       newFeatureActions.setLoading(false);
+       newFeatureActions.setError(null);
      });
 
      it('should fetch data successfully', async () => {
-       const mockData = { id: '123', value: 'test' };
+       const mockData = { id: 'test-id', value: 'test-value', timestamp: 123456789 };
+       
+       // Mock SDK method
        (useSdk as jest.Mock).mockReturnValue({
-         newFeatureFunction: jest.fn().mockResolvedValue(mockData)
+         getNewFeatureData: jest.fn().mockResolvedValue(mockData)
        });
 
-       const { result, waitForNextUpdate } = renderHook(() => useNewFeature());
+       const { result, waitForNextUpdate } = renderHook(() => useNewFeature('test-id', true));
        
-       act(() => {
-         result.current.fetchData('123');
-       });
-       
+       // Should start loading
        expect(result.current.isLoading).toBe(true);
        
        await waitForNextUpdate();
        
+       // Should finish loading with data
        expect(result.current.isLoading).toBe(false);
        expect(result.current.data).toEqual(mockData);
        expect(result.current.error).toBeNull();
@@ -224,81 +686,177 @@ Implement comprehensive tests for the new feature:
 
      it('should handle errors', async () => {
        const mockError = new Error('Test error');
+       
+       // Mock SDK method to throw error
        (useSdk as jest.Mock).mockReturnValue({
-         newFeatureFunction: jest.fn().mockRejectedValue(mockError)
+         getNewFeatureData: jest.fn().mockRejectedValue(mockError)
        });
 
-       const { result, waitForNextUpdate } = renderHook(() => useNewFeature());
+       const { result, waitForNextUpdate } = renderHook(() => useNewFeature('test-id', true));
        
-       act(() => {
-         result.current.fetchData('123');
-       });
+       // Should start loading
+       expect(result.current.isLoading).toBe(true);
        
        await waitForNextUpdate();
        
+       // Should finish loading with error
        expect(result.current.isLoading).toBe(false);
        expect(result.current.data).toBeNull();
-       expect(result.current.error).toBe(mockError);
+       expect(result.current.error).toEqual('Test error');
+     });
+
+     it('should not fetch if not visible', async () => {
+       const mockFn = jest.fn();
+       (useSdk as jest.Mock).mockReturnValue({
+         getNewFeatureData: mockFn
+       });
+
+       renderHook(() => useNewFeature('test-id', false));
+       
+       // Should not call SDK method
+       expect(mockFn).not.toHaveBeenCalled();
+     });
+
+     it('should refresh data when called', async () => {
+       const mockData = { id: 'test-id', value: 'test-value', timestamp: 123456789 };
+       const mockFn = jest.fn().mockResolvedValue(mockData);
+       
+       (useSdk as jest.Mock).mockReturnValue({
+         getNewFeatureData: mockFn
+       });
+
+       const { result, waitForNextUpdate } = renderHook(() => useNewFeature('test-id', true));
+       
+       await waitForNextUpdate();
+       
+       // First call completes
+       expect(mockFn).toHaveBeenCalledTimes(1);
+       
+       // Trigger refresh
+       act(() => {
+         result.current.refresh(true);
+       });
+       
+       // Should call SDK method again
+       expect(mockFn).toHaveBeenCalledTimes(2);
      });
    });
    ```
 
-2. **Component Tests**:
-   - Test component rendering and interactions
-   - Test different states (loading, error, success)
+2. **Component Testing**:
+   - Test component rendering
+   - Test loading/error/empty states
+   - Test user interactions
 
-   Example of a component test:
+   Example based on existing component testing patterns:
    ```tsx
-   // Example: src/tests/components/NewFeatureComponent.test.tsx
+   // src/tests/components/NewFeatureComponent.test.tsx
    import React from 'react';
-   import { render, screen } from '@testing-library/react-native';
+   import { render, screen, fireEvent } from '@testing-library/react-native';
    import { NewFeatureComponent } from '../../components/NewFeatureComponent';
-   import { blockchainStore } from '../../store/blockchainStore';
+   import { useNewFeature } from '../../hooks/useNewFeature';
 
-   jest.mock('@legendapp/state/react', () => ({
-     useObservable: jest.fn(selector => {
-       if (selector === blockchainStore.newFeature.isLoading) return false;
-       if (selector === blockchainStore.newFeature.error) return null;
-       if (selector === blockchainStore.newFeature.data) return { id: '123', value: 'test' };
-       return undefined;
-     })
+   // Mock the hook
+   jest.mock('../../hooks/useNewFeature', () => ({
+     useNewFeature: jest.fn()
    }));
 
    describe('NewFeatureComponent', () => {
-     it('renders data correctly', () => {
-       render(<NewFeatureComponent />);
-       
-       expect(screen.getByText('New Feature')).toBeTruthy();
-       expect(screen.getByText(/"id":"123"/)).toBeTruthy();
+     // Mock refresh function
+     const mockRefresh = jest.fn();
+     
+     beforeEach(() => {
+       jest.clearAllMocks();
      });
      
-     // Add more tests for loading and error states
+     it('renders loading state', () => {
+       // Mock loading state
+       (useNewFeature as jest.Mock).mockReturnValue({
+         data: null,
+         isLoading: true,
+         error: null,
+         refresh: mockRefresh,
+         isStale: false
+       });
+       
+       render(<NewFeatureComponent id="test-id" />);
+       
+       // Check for loading indicator
+       expect(screen.getByText('Loading data...')).toBeTruthy();
+     });
+     
+     it('renders error state', () => {
+       // Mock error state
+       (useNewFeature as jest.Mock).mockReturnValue({
+         data: null,
+         isLoading: false,
+         error: 'Test error',
+         refresh: mockRefresh,
+         isStale: false
+       });
+       
+       render(<NewFeatureComponent id="test-id" />);
+       
+       // Check for error message
+       expect(screen.getByText('Error: Test error')).toBeTruthy();
+     });
+     
+     it('renders data correctly', () => {
+       // Mock data state
+       (useNewFeature as jest.Mock).mockReturnValue({
+         data: {
+           id: 'test-id',
+           value: 'test-value',
+           timestamp: 1625097600000 // July 1, 2021
+         },
+         isLoading: false,
+         error: null,
+         refresh: mockRefresh,
+         isStale: false
+       });
+       
+       render(<NewFeatureComponent id="test-id" />);
+       
+       // Check for data elements
+       expect(screen.getByText('test-id')).toBeTruthy();
+       expect(screen.getByText('test-value')).toBeTruthy();
+     });
+     
+     it('calls refresh when button clicked', () => {
+       // Mock data state with refresh function
+       (useNewFeature as jest.Mock).mockReturnValue({
+         data: {
+           id: 'test-id',
+           value: 'test-value',
+           timestamp: 1625097600000
+         },
+         isLoading: false,
+         error: null,
+         refresh: mockRefresh,
+         isStale: false
+       });
+       
+       render(<NewFeatureComponent id="test-id" />);
+       
+       // Find and click refresh button
+       const refreshButton = screen.getByText('Refresh');
+       fireEvent.press(refreshButton);
+       
+       // Check if refresh was called
+       expect(mockRefresh).toHaveBeenCalledWith(true);
+     });
    });
    ```
 
-3. **End-to-End Tests**:
-   - Add Cypress tests for key user flows
-   - Test integration with other features
+3. **Integration Testing**:
+   - Test data flow through the entire feature pipeline
+   - Test component integration in screens
+   - Test interactions with other components
 
-   Example of a Cypress test:
-   ```javascript
-   // Example: cypress/e2e/new-feature.cy.js
-   describe('New Feature', () => {
-     beforeEach(() => {
-       cy.visit('/new-feature/123');
-     });
-
-     it('displays new feature data correctly', () => {
-       cy.get('[data-testid="new-feature-title"]').should('contain', 'New Feature');
-       cy.get('[data-testid="new-feature-data"]').should('be.visible');
-     });
-
-     it('navigates back to home', () => {
-       cy.get('[data-testid="back-button"]').click();
-       cy.url().should('eq', Cypress.config().baseUrl + '/');
-     });
-   });
-   ```
+4. **End-to-End Testing**:
+   - Test feature with real blockchain data
+   - Verify UI behavior in different states
+   - Verify polling behavior during app lifecycle changes
 
 ### 4. Documentation Phase
 
@@ -315,6 +873,7 @@ Implement comprehensive tests for the new feature:
 3. **Update Context Documentation**:
    - Add feature details to appropriate context documents
    - Update test summary with new test coverage
+   - Add comprehensive task list with difficulty ratings for future reference
 
 ### 5. Review and Merge
 
@@ -336,437 +895,128 @@ Implement comprehensive tests for the new feature:
    - Merge into main branch
    - Delete feature branch after successful merge
 
-## Common Extension Patterns
+## Task Breakdown Methodology
 
-### Adding a New Data Type
+Breaking down complex tasks is essential for successful implementation. Follow these guidelines:
 
-1. **Define types**:
-   ```typescript
-   // src/types/newFeature.ts
-   export interface NewFeatureType {
-     id: string;
-     name: string;
-     value: number;
-     timestamp: number;
-   }
-   ```
+1. **Use Difficulty Ratings**:
+   - Assign a difficulty rating (1-10) to every task and subtask
+   - Tasks with difficulty > 5 should be broken down further
+   - Balance task difficulty across team members
 
-2. **Add to store**:
-   ```typescript
-   // src/store/newFeatureStore.ts
-   import { observable } from '@legendapp/state';
-   import { NewFeatureType } from '../types/newFeature';
+2. **Task Types by Data Flow Layer**:
+   - **SDK Extension Tasks**:
+     - API integration
+     - Data normalization
+     - Error handling
+   - **Store Tasks**:
+     - State structure design
+     - Action implementations
+     - Update mechanisms
+   - **Hook Tasks**:
+     - Data fetching logic
+     - Lifecycle management
+     - Polling implementation
+   - **Component Tasks**:
+     - UI state handling
+     - Responsive design
+     - User interaction
 
-   export const newFeatureStore = observable({
-     items: {} as Record<string, NewFeatureType>,
-     selectedId: null as string | null,
-     isLoading: false,
-     error: null as Error | null
-   });
+3. **Measurable Subtasks**:
+   - Break implementation into clear, measurable steps
+   - Include specific code edits for each subtask
+   - Create "Definition of Done" criteria for each task
 
-   export const newFeatureActions = {
-     setItems: (items: Record<string, NewFeatureType>) => {
-       newFeatureStore.items.set(items);
-     },
-     setSelectedId: (id: string | null) => {
-       newFeatureStore.selectedId.set(id);
-     },
-     setLoading: (isLoading: boolean) => {
-       newFeatureStore.isLoading.set(isLoading);
-     },
-     setError: (error: Error | null) => {
-       newFeatureStore.error.set(error);
-     }
-   };
-   ```
+Example of proper task breakdown:
+```
+Task: Implement Hook
+  Subtasks:
+  - [ ] (1) Create hook file structure
+  - [ ] (3) Define return type interface
+  - [ ] (4) Implement SDK and store connections
+  - [ ] (4) Add state management for lifecycle
+    - [ ] (2) Set up isMounted ref
+    - [ ] (3) Add useEffect for initialization
+    - [ ] (3) Implement AppState listener
+  - [ ] (5) Implement data fetching
+    - [ ] (3) Add fetch method with force refresh
+    - [ ] (4) Implement error handling
+    - [ ] (3) Add data transformation
+  - [ ] (4) Add polling mechanism
+    - [ ] (3) Implement interval management
+    - [ ] (4) Handle visibility changes
+  - [ ] (3) Add memory management
+    - [ ] (2) Clear intervals on unmount
+    - [ ] (2) Remove event listeners
+    - [ ] (3) Prevent state updates after unmount
+```
 
-3. **Create hooks**:
-   ```typescript
-   // src/hooks/useNewFeature.ts
-   import { useCallback, useEffect } from 'react';
-   import { useObservable } from '@legendapp/state/react';
-   import { useSdk } from './useSdk';
-   import { newFeatureStore, newFeatureActions } from '../store/newFeatureStore';
+When working through tasks, use the following checkbox states:
+- `[ ]` Task not yet started
+- `[~]` Task in progress
+- `[x]` Task completed
 
-   export const useNewFeature = (id?: string) => {
-     const sdk = useSdk();
-     const items = useObservable(newFeatureStore.items);
-     const selectedId = useObservable(newFeatureStore.selectedId);
-     const isLoading = useObservable(newFeatureStore.isLoading);
-     const error = useObservable(newFeatureStore.error);
+Note that any task with a difficulty rating greater than 5 should be broken down into smaller subtasks to make implementation more manageable.
 
-     const fetchData = useCallback(async () => {
-       if (!id) return;
-       
-       newFeatureActions.setLoading(true);
-       newFeatureActions.setError(null);
-       
-       try {
-         const data = await sdk.getNewFeature(id);
-         newFeatureActions.setItems({ ...items, [id]: data });
-         newFeatureActions.setSelectedId(id);
-       } catch (err) {
-         newFeatureActions.setError(err instanceof Error ? err : new Error(String(err)));
-       } finally {
-         newFeatureActions.setLoading(false);
-       }
-     }, [id, sdk, items]);
+## Observable State Management
 
-     useEffect(() => {
-       if (id) {
-         fetchData();
-       }
-     }, [id, fetchData]);
+The OL Explorer uses LegendApp for observable state management. Follow these patterns:
 
-     return {
-       data: id ? items[id] : null,
-       isLoading,
-       error,
-       fetchData
-     };
-   };
-   ```
+1. **Store Structure**:
+   - Use record-based structure for collections (key-value objects)
+   - Separate loading, error, and data states
+   - Track timestamps for data freshness
 
-### Adding a New Screen
+2. **Observable Unwrapping**:
+   - Always implement the `unwrapObservable` function in components
+   - Use `getObservableValue` helper with fallbacks
+   - Handle nested observables recursively
 
-1. **Create screen component**:
-   ```tsx
-   // src/screens/NewFeatureScreen.tsx
-   import React from 'react';
-   import { View, Text, ScrollView } from 'react-native';
-   import { useNewFeature } from '../hooks/useNewFeature';
-   import { NewFeatureComponent } from '../components/NewFeatureComponent';
+3. **Performance Optimization**:
+   - Use `peek()` for reads that shouldn't trigger reactivity
+   - Use batched updates when changing multiple values
+   - Implement data staleness checks to prevent unnecessary fetches
 
-   export interface NewFeatureScreenProps {
-     id: string;
-   }
+## Memory Management
 
-   export const NewFeatureScreen: React.FC<NewFeatureScreenProps> = ({ id }) => {
-     const { data, isLoading, error } = useNewFeature(id);
+Proper memory management is critical for React Native apps:
 
-     if (isLoading) {
-       return (
-         <View className="flex-1 bg-background justify-center items-center">
-           <Text className="text-white text-lg">Loading...</Text>
-         </View>
-       );
-     }
+1. **Component Lifecycle**:
+   - Track mount state with `isMounted.current = true/false`
+   - Check mount state before setting state
+   - Clear all timers and listeners on unmount
 
-     if (error) {
-       return (
-         <View className="flex-1 bg-background p-4">
-           <Text className="text-red-500 text-lg">Error: {error.message}</Text>
-         </View>
-       );
-     }
+2. **Preventing Memory Leaks**:
+   - Use AbortController for cancellable fetch requests
+   - Remove event listeners in cleanup functions
+   - Clear setInterval/setTimeout in useEffect cleanup
 
-     if (!data) {
-       return (
-         <View className="flex-1 bg-background p-4">
-           <Text className="text-white text-lg">No data found for ID: {id}</Text>
-         </View>
-       );
-     }
+3. **AppState Handling**:
+   - Re-fetch data when app comes to foreground
+   - Pause polling when app is in background
+   - Track app state with ref to avoid unnecessary re-renders
 
-     return (
-       <ScrollView className="flex-1 bg-background">
-         <View className="p-4">
-           <Text className="text-white text-2xl font-bold mb-4">Feature Details</Text>
-           <NewFeatureComponent data={data} />
-         </View>
-       </ScrollView>
-     );
-   };
-   ```
+## Error Handling Strategy
 
-2. **Add route**:
-   ```tsx
-   // app/new-feature/[id].tsx
-   import React from 'react';
-   import { useLocalSearchParams } from 'expo-router';
-   import { NewFeatureScreen } from '../../src/screens/NewFeatureScreen';
+Implement consistent error handling throughout the app:
 
-   export default function NewFeaturePage() {
-     const { id } = useLocalSearchParams();
-     return <NewFeatureScreen id={id as string} />;
-   }
-   ```
+1. **SDK Layer**:
+   - Use try/catch for all async operations
+   - Log errors with descriptive messages
+   - Return fallback values instead of throwing errors
 
-## Best Practices
+2. **Hook Layer**:
+   - Propagate errors to store
+   - Show appropriate UI feedback
+   - Implement retry mechanisms
 
-### Code Quality
-
-1. **Follow TypeScript Best Practices**:
-   - Use explicit types instead of `any`
-   - Use interfaces for object structures
-   - Use type guards for narrowing
-
-2. **Component Structure**:
-   - Keep components focused on a single responsibility
-   - Extract reusable logic to custom hooks
-   - Use proper prop typing
-
-3. **State Management**:
-   - Follow the established observable pattern
-   - Keep related state together
-   - Use actions for state modifications
-
-### Performance Optimization
-
-1. **Memoization**:
-   - Use `React.memo` for components that render often but change rarely
-   - Use `useCallback` for function references
-   - Use `useMemo` for expensive calculations
-
-2. **List Rendering**:
-   - Use `FlatList` or `SectionList` for long lists
-   - Implement proper key handling
-   - Use pagination for large datasets
-
-3. **Async Operations**:
-   - Implement loading states
-   - Handle errors gracefully
-   - Use cancellation tokens for abortable requests
-
-### Testing Focus Areas
-
-1. **Critical User Flows**:
-   - Prioritize tests for main user journeys
-   - Test edge cases thoroughly
-   - Verify error handling
-
-2. **State Management**:
-   - Test state transitions
-   - Verify action behavior
-   - Test selectors and derived state
-
-3. **Component Rendering**:
-   - Test component appearance in different states
-   - Test responsive behavior
-   - Test accessibility features
-
-## How to Add Specific Feature Types
-
-### Adding a New API Integration
-
-1. **SDK Extension**:
-   ```typescript
-   // src/hooks/useSdk.ts
-   const getNewApiData = async (param1: string, param2: number) => {
-     try {
-       const result = await sdk.callNewApi(param1, param2);
-       return result;
-     } catch (error) {
-       console.error('Error calling new API:', error);
-       throw error;
-     }
-   };
-   ```
-
-2. **Hook Implementation**:
-   ```typescript
-   // src/hooks/useNewApiData.ts
-   export const useNewApiData = () => {
-     const sdk = useSdk();
-     const [data, setData] = useState<ApiDataType | null>(null);
-     const [isLoading, setIsLoading] = useState(false);
-     const [error, setError] = useState<Error | null>(null);
-
-     const fetchData = useCallback(async (param1: string, param2: number) => {
-       setIsLoading(true);
-       setError(null);
-       
-       try {
-         const result = await sdk.getNewApiData(param1, param2);
-         setData(result);
-       } catch (err) {
-         setError(err instanceof Error ? err : new Error(String(err)));
-       } finally {
-         setIsLoading(false);
-       }
-     }, [sdk]);
-
-     return { data, isLoading, error, fetchData };
-   };
-   ```
-
-### Adding a New UI Theme
-
-1. **Define Theme Colors**:
-   ```typescript
-   // src/theme/colors.ts
-   export const lightTheme = {
-     background: '#ffffff',
-     text: '#000000',
-     primary: '#E75A5C',
-     secondary: '#4A5568',
-     card: '#f5f5f5',
-     border: '#e2e8f0'
-   };
-
-   export const darkTheme = {
-     background: '#1A202C',
-     text: '#ffffff',
-     primary: '#E75A5C',
-     secondary: '#CBD5E0',
-     card: '#2D3748',
-     border: '#4A5568'
-   };
-   ```
-
-2. **Theme Context**:
-   ```typescript
-   // src/context/ThemeContext.tsx
-   import React, { createContext, useState, useContext, useEffect } from 'react';
-   import { useColorScheme } from 'react-native';
-   import AsyncStorage from '@react-native-async-storage/async-storage';
-   import { lightTheme, darkTheme } from '../theme/colors';
-
-   type ThemeType = 'light' | 'dark' | 'system';
-
-   interface ThemeContextType {
-     theme: typeof lightTheme | typeof darkTheme;
-     themeType: ThemeType;
-     setThemeType: (type: ThemeType) => void;
-     isDark: boolean;
-   }
-
-   const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-   export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-     const systemColorScheme = useColorScheme();
-     const [themeType, setThemeType] = useState<ThemeType>('system');
-     
-     useEffect(() => {
-       const loadTheme = async () => {
-         try {
-           const savedTheme = await AsyncStorage.getItem('themeType');
-           if (savedTheme) {
-             setThemeType(savedTheme as ThemeType);
-           }
-         } catch (error) {
-           console.error('Failed to load theme preference:', error);
-         }
-       };
-       
-       loadTheme();
-     }, []);
-     
-     const setThemeTypeAndSave = (type: ThemeType) => {
-       setThemeType(type);
-       AsyncStorage.setItem('themeType', type).catch(error => {
-         console.error('Failed to save theme preference:', error);
-       });
-     };
-     
-     const isDark = themeType === 'dark' || (themeType === 'system' && systemColorScheme === 'dark');
-     const theme = isDark ? darkTheme : lightTheme;
-     
-     return (
-       <ThemeContext.Provider value={{ theme, themeType, setThemeType: setThemeTypeAndSave, isDark }}>
-         {children}
-       </ThemeContext.Provider>
-     );
-   };
-
-   export const useTheme = () => {
-     const context = useContext(ThemeContext);
-     if (!context) {
-       throw new Error('useTheme must be used within a ThemeProvider');
-     }
-     return context;
-   };
-   ```
-
-### Adding a New Chart/Visualization
-
-1. **Install Chart Library**:
-   ```bash
-   npm install victory-native
-   ```
-
-2. **Create Chart Component**:
-   ```tsx
-   // src/components/BlockchainChart.tsx
-   import React from 'react';
-   import { View, Text, Dimensions } from 'react-native';
-   import { VictoryLine, VictoryChart, VictoryAxis, VictoryTheme } from 'victory-native';
-   import { useBlockchainData } from '../hooks/useBlockchainData';
-
-   export interface BlockchainChartProps {
-     title: string;
-     dataType: 'transactions' | 'blockTime' | 'gasUsage';
-     timeRange: '24h' | '7d' | '30d';
-   }
-
-   export const BlockchainChart: React.FC<BlockchainChartProps> = ({ title, dataType, timeRange }) => {
-     const { data, isLoading, error } = useBlockchainData(dataType, timeRange);
-     const screenWidth = Dimensions.get('window').width;
-     
-     if (isLoading) {
-       return (
-         <View className="p-4 bg-gray-800 rounded-lg">
-           <Text className="text-white text-lg font-bold">{title}</Text>
-           <Text className="text-gray-400 mt-2">Loading chart data...</Text>
-         </View>
-       );
-     }
-     
-     if (error) {
-       return (
-         <View className="p-4 bg-gray-800 rounded-lg">
-           <Text className="text-white text-lg font-bold">{title}</Text>
-           <Text className="text-red-500 mt-2">Error: {error.message}</Text>
-         </View>
-       );
-     }
-     
-     if (!data || data.length === 0) {
-       return (
-         <View className="p-4 bg-gray-800 rounded-lg">
-           <Text className="text-white text-lg font-bold">{title}</Text>
-           <Text className="text-gray-400 mt-2">No data available</Text>
-         </View>
-       );
-     }
-     
-     return (
-       <View className="p-4 bg-gray-800 rounded-lg">
-         <Text className="text-white text-lg font-bold mb-2">{title}</Text>
-         <VictoryChart
-           width={screenWidth - 40}
-           height={300}
-           theme={VictoryTheme.material}
-           domainPadding={{ x: 10 }}
-         >
-           <VictoryAxis
-             tickFormat={(x) => new Date(x).toLocaleDateString()}
-             style={{
-               axis: { stroke: '#718096' },
-               tickLabels: { fill: '#CBD5E0', fontSize: 10, angle: -45 }
-             }}
-           />
-           <VictoryAxis
-             dependentAxis
-             style={{
-               axis: { stroke: '#718096' },
-               tickLabels: { fill: '#CBD5E0', fontSize: 10 }
-             }}
-           />
-           <VictoryLine
-             data={data}
-             x="timestamp"
-             y="value"
-             style={{
-               data: { stroke: '#E75A5C', strokeWidth: 2 }
-             }}
-           />
-         </VictoryChart>
-       </View>
-     );
-   };
-   ```
+3. **Component Layer**:
+   - Display user-friendly error messages
+   - Provide retry options
+   - Gracefully degrade functionality
 
 ## Conclusion
 
-By following this feature extension guide, you can add new functionality to the OL Explorer project while maintaining code quality, test coverage, and adherence to the established architecture. The guide provides patterns and examples for common extension scenarios, making it easier to implement new features consistently. 
+By following this comprehensive feature extension guide, you can successfully add new functionality to the OL Explorer project while maintaining code quality, test coverage, and adherence to the established architecture. The guide ensures consistent implementation across all layers of the application, from SDK methods to UI components.
+
+Always refer to existing implementations in the codebase for examples of these patterns in action. The AccountDetails and BlockchainMetrics components provide excellent reference implementations of the complete data flow pattern. 
