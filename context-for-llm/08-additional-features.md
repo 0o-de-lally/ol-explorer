@@ -1431,6 +1431,135 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
 
 Following this pattern ensures that all components on the HomeScreen have a cohesive and professional appearance.
 
+### Table Header Styling Pattern
+
+For components that display tabular data (like TransactionsList and CommunityWallets), maintain a consistent table header styling pattern:
+
+```tsx
+// Inside your component
+const renderTableHeader = () => {
+  if (!isDesktop) return null; // Only show table headers on desktop
+
+  return (
+    <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+      <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN ONE</Text>
+      <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN TWO</Text>
+      <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN THREE</Text>
+      <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN FOUR</Text>
+    </View>
+  );
+};
+
+// In the render section
+return (
+  <View className="w-full mb-5">
+    <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+      <View className="h-1 bg-primary/20" />
+      {/* Component header */}
+      <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+        {/* ... header content ... */}
+      </Row>
+      
+      {/* Table header - rendered conditionally */}
+      {renderTableHeader()}
+      
+      {/* Component content */}
+      <View className="p-4">
+        {/* ... component content ... */}
+      </View>
+    </View>
+  </View>
+);
+```
+
+#### Key Table Header Styling Elements
+
+1. **Responsive Rendering**:
+   - Only render table headers on desktop: `if (!isDesktop) return null;`
+   - Use a mobile-friendly card layout for smaller screens
+
+2. **Header Container Styling**:
+   - Use `flex flex-row` for horizontal layout
+   - Apply consistent padding: `py-2.5 px-4`
+   - Use background color: `bg-background`
+   - Add bottom border: `border-b border-border w-full`
+
+3. **Column Header Text Styling**:
+   - Bold and muted text: `font-bold text-text-muted`
+   - Consistent text size: `text-sm`
+   - Use uppercase for labels: `COLUMN NAME`
+   - Add `truncate` to handle overflow
+   - Use system font: `font-sans`
+
+4. **Column Width Distribution**:
+   - Use proportional widths based on content needs (e.g., `w-1/6`, `w-2/5`)
+   - Ensure all width values sum to 100%
+   - Adjust distribution based on content importance
+
+5. **Table Row Consistency**:
+   - Match the table rows to the header structure
+   - Apply consistent padding and borders
+   - Ensure columns align with header columns
+
+#### Implementation Guidelines
+
+When implementing tables in your components:
+
+1. Create a separate `renderTableHeader()` method for clean code organization
+2. Conditionally render headers based on screen size
+3. Add table header after the component header and before content
+4. Match table row column widths with the header column widths
+5. Use appropriate text alignment based on content type:
+   - Left-align text content (`text-left`)
+   - Center-align status indicators (`text-center`)
+   - Right-align numeric values (`text-right`)
+
+Example of a component with proper table header implementation:
+
+```tsx
+export const TransactionsList = observer(({ isVisible = true }) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  const { transactions } = useTransactions();
+  
+  const renderTableHeader = () => {
+    if (!isDesktop) return null;
+
+    return (
+      <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">VERSION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">TX HASH</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">STATUS</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/6 font-sans text-center truncate">FUNCTION</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/6 font-sans text-center truncate">TIME</Text>
+      </View>
+    );
+  };
+  
+  return (
+    <View className="w-full mb-5">
+      <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+        <View className="h-1 bg-primary/20" />
+        <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+          <Text className="text-white font-bold text-base">
+            Transactions {transactions.length > 0 && `(${transactions.length})`}
+          </Text>
+          {/* Refresh control */}
+        </Row>
+        
+        {renderTableHeader()}
+        
+        <View className="p-4">
+          {/* Transactions content */}
+        </View>
+      </View>
+    </View>
+  );
+});
+```
+
+Following this table header pattern ensures that all tabular data in the application is presented consistently and adapts properly to different screen sizes.
+
 ## Conclusion
 
 By following this comprehensive feature extension guide, you can successfully add new functionality to the OL Explorer project while maintaining code quality, test coverage, and adherence to the established architecture. The guide ensures consistent implementation across all layers of the application, from SDK methods to UI components.

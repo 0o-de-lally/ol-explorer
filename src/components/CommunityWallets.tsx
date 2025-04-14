@@ -38,6 +38,12 @@ const formatBalance = (balance: number): string => {
         : `${wholePartFormatted}.${trimmedFractional} ${tokenConfig.tokens.libraToken.symbol}`;
 };
 
+// Format wallet address for display
+const formatAddressDisplay = (address: string) => {
+    if (address.length <= 12) return address;
+    return formatAddressForDisplay(address, 4, 4);
+};
+
 type CommunityWalletsProps = {
     isVisible?: boolean;
 };
@@ -83,6 +89,19 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
             });
     };
 
+    // Render table header - only shown on desktop
+    const renderTableHeader = () => {
+        if (!isDesktop) return null;
+
+        return (
+            <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">ADDRESS</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">NAME</Text>
+                <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-right truncate">BALANCE</Text>
+            </View>
+        );
+    };
+
     // Initial loading state with no wallets - same pattern as TransactionsList
     if (isLoading && wallets.length === 0) {
         return (
@@ -125,6 +144,9 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                     </View>
                 </Row>
 
+                {/* Add table header */}
+                {renderTableHeader()}
+
                 <View className="p-4">
                     {/* Error state */}
                     {error && (
@@ -145,43 +167,30 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                             {/* Desktop view */}
                             {isDesktop ? (
                                 <View>
-                                    {/* Table headers */}
-                                    <Row className="border-b border-border pb-2 mb-2">
-                                        <View className="flex-1">
-                                            <Text className="text-text-muted text-sm">Address</Text>
-                                        </View>
-                                        <View className="flex-2">
-                                            <Text className="text-text-muted text-sm">Name</Text>
-                                        </View>
-                                        <View className="flex-1">
-                                            <Text className="text-text-muted text-sm text-right">Balance</Text>
-                                        </View>
-                                    </Row>
-
                                     {/* Table rows */}
                                     {wallets.map((wallet: CommunityWalletData) => (
-                                        <Row key={wallet.address} className="py-2 border-b border-border/30">
-                                            <View className="flex-1">
+                                        <View key={wallet.address} className="flex flex-row py-3 px-4 w-full border-b border-border/30">
+                                            <View className="w-2/5">
                                                 <TouchableOpacity onPress={() => copyToClipboard(wallet.address)}>
                                                     <View className="flex-row items-center">
                                                         <Text className="text-text-light font-mono text-sm mr-1">
-                                                            {formatAddressForDisplay(wallet.address, 6, 4)}
+                                                            {formatAddressDisplay(wallet.address)}
                                                         </Text>
                                                         <Ionicons name="copy-outline" size={14} color="#A0AEC0" />
                                                     </View>
                                                 </TouchableOpacity>
                                             </View>
-                                            <View className="flex-2">
+                                            <View className="w-2/5">
                                                 <Text className="text-text-light text-sm">
                                                     {wallet.name || 'Community Wallet'}
                                                 </Text>
                                             </View>
-                                            <View className="flex-1">
+                                            <View className="w-1/5">
                                                 <Text className="text-text-light font-mono text-sm text-right">
                                                     {formatBalance(wallet.balance || 0)}
                                                 </Text>
                                             </View>
-                                        </Row>
+                                        </View>
                                     ))}
                                 </View>
                             ) : (
@@ -195,7 +204,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                                             <TouchableOpacity onPress={() => copyToClipboard(wallet.address)}>
                                                 <View className="flex-row items-center mb-2">
                                                     <Text className="text-text-light font-mono text-sm mr-1">
-                                                        {formatAddressForDisplay(wallet.address, 6, 4)}
+                                                        {formatAddressDisplay(wallet.address)}
                                                     </Text>
                                                     <Ionicons name="copy-outline" size={14} color="#A0AEC0" />
                                                 </View>

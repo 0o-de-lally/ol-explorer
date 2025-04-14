@@ -529,13 +529,15 @@ Create a new file `src/components/CommunityWallets.tsx` that implements the UI f
 [ ] (1) Create the component file structure:
 ```typescript
 import React, { useCallback } from 'react';
-import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useCommunityWallets } from 'src/hooks/useCommunityWallets';
 import { RefreshCircle } from 'src/components/Icons';
 import { formatAddress } from 'src/utils/format';
 import { Row } from 'src/components/Layout';
 
 export function CommunityWallets() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { 
     communityWallets, 
     isLoading, 
@@ -552,6 +554,19 @@ export function CommunityWallets() {
       console.error('Manual refresh failed:', err);
     }
   }, [refresh]);
+  
+  // Render table header - only shown on desktop
+  const renderTableHeader = () => {
+    if (!isDesktop) return null;
+
+    return (
+      <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">ADDRESS</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">NAME</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-right truncate">BALANCE</Text>
+      </View>
+    );
+  };
   
   // Only show full loading state when no data is available
   // This preserves content visibility during refreshes
@@ -592,6 +607,9 @@ export function CommunityWallets() {
           </View>
         </Row>
         
+        {/* Table header - conditionally rendered for desktop */}
+        {renderTableHeader()}
+        
         <View className="p-4">
           {error && (
             <View className="mb-4 p-2 bg-red-900/30 rounded">
@@ -602,15 +620,37 @@ export function CommunityWallets() {
           {communityWallets.length > 0 ? (
             <>
               <ScrollView className="max-h-40">
-                {communityWallets.map((wallet, index) => (
-                  <View 
-                    key={wallet.address} 
-                    className="flex-row justify-between items-center py-2 border-b border-gray-700"
-                  >
-                    <Text className="text-white font-medium">{wallet.name || `Wallet ${index + 1}`}</Text>
-                    <Text className="text-gray-400">{formatAddress(wallet.address)}</Text>
-                  </View>
-                ))}
+                {isDesktop ? (
+                  // Desktop view with table rows matching header
+                  communityWallets.map((wallet, index) => (
+                    <View 
+                      key={wallet.address} 
+                      className="flex flex-row py-3 px-4 w-full border-b border-gray-700"
+                    >
+                      <View className="w-2/5">
+                        <Text className="text-white font-medium">{formatAddress(wallet.address)}</Text>
+                      </View>
+                      <View className="w-2/5">
+                        <Text className="text-white">{wallet.name || `Wallet ${index + 1}`}</Text>
+                      </View>
+                      <View className="w-1/5">
+                        <Text className="text-gray-400 text-right">{wallet.balance}</Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  // Mobile view with card layout
+                  communityWallets.map((wallet, index) => (
+                    <View 
+                      key={wallet.address} 
+                      className="p-3 mb-2 bg-background/30 rounded-lg border border-gray-700/50"
+                    >
+                      <Text className="text-white font-medium mb-1">{wallet.name || `Wallet ${index + 1}`}</Text>
+                      <Text className="text-gray-400 mb-1">{formatAddress(wallet.address)}</Text>
+                      <Text className="text-gray-400 text-right">{wallet.balance}</Text>
+                    </View>
+                  ))
+                )}
               </ScrollView>
               
               {/* Show a subtle indicator for background refreshes */}
@@ -631,6 +671,21 @@ export function CommunityWallets() {
   );
 }
 ```
+
+[ ] (3) Implement a consistent table header styling pattern:
+- Create a renderTableHeader() method that follows application standards
+- Only display table headers on desktop devices
+- Use the flex flex-row with consistent padding
+- Apply "bg-background" and "border-b border-border" styling
+- Use text-text-muted and uppercase for column headers
+- Ensure column header widths match table row column widths
+
+[ ] (4) Implement responsive data display:
+- Create different layouts for desktop and mobile views
+- For desktop, use a consistent tabular layout matching headers
+- For mobile, use a card-based stacked layout with rounded corners
+- Use appropriate padding and spacing for each viewport
+- Ensure proper data alignment (right-aligned for numeric values)
 
 [ ] (6) Implement responsive design with data preservation during refreshes:
 - Maintain consistent component height during refreshes
@@ -658,6 +713,7 @@ export function CommunityWallets() {
 - Responsive design works across different screen sizes
 - Component follows existing design patterns
 - Visual styling matches other HomeScreen components
+- Table header and rows follow consistent styling patterns
 
 ### Task 5: HomeScreen Integration
 - [ ] (3) Modify HomeScreen.tsx to include the CommunityWallets component
