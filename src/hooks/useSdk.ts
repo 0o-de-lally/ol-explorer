@@ -1,7 +1,7 @@
-import {useEffect} from 'react';
-import {BlockchainSDK, LedgerInfo} from '../types/blockchain';
-import {useSdkContext} from '../context/SdkContext';
-import {normalizeAddress} from '../utils/addressUtils';
+import { useEffect } from 'react';
+import { BlockchainSDK, LedgerInfo } from '../types/blockchain';
+import { useSdkContext } from '../context/SdkContext';
+import { normalizeAddress } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
 
@@ -35,6 +35,7 @@ export const useSdk = (): BlockchainSDK & {
   isVoucherScoreValid: (address: string) => Promise<boolean>;
   getVouchScore: (address: string) => Promise<number>;
   getAllCommunityWallets: () => Promise<string[]>;
+  getCommunityWalletNames: () => Promise<Record<string, string>>;
   hasEverBeenTouched: (address: string) => Promise<boolean>;
   getOnboardingUsecs: (address: string) => Promise<number>;
   getLastActivityUsecs: (address: string) => Promise<number>;
@@ -779,6 +780,44 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
+  // Get all community wallet names from GitHub repository
+  const getCommunityWalletNames = async (): Promise<Record<string, string>> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get community wallet names');
+      return {};
+    }
+
+    try {
+      const response = await fetch('https://raw.githubusercontent.com/0LNetworkCommunity/v7-addresses/refs/heads/main/community-wallets.json');
+
+      if (!response.ok) {
+        throw new Error(`GitHub API responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Validate data format
+      if (!data || !data.communityWallets) {
+        throw new Error('Invalid wallet name data format');
+      }
+
+      // Create a map of normalized addresses to names
+      const nameMap: Record<string, string> = {};
+
+      // For each address, normalize and extract the name
+      Object.entries(data.communityWallets).forEach(([hash, info]: [string, any]) => {
+        const normalizedAddress = normalizeAddress(hash);
+        nameMap[normalizedAddress] = info.name || 'Community Wallet';
+      });
+
+      return nameMap;
+    } catch (error) {
+      console.error('Error fetching community wallet names:', error);
+      // Return empty object instead of failing completely
+      return {};
+    }
+  };
+
   // Add this function to fetch the supply stats
   const getSupplyStats = async (): Promise<SupplyStats> => {
     if (!isInitialized || !sdk) {
@@ -900,6 +939,10 @@ export const useSdk = (): BlockchainSDK & {
         console.warn('SDK not initialized, cannot get community wallets');
         return [];
       },
+      getCommunityWalletNames: async () => {
+        console.warn('SDK not initialized, cannot get community wallet names');
+        return {};
+      },
       // Activity status stub functions
       hasEverBeenTouched: async () => {
         console.warn('SDK not initialized, cannot check if account has been touched');
@@ -996,6 +1039,7 @@ export const useSdk = (): BlockchainSDK & {
     isVoucherScoreValid,
     getVouchScore,
     getAllCommunityWallets,
+    getCommunityWalletNames,
     // Activity status functions
     hasEverBeenTouched,
     getOnboardingUsecs,

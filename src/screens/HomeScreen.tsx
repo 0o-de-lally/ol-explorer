@@ -8,6 +8,7 @@ import { useSdkContext } from '../context/SdkContext';
 import { Transaction } from '../types/blockchain';
 import { BlockchainMetrics } from '../components/BlockchainMetrics';
 import { SupplyStats } from '../components/SupplyStats';
+import { CommunityWallets } from '../components/CommunityWallets';
 import { SearchBar } from '../components/SearchBar';
 import sdkConfig from '../config/sdkConfig';
 import appConfig from '../config/appConfig';
@@ -393,6 +394,9 @@ export const HomeScreen: React.FC<{ isVisible?: boolean }> = ({ isVisible = true
 
             {/* Supply statistics card */}
             <SupplyStats isVisible={isScreenVisible} />
+
+            {/* Community Wallets */}
+            <CommunityWallets isVisible={isScreenVisible} />
 
             {/* Transactions list */}
             <TransactionsList

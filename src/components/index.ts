@@ -14,4 +14,5 @@ export { Footer } from './Footer';
 export { Logo } from './Logo';
 export { SearchBar } from './SearchBar';
 export { BlockchainMetrics } from './BlockchainMetrics';
-export { TransactionsList } from './TransactionsList'; 
+export { TransactionsList } from './TransactionsList';
+export { CommunityWallets } from './CommunityWallets'; 
