@@ -19,23 +19,12 @@ const formatBalance = (balance: number): string => {
     // Calculate whole and fractional parts based on TOKEN_DECIMALS
     const divisor = Math.pow(10, TOKEN_DECIMALS);
     const wholePart = Math.floor(balance / divisor);
-    const fractionalPart = balance % divisor;
 
-    // Format with proper decimal places
+    // Format only the whole part with commas, exclude decimals
     const wholePartFormatted = wholePart.toLocaleString();
 
-    // Convert fractional part to string with proper padding
-    const fractionalStr = fractionalPart.toString().padStart(TOKEN_DECIMALS, '0');
-
-    // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
-    const trimmedFractional = fractionalPart > 0
-        ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
-        : '00';
-
-    // Only show decimal part if it's non-zero
-    return trimmedFractional === '00'
-        ? `${wholePartFormatted} ${tokenConfig.tokens.libraToken.symbol}`
-        : `${wholePartFormatted}.${trimmedFractional} ${tokenConfig.tokens.libraToken.symbol}`;
+    // Return formatted balance with token symbol
+    return `${wholePartFormatted} ${tokenConfig.tokens.libraToken.symbol}`;
 };
 
 // Format wallet address for display
