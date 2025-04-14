@@ -530,10 +530,10 @@ Create a new file `src/components/CommunityWallets.tsx` that implements the UI f
 ```typescript
 import React, { useCallback } from 'react';
 import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, CardHeader, CardContent } from 'src/components/Card';
 import { useCommunityWallets } from 'src/hooks/useCommunityWallets';
 import { RefreshCircle } from 'src/components/Icons';
 import { formatAddress } from 'src/utils/format';
+import { Row } from 'src/components/Layout';
 
 export function CommunityWallets() {
   const { 
@@ -557,67 +557,77 @@ export function CommunityWallets() {
   // This preserves content visibility during refreshes
   if (isLoading && communityWallets.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <Text className="text-lg font-bold text-white">Community Wallets</Text>
-        </CardHeader>
-        <CardContent>
-          <View className="h-40 items-center justify-center">
+      <View className="w-full mb-5">
+        <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+          <View className="h-1 bg-primary/20" />
+          <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+            <Text className="text-lg font-bold text-white">Community Wallets</Text>
+            <ActivityIndicator size="small" color="#ffffff" />
+          </Row>
+          <View className="p-4 justify-center items-center">
             <ActivityIndicator size="large" color="#ffffff" />
+            <Text className="text-white text-base mt-2">Loading community wallets...</Text>
           </View>
-        </CardContent>
-      </Card>
+        </View>
+      </View>
     );
   }
   
   return (
-    <Card>
-      <CardHeader>
-        <Text className="text-lg font-bold text-white">Community Wallets</Text>
-        {isManualRefreshing ? (
-          <ActivityIndicator size="small" color="#ffffff" />
-        ) : (
-          <TouchableOpacity onPress={handleRefresh}>
-            <RefreshCircle width={24} height={24} color="#ffffff" />
-          </TouchableOpacity>
-        )}
-      </CardHeader>
-      
-      <CardContent>
-        {error && (
-          <View className="mb-4 p-2 bg-red-900/30 rounded">
-            <Text className="text-red-400">{error}</Text>
-          </View>
-        )}
-        
-        {communityWallets.length > 0 ? (
-          <>
-            <ScrollView className="max-h-40">
-              {communityWallets.map((wallet, index) => (
-                <View 
-                  key={wallet.address} 
-                  className="flex-row justify-between items-center py-2 border-b border-gray-700"
-                >
-                  <Text className="text-white font-medium">{wallet.name || `Wallet ${index + 1}`}</Text>
-                  <Text className="text-gray-400">{formatAddress(wallet.address)}</Text>
-                </View>
-              ))}
-            </ScrollView>
-            
-            {/* Show a subtle indicator for background refreshes */}
-            {isRefreshing && !isManualRefreshing && (
-              <View className="items-center mt-2">
-                <Text className="text-gray-400 text-xs">Refreshing...</Text>
-              </View>
+    <View className="w-full mb-5">
+      <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+        <View className="h-1 bg-primary/20" />
+        <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+          <Text className="text-lg font-bold text-white">
+            Community Wallets {communityWallets.length > 0 && `(${communityWallets.length})`}
+          </Text>
+          <View className="w-8 h-8 justify-center items-center">
+            {isManualRefreshing ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <TouchableOpacity onPress={handleRefresh} className="p-2">
+                <RefreshCircle width={24} height={24} color="#ffffff" />
+              </TouchableOpacity>
             )}
-          </>
-        ) : (
-          <View className="h-20 items-center justify-center">
-            <Text className="text-gray-400">No community wallets found</Text>
           </View>
-        )}
-      </CardContent>
-    </Card>
+        </Row>
+        
+        <View className="p-4">
+          {error && (
+            <View className="mb-4 p-2 bg-red-900/30 rounded">
+              <Text className="text-red-400">{error}</Text>
+            </View>
+          )}
+          
+          {communityWallets.length > 0 ? (
+            <>
+              <ScrollView className="max-h-40">
+                {communityWallets.map((wallet, index) => (
+                  <View 
+                    key={wallet.address} 
+                    className="flex-row justify-between items-center py-2 border-b border-gray-700"
+                  >
+                    <Text className="text-white font-medium">{wallet.name || `Wallet ${index + 1}`}</Text>
+                    <Text className="text-gray-400">{formatAddress(wallet.address)}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              
+              {/* Show a subtle indicator for background refreshes */}
+              {isRefreshing && !isManualRefreshing && (
+                <View className="items-center mt-2">
+                  <Text className="text-gray-400 text-xs">Refreshing...</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View className="h-20 items-center justify-center">
+              <Text className="text-gray-400">No community wallets found</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 ```
@@ -634,12 +644,20 @@ export function CommunityWallets() {
 - Show empty state when appropriate
 - Show background refreshing indicator without hiding content
 
+[ ] (4) Ensure visual consistency with other HomeScreen components:
+- Use the standard card pattern with `bg-secondary/90` background and `backdrop-blur-lg`
+- Include the thin colored line at the top with `h-1 bg-primary/20`
+- Maintain consistent header structure with title and refresh control
+- Follow the same padding and spacing as other components
+- Match the loading/error/empty state patterns of existing components
+
 #### Definition of Done:
 - Component correctly renders community wallet data
 - Loading, error, and empty states are properly implemented
 - Component preserves content visibility during refresh operations
 - Responsive design works across different screen sizes
 - Component follows existing design patterns
+- Visual styling matches other HomeScreen components
 
 ### Task 5: HomeScreen Integration
 - [ ] (3) Modify HomeScreen.tsx to include the CommunityWallets component

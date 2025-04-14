@@ -1330,6 +1330,107 @@ function TransactionsList() {
 
 This pattern is crucial for creating a smooth user experience, preventing the jarring effect of content disappearing during refreshes, and maintaining user context while data updates. It's especially important in complex UIs with multiple data sources, as it keeps the interface stable and predictable.
 
+## Component Styling Consistency
+
+Maintaining visual consistency across the application is critical for a professional user experience. All components in the OL Explorer follow specific styling patterns that should be preserved when adding new features.
+
+### Card Component Styling Pattern
+
+Components displayed on the HomeScreen follow a consistent card styling pattern:
+
+```tsx
+<View className="w-full mb-5">
+  <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+    {/* Thin accent line at top */}
+    <View className="h-1 bg-primary/20" />
+    
+    {/* Header with title and refresh control */}
+    <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
+      <Text className="text-white font-bold text-base">
+        Component Title {optionalCount > 0 && `(${optionalCount})`}
+      </Text>
+      <View className="w-8 h-8 justify-center items-center">
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#E75A5C" />
+        ) : (
+          <TouchableOpacity onPress={handleRefresh} className="p-2">
+            <RefreshIcon />
+          </TouchableOpacity>
+        )}
+      </View>
+    </Row>
+    
+    {/* Content section */}
+    <View className="p-4">
+      {/* Component content */}
+    </View>
+  </View>
+</View>
+```
+
+### Key Styling Elements
+
+1. **Container Structure**:
+   - Outer container with `w-full mb-5` for proper spacing
+   - Inner container with `bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg` for consistent card appearance
+
+2. **Visual Accent**:
+   - Thin colored line at top: `h-1 bg-primary/20`
+   - Consistent border usage: `border-b border-border/20`
+
+3. **Header Pattern**:
+   - Consistent padding: `px-4 py-3`
+   - Text styling: `text-white font-bold text-base`
+   - Refresh control area: `w-8 h-8 justify-center items-center`
+
+4. **Content Area**:
+   - Consistent padding: `p-4`
+   - Similar styling for loading/empty/error states
+
+### Implementation Guidelines
+
+When creating new components:
+
+1. Do not use custom card wrappers that deviate from this pattern
+2. Maintain the same header structure with title and refresh/action button
+3. Ensure the accent line at the top is consistent with other components
+4. Use the same padding and margin values for visual alignment
+5. Follow the consistent approach for loading/empty/error states
+
+Example of a component that follows this pattern:
+
+```tsx
+export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
+  // Component logic...
+  
+  return (
+    <View className="w-full mb-5">
+      <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
+        <View className="h-1 bg-primary/20" />
+        <View className="flex-row justify-between items-center px-4 py-3 border-b border-border/20">
+          <Text className="text-white font-bold text-base">
+            Blockchain Metrics
+          </Text>
+          <View className="w-8 h-8 justify-center items-center">
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#E75A5C" />
+            ) : (
+              <TouchableOpacity onPress={handleRefresh} className="p-2">
+                <Text className="text-primary">Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        
+        {/* Component-specific content */}
+      </View>
+    </View>
+  );
+});
+```
+
+Following this pattern ensures that all components on the HomeScreen have a cohesive and professional appearance.
+
 ## Conclusion
 
 By following this comprehensive feature extension guide, you can successfully add new functionality to the OL Explorer project while maintaining code quality, test coverage, and adherence to the established architecture. The guide ensures consistent implementation across all layers of the application, from SDK methods to UI components.

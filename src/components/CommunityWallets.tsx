@@ -87,7 +87,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
     if (isLoading && wallets.length === 0) {
         return (
             <View className="w-full mb-5">
-                <Card>
+                <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
                     <View className="h-1 bg-primary/20" />
                     <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
                         <Text className="text-white font-bold text-base">
@@ -100,7 +100,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                         <ActivityIndicator size="large" color="#E75A5C" />
                         <Text className="text-white text-base mt-2">Loading community wallets...</Text>
                     </View>
-                </Card>
+                </View>
             </View>
         );
     }
@@ -108,7 +108,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
     // Component rendering with responsive design - now follows TransactionsList pattern
     return (
         <View className="w-full mb-5">
-            <Card>
+            <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
                 <View className="h-1 bg-primary/20" />
                 <Row justifyContent="between" alignItems="center" className="px-4 py-3 border-b border-border/20">
                     <Text className="text-white font-bold text-base">
@@ -235,7 +235,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                         </View>
                     )}
                 </View>
-            </Card>
+            </View>
         </View>
     );
 }); 
