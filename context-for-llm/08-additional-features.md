@@ -1490,6 +1490,7 @@ return (
    - Use uppercase for labels: `COLUMN NAME`
    - Add `truncate` to handle overflow
    - Use system font: `font-sans`
+   - **Always center-align headers**: use `text-center` for all column headers, regardless of data alignment
 
 4. **Column Width Distribution**:
    - Use proportional widths based on content needs (e.g., `w-1/6`, `w-2/5`)
@@ -1510,9 +1511,10 @@ When implementing tables in your components:
 3. Add table header after the component header and before content
 4. Match table row column widths with the header column widths
 5. Use appropriate text alignment based on content type:
-   - Left-align text content (`text-left`)
-   - Center-align status indicators (`text-center`)
-   - Right-align numeric values (`text-right`)
+   - **Always use `text-center` for table headers**
+   - Left-align text content in table rows (`text-left`)
+   - Center-align status indicators in table rows (`text-center`)
+   - Right-align numeric values in table rows (`text-right`)
 
 Example of a component with proper table header implementation:
 

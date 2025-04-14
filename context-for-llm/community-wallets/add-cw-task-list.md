@@ -561,9 +561,9 @@ export function CommunityWallets() {
 
     return (
       <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
-        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">ADDRESS</Text>
-        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">NAME</Text>
-        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-right truncate">BALANCE</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">ADDRESS</Text>
+        <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">NAME</Text>
+        <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">BALANCE</Text>
       </View>
     );
   };
@@ -678,6 +678,7 @@ export function CommunityWallets() {
 - Use the flex flex-row with consistent padding
 - Apply "bg-background" and "border-b border-border" styling
 - Use text-text-muted and uppercase for column headers
+- Always use centered alignment (text-center) for all table headers
 - Ensure column header widths match table row column widths
 
 [ ] (4) Implement responsive data display:

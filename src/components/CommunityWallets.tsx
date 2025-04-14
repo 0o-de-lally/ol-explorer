@@ -95,9 +95,9 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
 
         return (
             <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
-                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">ADDRESS</Text>
-                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-left truncate">NAME</Text>
-                <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-right truncate">BALANCE</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">ADDRESS</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">NAME</Text>
+                <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">BALANCE</Text>
             </View>
         );
     };
