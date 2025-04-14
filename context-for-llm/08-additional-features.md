@@ -69,6 +69,8 @@ Follow these steps during implementation:
    - Follow error handling patterns from existing methods
    - Add proper address normalization if working with addresses
    - Use Promise.allSettled for handling multiple parallel API calls
+   - **Verify SDK method availability at runtime**
+   - **Implement fallback mechanisms for missing methods**
 
    Example based on existing useSdk.ts pattern:
    ```typescript
@@ -108,6 +110,27 @@ Follow these steps during implementation:
    };
    ```
 
+   **SDK Runtime Verification**:
+   Always verify that SDK methods exist at runtime, not just in type definitions:
+   ```typescript
+   // In hook implementation
+   const refresh = async () => {
+     // Check if SDK method exists at runtime
+     const hasFeatureMethod = typeof sdk.getNewFeatureData === 'function';
+     
+     if (hasFeatureMethod) {
+       // Use the SDK method
+       const data = await sdk.getNewFeatureData(param);
+       // Process data...
+     } else {
+       // Implement fallback mechanism
+       console.warn('SDK method getNewFeatureData not available, using fallback');
+       const data = await fetchDataFromAlternativeSource(param);
+       // Process fallback data...
+     }
+   };
+   ```
+
 4. **Store Implementation**:
    - Create a new store file in `src/store/` or extend an existing one
    - Use `observable` from '@legendapp/state'
@@ -115,6 +138,8 @@ Follow these steps during implementation:
    - Add store actions for state manipulation
    - Implement notifyUpdate mechanism for UI reactivity
    - Add data staleness checks
+   - **Ensure individual record updates don't clear the entire collection**
+   - **Implement data persistence during refreshes**
 
    Example based on existing store patterns:
    ```typescript
@@ -149,7 +174,7 @@ Follow these steps during implementation:
    // Initialize store with defaults
    export const newFeatureStore = observable<NewFeatureStoreType>({
      items: {},
-     isLoading: false,
+       isLoading: false,
      error: null,
      lastUpdated: 0
    });
@@ -173,7 +198,7 @@ Follow these steps during implementation:
 
    // Store actions
    export const newFeatureActions = {
-     setItem: (id: string, data: NewFeatureData) => {
+     updateItem: (id: string, data: NewFeatureData) => {
        // Initialize if doesn't exist
        if (!newFeatureStore.items[id].peek()) {
          newFeatureStore.items[id].set({
@@ -181,15 +206,17 @@ Follow these steps during implementation:
            lastUpdated: Date.now()
          });
        } else {
-         // Update existing entry
+         // Update existing entry WITHOUT clearing other entries
          newFeatureStore.items[id].data.set(data);
          newFeatureStore.items[id].lastUpdated.set(Date.now());
        }
        
        notifyUpdate();
+       return true;
      },
      
      setLoading: (isLoading: boolean) => {
+       // Set loading state WITHOUT clearing existing data
        newFeatureStore.isLoading.set(isLoading);
        notifyUpdate();
      },
@@ -215,6 +242,7 @@ Follow these steps during implementation:
      },
      
      forceUpdate: () => {
+       // Set loading state WITHOUT clearing existing data
        newFeatureStore.isLoading.set(true);
        notifyUpdate();
        
@@ -237,6 +265,9 @@ Follow these steps during implementation:
    - Handle errors gracefully
    - Use Promise.allSettled for parallel data fetching
    - Add memory management with isMounted ref
+   - **Verify SDK method availability at runtime**
+   - **Implement fallback mechanisms for missing methods**
+   - **Preserve existing data during refresh operations**
 
    Example based on existing hook patterns:
    ```typescript
@@ -260,9 +291,8 @@ Follow these steps during implementation:
    export const useNewFeature = (id: string, isVisible = true): UseNewFeatureResult => {
      const sdk = useSdk();
      const { isInitialized } = useSdkContext();
-     const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
-     const [fetchRequested, setFetchRequested] = useState(false);
-     const isStale = newFeatureActions.isDataStale(id);
+     const [isStale, setIsStale] = useState(false);
+     const [lastFetchTime, setLastFetchTime] = useState(0);
      
      // Get store data using observables
      const itemObservable = useObservable(id ? newFeatureStore.items[id]?.data : null);
@@ -284,77 +314,88 @@ Follow these steps during implementation:
      
      // App state change handler
      useEffect(() => {
-       const subscription = AppState.addEventListener('change', handleAppStateChange);
+       const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+         if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+           // App has come to the foreground
+           if (isVisible && isMounted.current && id) {
+             fetchData(true);
+           }
+         }
+         appState.current = nextAppState;
+       });
+       
        return () => {
          subscription.remove();
        };
-     }, []);
-     
-     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-         // App has come to the foreground
-         if (isVisible && isMounted.current && id) {
-           fetchData(true);
-         }
-       }
-       appState.current = nextAppState;
-     };
+     }, [isVisible, id]);
      
      // Set up polling based on visibility
      useEffect(() => {
        if (isVisible && isInitialized && id) {
-         startPolling();
-         // Initial fetch
          fetchData();
-       } else {
-         stopPolling();
+         
+         // Set up polling interval
+         const interval = setInterval(() => {
+           fetchData();
+         }, NEW_FEATURE_CONFIG.REFRESH_INTERVAL_MS);
+         
+         pollingIntervalRef.current = interval;
+         
+         return () => {
+           if (interval) clearInterval(interval);
+         };
        }
        
        return () => {
-         stopPolling();
+         if (pollingIntervalRef.current) {
+           clearInterval(pollingIntervalRef.current);
+         }
        };
      }, [isVisible, isInitialized, id]);
      
-     const startPolling = () => {
-       if (!pollingIntervalRef.current && isVisible) {
-         pollingIntervalRef.current = setInterval(() => {
-           if (!isAutoRefreshing && !fetchRequested && isVisible && isMounted.current && id) {
-             fetchData();
-           }
-         }, NEW_FEATURE_CONFIG.REFRESH_INTERVAL_MS);
-       }
-     };
-     
-     const stopPolling = () => {
-       if (pollingIntervalRef.current) {
-         clearInterval(pollingIntervalRef.current);
-         pollingIntervalRef.current = null;
-       }
+     // Fetch data for a feature item
+     const fetchAlternativeData = async (itemId: string) => {
+       // Implement alternative data source as fallback
+       console.log('Fetching data from alternative source for', itemId);
+       // ... implementation details
      };
      
      const fetchData = async (force = false) => {
-       // Skip if already fetching
-       if (fetchRequested) return;
-       
-       // Skip fetch if data is fresh enough and force is false
-       if (!force && !newFeatureActions.isDataStale(id)) {
+       // Skip if already fetching or data is fresh enough and not forced
+       if (!force && (Date.now() - lastFetchTime < NEW_FEATURE_CONFIG.REFRESH_INTERVAL_MS)) {
          return;
        }
        
        try {
          if (isMounted.current) {
-           setIsAutoRefreshing(true);
-           setFetchRequested(true);
+           // Set loading state WITHOUT clearing existing data
            newFeatureActions.setLoading(true);
+           setLastFetchTime(Date.now());
          }
          
-         const result = await sdk.getNewFeatureData(id);
+         // Check if SDK method exists at runtime
+         const hasFeatureMethod = typeof sdk.getNewFeatureData === 'function';
          
-         if (isMounted.current) {
-           if (result) {
-             newFeatureActions.setItem(id, result);
+         if (hasFeatureMethod) {
+           // Use SDK method if available
+           const result = await sdk.getNewFeatureData(id);
+           
+           if (isMounted.current) {
+             if (result) {
+               // Update store WITHOUT clearing other entries
+               newFeatureActions.updateItem(id, result);
+             }
+             newFeatureActions.setError(null);
            }
-           newFeatureActions.setError(null);
+         } else {
+           // Use alternative data source as fallback
+           console.warn('SDK method not available, using fallback');
+           const result = await fetchAlternativeData(id);
+           
+           if (isMounted.current && result) {
+             newFeatureActions.updateItem(id, result);
+             newFeatureActions.setError(null);
+           }
          }
        } catch (error) {
          console.error(`Error fetching data for ${id}:`, error);
@@ -367,14 +408,7 @@ Follow these steps during implementation:
        } finally {
          if (isMounted.current) {
            newFeatureActions.setLoading(false);
-           setFetchRequested(false);
-           
-           // Small delay before turning off refresh indicator
-           setTimeout(() => {
-             if (isMounted.current) {
-               setIsAutoRefreshing(false);
-             }
-           }, 500);
+           setIsStale(false);
          }
        }
      };
@@ -384,10 +418,15 @@ Follow these steps during implementation:
        await fetchData(force);
      };
      
+     // Helper function to safely get observable values
+     const unwrapObservable = (value: any): any => {
+       // ... implementation of recursive unwrapping
+     };
+     
      return {
-       data: itemObservable?.get ? itemObservable.get() : null,
-       isLoading: isLoadingObservable?.get ? Boolean(isLoadingObservable.get()) : false,
-       error: errorObservable?.get ? String(errorObservable.get()) : null,
+       data: unwrapObservable(itemObservable),
+       isLoading: unwrapObservable(isLoadingObservable),
+       error: unwrapObservable(errorObservable),
        refresh,
        isStale
      };
@@ -401,6 +440,8 @@ Follow these steps during implementation:
    - Add responsive design with useWindowDimensions
    - Include loading, error, and empty states
    - Use consistent styling with NativeWind classes
+   - **Show loading indicators without hiding existing content**
+   - **Preserve data during refresh operations**
 
    Example based on existing component patterns:
    ```tsx
@@ -413,71 +454,7 @@ Follow these steps during implementation:
 
    // Helper to unwrap observable values recursively
    const unwrapObservable = (value: any): any => {
-     try {
-       // Handle undefined/null
-       if (value === undefined || value === null) {
-         return value;
-       }
-
-       // Handle observable with get method (LegendState observable)
-       if (typeof value === 'object' && value !== null) {
-         // Check if it has a get method that seems to be a function
-         if (typeof value.get === 'function') {
-           try {
-             const unwrappedValue = value.get();
-             // Recursively unwrap the result
-             return unwrapObservable(unwrappedValue);
-           } catch (e) {
-             console.warn('Error unwrapping observable with get():', e);
-             // Return original value if get() fails
-             return value;
-           }
-         }
-
-         // Handle Observable Proxy objects
-         if (value.constructor && value.constructor.name === 'Proxy') {
-           // Try to access the target if available
-           if (value.valueOf) {
-             try {
-               return unwrapObservable(value.valueOf());
-             } catch (e) {
-               // Silent fail and continue with normal object handling
-             }
-           }
-         }
-
-         // Handle arrays
-         if (Array.isArray(value)) {
-           try {
-             return value.map((item: any) => unwrapObservable(item));
-           } catch (e) {
-             console.warn('Error unwrapping array:', e);
-             return value;
-           }
-         }
-
-         // Handle plain objects
-         try {
-           const result: Record<string, any> = {};
-           for (const key in value) {
-             if (Object.prototype.hasOwnProperty.call(value, key)) {
-               result[key] = unwrapObservable(value[key]);
-             }
-           }
-           return result;
-         } catch (e) {
-           console.warn('Error unwrapping object:', e);
-           return value;
-         }
-       }
-
-       // Return primitives as is
-       return value;
-     } catch (e) {
-       console.warn('Unexpected error in unwrapObservable:', e);
-       // If all else fails, return the original value
-       return value;
-     }
+     // ... implementation details
    };
 
    // Helper function to safely get values from observables
@@ -501,6 +478,9 @@ Follow these steps during implementation:
        refresh(true);
      };
      
+     // Safely unwrap the data
+     const featureData = getObservableValue(data, null);
+     
      return (
        <View className="w-full mb-5">
          <Card>
@@ -509,23 +489,51 @@ Follow these steps during implementation:
              <Text className="text-white font-bold text-base">
                Feature Details
              </Text>
-             <View className="w-8 h-8 justify-center items-center">
+             <TouchableOpacity onPress={handleRefresh} className="w-8 h-8 justify-center items-center">
                {isLoading ? (
                  <ActivityIndicator size="small" color="#E75A5C" />
                ) : (
-                 <TouchableOpacity onPress={handleRefresh} className="p-2">
-                   <Text className="text-primary">Refresh</Text>
-                 </TouchableOpacity>
+                 <MaterialIcons name="refresh" size={16} color="#E75A5C" />
                )}
-             </View>
+             </TouchableOpacity>
            </Row>
            
-           <View className="p-4">
-             {/* Loading state */}
-             {isLoading && !data && (
-               <View className="py-4 items-center">
+         <View className="p-4 relative">
+             {/* Always show data content if available, even during loading */}
+             {featureData && (
+               <View>
+                 <Row className="mb-4">
+                   <Column className="flex-1">
+                     <Text className="text-text-muted text-sm mb-1">ID</Text>
+                     <Text className="text-text-light text-base">{featureData.id}</Text>
+                   </Column>
+                   <Column className="flex-1">
+                     <Text className="text-text-muted text-sm mb-1">Value</Text>
+                     <Text className="text-text-light text-base">{featureData.value}</Text>
+                   </Column>
+                 </Row>
+                 
+                 <Text className="text-text-muted text-sm mb-1">Timestamp</Text>
+                 <Text className="text-text-light text-base">
+                   {new Date(featureData.timestamp).toLocaleString()}
+                 </Text>
+               </View>
+             )}
+             
+             {/* Loading overlay - shown only for initial load, not refresh */}
+             {isLoading && !featureData && (
+               <View className="absolute inset-0 flex items-center justify-center bg-background/50">
                  <ActivityIndicator size="large" color="#E75A5C" />
                  <Text className="text-white text-base mt-2">Loading data...</Text>
+               </View>
+             )}
+             
+             {/* Empty state */}
+             {!isLoading && !error && !featureData && (
+               <View className="py-6 items-center">
+                 <Text className="text-white text-base text-center">
+                   No data found
+                 </Text>
                </View>
              )}
              
@@ -539,36 +547,6 @@ Follow these steps during implementation:
                  >
                    <Text className="text-white text-sm font-medium">Retry</Text>
                  </TouchableOpacity>
-               </View>
-             )}
-             
-             {/* Data display */}
-             {!isLoading && !error && data && (
-               <View>
-                 <Row className="mb-4">
-                   <Column className="flex-1">
-                     <Text className="text-text-muted text-sm mb-1">ID</Text>
-                     <Text className="text-text-light text-base">{getObservableValue(data.id, '')}</Text>
-                   </Column>
-                   <Column className="flex-1">
-                     <Text className="text-text-muted text-sm mb-1">Value</Text>
-                     <Text className="text-text-light text-base">{getObservableValue(data.value, '')}</Text>
-                   </Column>
-                 </Row>
-                 
-                 <Text className="text-text-muted text-sm mb-1">Timestamp</Text>
-                 <Text className="text-text-light text-base">
-                   {new Date(getObservableValue(data.timestamp, 0)).toLocaleString()}
-                 </Text>
-               </View>
-             )}
-             
-             {/* Empty state */}
-             {!isLoading && !error && !data && (
-               <View className="py-6 items-center">
-                 <Text className="text-white text-base text-center">
-                   No data found
-                 </Text>
                </View>
              )}
            </View>
@@ -618,13 +596,18 @@ Implement comprehensive tests for the new feature, following established pattern
      - Test successful data fetching
      - Test error handling
      - Test data normalization
+     - **Test SDK method availability checks**
+     - **Test fallback mechanisms**
    - Test store actions
      - Test state updates
      - Test data staleness checks
+     - **Test data persistence during updates**
    - Test hook functionality with mocked SDK
      - Test fetching logic
      - Test polling behavior
      - Test app state change handling
+     - **Test SDK method availability validation**
+     - **Test data persistence during refresh**
 
    Example based on existing testing patterns:
    ```typescript
@@ -717,9 +700,41 @@ Implement comprehensive tests for the new feature, following established pattern
        expect(mockFn).not.toHaveBeenCalled();
      });
 
-     it('should refresh data when called', async () => {
+     it('should use fallback when SDK method is missing', async () => {
        const mockData = { id: 'test-id', value: 'test-value', timestamp: 123456789 };
-       const mockFn = jest.fn().mockResolvedValue(mockData);
+       
+       // Mock SDK without the required method
+       (useSdk as jest.Mock).mockReturnValue({
+         // No getNewFeatureData method
+         otherMethod: jest.fn()
+       });
+       
+       // Mock the alternative fetch function
+       jest.spyOn(global, 'fetch').mockImplementationOnce(() => 
+         Promise.resolve({
+           ok: true,
+           json: () => Promise.resolve(mockData)
+         } as Response)
+       );
+
+       const { result, waitForNextUpdate } = renderHook(() => useNewFeature('test-id', true));
+       
+       await waitForNextUpdate();
+       
+       // Should use fallback and still get data
+       expect(result.current.data).toEqual(mockData);
+       expect(result.current.error).toBeNull();
+     });
+
+     it('should preserve existing data during refresh', async () => {
+       // Setup initial data
+       const initialData = { id: 'test-id', value: 'initial', timestamp: 123456789 };
+       const updatedData = { id: 'test-id', value: 'updated', timestamp: 987654321 };
+       
+       // First return initial data, then updated data
+       const mockFn = jest.fn()
+         .mockResolvedValueOnce(initialData)
+         .mockResolvedValueOnce(updatedData);
        
        (useSdk as jest.Mock).mockReturnValue({
          getNewFeatureData: mockFn
@@ -727,18 +742,28 @@ Implement comprehensive tests for the new feature, following established pattern
 
        const { result, waitForNextUpdate } = renderHook(() => useNewFeature('test-id', true));
        
+       // Initial fetch
        await waitForNextUpdate();
+       expect(result.current.data).toEqual(initialData);
        
-       // First call completes
-       expect(mockFn).toHaveBeenCalledTimes(1);
+       // Set a spy to track data updates
+       const updateSpy = jest.spyOn(newFeatureActions, 'updateItem');
        
        // Trigger refresh
        act(() => {
-         result.current.refresh(true);
+         result.current.refresh();
        });
        
-       // Should call SDK method again
-       expect(mockFn).toHaveBeenCalledTimes(2);
+       // Data should still be available during refresh
+       expect(result.current.data).toEqual(initialData);
+       expect(result.current.isLoading).toBe(true);
+       
+       // Wait for refresh to complete
+       await waitForNextUpdate();
+       
+       // Should update with new data
+       expect(result.current.data).toEqual(updatedData);
+       expect(updateSpy).toHaveBeenCalledWith('test-id', updatedData);
      });
    });
    ```
@@ -747,6 +772,7 @@ Implement comprehensive tests for the new feature, following established pattern
    - Test component rendering
    - Test loading/error/empty states
    - Test user interactions
+   - **Test data persistence during loading states**
 
    Example based on existing component testing patterns:
    ```tsx
@@ -822,6 +848,30 @@ Implement comprehensive tests for the new feature, following established pattern
        expect(screen.getByText('test-value')).toBeTruthy();
      });
      
+     it('preserves data display during refresh', () => {
+       // Mock loading state but with existing data
+       (useNewFeature as jest.Mock).mockReturnValue({
+         data: {
+           id: 'test-id',
+           value: 'test-value',
+           timestamp: 1625097600000
+         },
+         isLoading: true, // Loading is true but data exists
+         error: null,
+         refresh: mockRefresh,
+         isStale: false
+       });
+       
+       render(<NewFeatureComponent id="test-id" />);
+       
+       // Data should still be visible despite loading
+       expect(screen.getByText('test-id')).toBeTruthy();
+       expect(screen.getByText('test-value')).toBeTruthy();
+       
+       // Loading indicator should be present but not full-screen
+       expect(screen.queryByText('Loading data...')).toBeNull();
+     });
+     
      it('calls refresh when button clicked', () => {
        // Mock data state with refresh function
        (useNewFeature as jest.Mock).mockReturnValue({
@@ -839,7 +889,7 @@ Implement comprehensive tests for the new feature, following established pattern
        render(<NewFeatureComponent id="test-id" />);
        
        // Find and click refresh button
-       const refreshButton = screen.getByText('Refresh');
+       const refreshButton = screen.getByTestId('refresh-button');
        fireEvent.press(refreshButton);
        
        // Check if refresh was called
@@ -852,11 +902,13 @@ Implement comprehensive tests for the new feature, following established pattern
    - Test data flow through the entire feature pipeline
    - Test component integration in screens
    - Test interactions with other components
+   - **Test data persistence during refresh transitions**
 
 4. **End-to-End Testing**:
    - Test feature with real blockchain data
    - Verify UI behavior in different states
    - Verify polling behavior during app lifecycle changes
+   - **Test SDK method availability and fallback mechanisms**
 
 ### 4. Documentation Phase
 
@@ -864,16 +916,21 @@ Implement comprehensive tests for the new feature, following established pattern
    - Add JSDoc comments to functions and components
    - Document complex logic
    - Update type definitions
+   - **Document SDK method validation strategy**
+   - **Document data persistence mechanisms**
 
 2. **Feature Documentation**:
    - Update README.md with feature description
    - Add usage examples
    - Document any configuration options
+   - **Document fallback approaches if SDK methods aren't available**
 
 3. **Update Context Documentation**:
    - Add feature details to appropriate context documents
    - Update test summary with new test coverage
    - Add comprehensive task list with difficulty ratings for future reference
+   - **Include notes on SDK method verification requirements**
+   - **Document data persistence patterns**
 
 ### 5. Review and Merge
 
@@ -889,6 +946,8 @@ Implement comprehensive tests for the new feature, following established pattern
    - Address review comments
    - Fix any linting issues
    - Ensure all tests pass
+   - **Verify SDK method availability patterns**
+   - **Confirm data persistence during refreshes**
 
 3. **Merge**:
    - Squash commits if needed
@@ -909,18 +968,24 @@ Breaking down complex tasks is essential for successful implementation. Follow t
      - API integration
      - Data normalization
      - Error handling
+     - **Runtime method verification**
+     - **Fallback mechanism implementation**
    - **Store Tasks**:
      - State structure design
      - Action implementations
      - Update mechanisms
+     - **Record-based updates that preserve existing data**
    - **Hook Tasks**:
      - Data fetching logic
      - Lifecycle management
      - Polling implementation
+     - **SDK method verification**
+     - **Data persistence during refresh**
    - **Component Tasks**:
      - UI state handling
      - Responsive design
      - User interaction
+     - **Maintaining UI state during loading**
 
 3. **Measurable Subtasks**:
    - Break implementation into clear, measurable steps
@@ -933,7 +998,10 @@ Task: Implement Hook
   Subtasks:
   - [ ] (1) Create hook file structure
   - [ ] (3) Define return type interface
-  - [ ] (4) Implement SDK and store connections
+  - [ ] (5) Implement SDK and store connections
+    - [ ] (3) Add basic SDK integration
+    - [ ] (4) Add SDK method runtime verification
+    - [ ] (4) Implement fallback mechanisms
   - [ ] (4) Add state management for lifecycle
     - [ ] (2) Set up isMounted ref
     - [ ] (3) Add useEffect for initialization
@@ -941,6 +1009,7 @@ Task: Implement Hook
   - [ ] (5) Implement data fetching
     - [ ] (3) Add fetch method with force refresh
     - [ ] (4) Implement error handling
+    - [ ] (4) Add data persistence during refresh
     - [ ] (3) Add data transformation
   - [ ] (4) Add polling mechanism
     - [ ] (3) Implement interval management
@@ -977,6 +1046,13 @@ The OL Explorer uses LegendApp for observable state management. Follow these pat
    - Use batched updates when changing multiple values
    - Implement data staleness checks to prevent unnecessary fetches
 
+4. **Data Persistence Patterns**:
+   - Update individual records without clearing the entire collection
+   - Set loading state without clearing existing data
+   - Implement store actions that preserve state during updates
+   - Show loading indicators as overlays instead of replacements
+   - Use conditional rendering that keeps existing content visible during refreshes
+
 ## Memory Management
 
 Proper memory management is critical for React Native apps:
@@ -1004,19 +1080,493 @@ Implement consistent error handling throughout the app:
    - Use try/catch for all async operations
    - Log errors with descriptive messages
    - Return fallback values instead of throwing errors
+   - **Verify method availability at runtime**
+   - **Implement fallback mechanisms for missing methods**
 
 2. **Hook Layer**:
    - Propagate errors to store
    - Show appropriate UI feedback
    - Implement retry mechanisms
+   - **Handle SDK method unavailability gracefully**
+   - **Preserve existing data when errors occur**
 
 3. **Component Layer**:
    - Display user-friendly error messages
    - Provide retry options
    - Gracefully degrade functionality
+   - **Keep existing content visible during error states**
+   - **Show error messages without clearing content**
+
+## Data Preservation During Refreshes
+
+Maintaining data visibility during refresh operations is critical for good user experience in the OL Explorer app. When refreshing data, the UI should avoid replacing existing content with loading indicators, which can lead to flickering and a disorienting experience where content "disappears" temporarily.
+
+### Key Implementation Guidelines:
+
+1. **Separate Loading States**: Distinguish between three different types of loading:
+   - `isLoading`: Initial loading when no data is available - shows full loading UI
+   - `isRefreshing`: Background data refresh operations - shows minimal or no indicators
+   - `isManualRefreshing`: User-initiated refresh operation - shows indicator in the refresh button
+
+2. **Promise-Returning Refresh Functions**: Implement refresh functions that return Promises:
+   ```typescript
+   const refresh = useCallback(async (manual = false): Promise<void> => {
+     // Prevent duplicate refreshes - critical for UX stability
+     if (isRefreshing) return Promise.resolve();
+     
+     // Set appropriate loading states
+     if (manual) setIsManualRefreshing(true);
+     setIsRefreshing(true);
+     
+     try {
+       await fetchData();
+       return Promise.resolve();
+     } catch (error) {
+       console.error('Error refreshing:', error);
+       return Promise.reject(error);
+     } finally {
+       // Reset loading states - always executes even on error
+       setIsRefreshing(false);
+       if (manual) setIsManualRefreshing(false);
+       // Initial loading state is only cleared after first load
+       setIsLoading(false);
+     }
+   }, [fetchData, isRefreshing]);
+   ```
+
+3. **Conditional Rendering Hierarchy**:
+   ```typescript
+   // Only show full loading state when no data is available
+   // This is CRITICAL for preserving content visibility
+   if (isLoading && data.length === 0) {
+     return <FullLoadingView />;
+   }
+   
+   // Otherwise, preserve content visibility during refreshes
+   return (
+     <Container>
+       <Header>
+         <Title>Data</Title>
+         {isManualRefreshing ? (
+           <SmallLoadingIndicator />
+         ) : (
+           <RefreshButton onPress={() => refresh(true)} />
+         )}
+       </Header>
+       
+       <Content>
+         {data.map(item => <DataItem key={item.id} item={item} />)}
+         
+         {/* Optional mini indicator for background refreshes */}
+         {isRefreshing && !isManualRefreshing && (
+           <MinimalRefreshIndicator />
+         )}
+       </Content>
+     </Container>
+   );
+   ```
+
+4. **Store Update Patterns**:
+   - Update records without clearing entire collections
+   - Use record-based structures (objects with keys) rather than arrays
+   - When fetching new data, merge it with existing data instead of replacing
+   - Never clear existing data on error conditions
+   - Implement proper error handling that preserves content visibility
+
+5. **SDK Method Verification**:
+   - Always verify SDK methods exist at runtime (not just in TypeScript definitions)
+   - Implement fallback mechanisms for missing methods
+   - Handle SDK method absence gracefully with user feedback
+   ```typescript
+   const fetchData = useCallback(async () => {
+     if (!sdk) return;
+     
+     try {
+       // Runtime verification of SDK method existence
+       if (typeof sdk.getSomeData !== 'function') {
+         console.error('SDK method getSomeData not available');
+         setError('SDK functionality not available');
+         return;
+       }
+       
+       const result = await sdk.getSomeData();
+       // Update store WITHOUT clearing existing data
+       updateData(result);
+     } catch (error) {
+       setError('Failed to fetch data');
+       // IMPORTANT: Don't clear existing data on error
+     }
+   }, [sdk]);
+   ```
+
+### Implementation Example:
+
+```typescript
+// In a custom hook (e.g., useTransactions)
+function useTransactions() {
+  const [data, setData] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const fetchData = useCallback(async () => {
+    try {
+      // Verify SDK method exists at runtime
+      if (typeof api.getTransactions !== 'function') {
+        console.error('API method getTransactions not available');
+        setError('API functionality not available');
+        return;
+      }
+      
+      const result = await api.getTransactions();
+      
+      // Update data without clearing
+      setData(prev => {
+        // If we already have data, merge with new data
+        if (prev.length > 0) {
+          const existingMap = new Map(prev.map(item => [item.id, item]));
+          
+          // Update existing items and add new ones
+          result.forEach(item => {
+            existingMap.set(item.id, item);
+          });
+          
+          // Convert back to array
+          return Array.from(existingMap.values());
+        }
+        
+        // First load, just set the data
+        return result;
+      });
+      
+      setError(null);
+    } catch (err) {
+      setError('Failed to load transactions');
+      console.error(err);
+      // Important: Don't clear existing data on error
+    }
+  }, []);
+  
+  const refresh = useCallback(async (manual = false) => {
+    // Prevent duplicate refreshes
+    if (isRefreshing) return Promise.resolve();
+    
+    // Set appropriate loading states
+    if (manual) setIsManualRefreshing(true);
+    setIsRefreshing(true);
+    
+    try {
+      await fetchData();
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(error);
+    } finally {
+      setIsRefreshing(false);
+      if (manual) setIsManualRefreshing(false);
+      // Initial loading state is only cleared after first load
+      setIsLoading(false);
+    }
+  }, [fetchData, isRefreshing]);
+  
+  // Initial data load
+  useEffect(() => {
+    refresh().catch(console.error);
+  }, [refresh]);
+  
+  return { data, isLoading, isRefreshing, isManualRefreshing, error, refresh };
+}
+
+// In a component (e.g., TransactionsList)
+function TransactionsList() {
+  const { 
+    data, 
+    isLoading, 
+    isRefreshing, 
+    isManualRefreshing, 
+    error, 
+    refresh 
+  } = useTransactions();
+  
+  // Only show full loading state when no data available
+  if (isLoading && data.length === 0) {
+    return <FullLoadingView />;
+  }
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Transactions</CardTitle>
+        {isManualRefreshing ? (
+          <ActivityIndicator size="small" />
+        ) : (
+          <RefreshButton onPress={() => refresh(true)} />
+        )}
+      </CardHeader>
+      
+      <CardContent>
+        {/* Show error but keep content visible */}
+        {error && <ErrorMessage message={error} />}
+        
+        {data.length > 0 ? (
+          <>
+            {data.map(transaction => (
+              <TransactionItem key={transaction.id} transaction={transaction} />
+            ))}
+            
+            {/* Show subtle refreshing indicator for background refreshes */}
+            {isRefreshing && !isManualRefreshing && (
+              <SubtleRefreshIndicator />
+            )}
+          </>
+        ) : (
+          <EmptyState message="No transactions found" />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+This pattern is crucial for creating a smooth user experience, preventing the jarring effect of content disappearing during refreshes, and maintaining user context while data updates. It's especially important in complex UIs with multiple data sources, as it keeps the interface stable and predictable.
 
 ## Conclusion
 
 By following this comprehensive feature extension guide, you can successfully add new functionality to the OL Explorer project while maintaining code quality, test coverage, and adherence to the established architecture. The guide ensures consistent implementation across all layers of the application, from SDK methods to UI components.
 
 Always refer to existing implementations in the codebase for examples of these patterns in action. The AccountDetails and BlockchainMetrics components provide excellent reference implementations of the complete data flow pattern. 
+
+## Existing Pattern Analysis
+
+### Data Preservation During Refreshes
+
+Maintaining data visibility during refresh operations is critical for good user experience in the OL Explorer app. When refreshing data, the UI should avoid replacing existing content with loading indicators, which can lead to flickering and a disorienting experience where content "disappears" temporarily.
+
+#### Key Implementation Guidelines:
+
+1. **Separate Loading States**: Distinguish between three different types of loading:
+   - `isLoading`: Initial loading when no data is available - shows full loading UI
+   - `isRefreshing`: Background data refresh operations - shows minimal or no indicators
+   - `isManualRefreshing`: User-initiated refresh operation - shows indicator in the refresh button
+
+2. **Promise-Returning Refresh Functions**: Implement refresh functions that return Promises:
+   ```typescript
+   const refresh = useCallback(async (manual = false): Promise<void> => {
+     // Prevent duplicate refreshes - critical for UX stability
+     if (isRefreshing) return Promise.resolve();
+     
+     // Set appropriate loading states
+     if (manual) setIsManualRefreshing(true);
+     setIsRefreshing(true);
+     
+     try {
+       await fetchData();
+       return Promise.resolve();
+     } catch (error) {
+       console.error('Error refreshing:', error);
+       return Promise.reject(error);
+     } finally {
+       // Reset loading states - always executes even on error
+       setIsRefreshing(false);
+       if (manual) setIsManualRefreshing(false);
+       // Initial loading state is only cleared after first load
+       setIsLoading(false);
+     }
+   }, [fetchData, isRefreshing]);
+   ```
+
+3. **Conditional Rendering Hierarchy**:
+   ```typescript
+   // Only show full loading state when no data is available
+   // This is CRITICAL for preserving content visibility
+   if (isLoading && data.length === 0) {
+     return <FullLoadingView />;
+   }
+   
+   // Otherwise, preserve content visibility during refreshes
+   return (
+     <Container>
+       <Header>
+         <Title>Data</Title>
+         {isManualRefreshing ? (
+           <SmallLoadingIndicator />
+         ) : (
+           <RefreshButton onPress={() => refresh(true)} />
+         )}
+       </Header>
+       
+       <Content>
+         {data.map(item => <DataItem key={item.id} item={item} />)}
+         
+         {/* Optional mini indicator for background refreshes */}
+         {isRefreshing && !isManualRefreshing && (
+           <MinimalRefreshIndicator />
+         )}
+       </Content>
+     </Container>
+   );
+   ```
+
+4. **Store Update Patterns**:
+   - Update records without clearing entire collections
+   - Use record-based structures (objects with keys) rather than arrays
+   - When fetching new data, merge it with existing data instead of replacing
+   - Never clear existing data on error conditions
+   - Implement proper error handling that preserves content visibility
+
+5. **SDK Method Verification**:
+   - Always verify SDK methods exist at runtime (not just in TypeScript definitions)
+   - Implement fallback mechanisms for missing methods
+   - Handle SDK method absence gracefully with user feedback
+   ```typescript
+   const fetchData = useCallback(async () => {
+     if (!sdk) return;
+     
+     try {
+       // Runtime verification of SDK method existence
+       if (typeof sdk.getSomeData !== 'function') {
+         console.error('SDK method getSomeData not available');
+         setError('SDK functionality not available');
+         return;
+       }
+       
+       const result = await sdk.getSomeData();
+       // Update store WITHOUT clearing existing data
+       updateData(result);
+     } catch (error) {
+       setError('Failed to fetch data');
+       // IMPORTANT: Don't clear existing data on error
+     }
+   }, [sdk]);
+   ```
+
+### Implementation Example:
+
+```typescript
+// In a custom hook (e.g., useTransactions)
+function useTransactions() {
+  const [data, setData] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const fetchData = useCallback(async () => {
+    try {
+      // Verify SDK method exists at runtime
+      if (typeof api.getTransactions !== 'function') {
+        console.error('API method getTransactions not available');
+        setError('API functionality not available');
+        return;
+      }
+      
+      const result = await api.getTransactions();
+      
+      // Update data without clearing
+      setData(prev => {
+        // If we already have data, merge with new data
+        if (prev.length > 0) {
+          const existingMap = new Map(prev.map(item => [item.id, item]));
+          
+          // Update existing items and add new ones
+          result.forEach(item => {
+            existingMap.set(item.id, item);
+          });
+          
+          // Convert back to array
+          return Array.from(existingMap.values());
+        }
+        
+        // First load, just set the data
+        return result;
+      });
+      
+      setError(null);
+    } catch (err) {
+      setError('Failed to load transactions');
+      console.error(err);
+      // Important: Don't clear existing data on error
+    }
+  }, []);
+  
+  const refresh = useCallback(async (manual = false) => {
+    // Prevent duplicate refreshes
+    if (isRefreshing) return Promise.resolve();
+    
+    // Set appropriate loading states
+    if (manual) setIsManualRefreshing(true);
+    setIsRefreshing(true);
+    
+    try {
+      await fetchData();
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(error);
+    } finally {
+      setIsRefreshing(false);
+      if (manual) setIsManualRefreshing(false);
+      // Initial loading state is only cleared after first load
+      setIsLoading(false);
+    }
+  }, [fetchData, isRefreshing]);
+  
+  // Initial data load
+  useEffect(() => {
+    refresh().catch(console.error);
+  }, [refresh]);
+  
+  return { data, isLoading, isRefreshing, isManualRefreshing, error, refresh };
+}
+
+// In a component (e.g., TransactionsList)
+function TransactionsList() {
+  const { 
+    data, 
+    isLoading, 
+    isRefreshing, 
+    isManualRefreshing, 
+    error, 
+    refresh 
+  } = useTransactions();
+  
+  // Only show full loading state when no data available
+  if (isLoading && data.length === 0) {
+    return <FullLoadingView />;
+  }
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Transactions</CardTitle>
+        {isManualRefreshing ? (
+          <ActivityIndicator size="small" />
+        ) : (
+          <RefreshButton onPress={() => refresh(true)} />
+        )}
+      </CardHeader>
+      
+      <CardContent>
+        {/* Show error but keep content visible */}
+        {error && <ErrorMessage message={error} />}
+        
+        {data.length > 0 ? (
+          <>
+            {data.map(transaction => (
+              <TransactionItem key={transaction.id} transaction={transaction} />
+            ))}
+            
+            {/* Show subtle refreshing indicator for background refreshes */}
+            {isRefreshing && !isManualRefreshing && (
+              <SubtleRefreshIndicator />
+            )}
+          </>
+        ) : (
+          <EmptyState message="No transactions found" />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+This pattern is crucial for creating a smooth user experience, preventing the jarring effect of content disappearing during refreshes, and maintaining user context while data updates. It's especially important in complex UIs with multiple data sources, as it keeps the interface stable and predictable. 
