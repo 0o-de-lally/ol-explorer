@@ -59,6 +59,11 @@ A thorough analysis of the existing `AccountDetails` component revealed these ke
 
 ## Implementation Tasks
 
+When working through tasks, use the following checkbox states:
+- `[ ]` Task not yet started
+- `[~]` Task in progress
+- `[x]` Task completed
+
 ### Task 1: Extend SDK with GitHub Fetch Functionality
 - [ ] (2) Identify the proper location in `useSdk.ts` to add the new method
 - [ ] (4) Implement `getCommunityWalletNames()` method
