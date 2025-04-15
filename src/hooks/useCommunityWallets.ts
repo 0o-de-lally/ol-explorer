@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
 import { useSdkContext } from '../context/SdkContext';
 import { communityWalletStore, communityWalletActions, CommunityWalletData, COMMUNITY_WALLET_CONFIG } from '../store/communityWalletStore';
+import { normalizeAddress } from '../utils/addressUtils';
 
 // Debug flag - set to false in production
 const DEBUG = false;
@@ -119,10 +120,15 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                 throw new Error('Invalid data format from GitHub');
             }
 
+            // Check if authorization check is available
+            const hasAuthCheck = typeof sdk?.isDonorVoiceAuthorized === 'function';
+            // Check if reauth proposal check is available
+            const hasReauthCheck = typeof sdk?.isReauthProposed === 'function';
+
             // Process wallet addresses from GitHub - use parallel processing for efficiency
             const updatePromises = Object.entries(data.communityWallets).map(async ([address, info]) => {
                 try {
-                    const normalizedAddress = address.toLowerCase().replace(/^0x0+/, '0x');
+                    const normalizedAddress = normalizeAddress(address);
 
                     // Get account details from SDK
                     const accountData = await sdk?.getAccount(normalizedAddress);
@@ -139,12 +145,34 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                         }
                     }
 
+                    // Check authorization status if available
+                    let isAuthorized = false;
+                    if (hasAuthCheck && sdk) {
+                        try {
+                            isAuthorized = await sdk.isDonorVoiceAuthorized(normalizedAddress);
+                        } catch (authError) {
+                            if (DEBUG) console.error(`Error checking authorization for ${normalizedAddress}`, authError);
+                        }
+                    }
+
+                    // Check reauth proposal status if available
+                    let isReauthProposed = false;
+                    if (hasReauthCheck && sdk) {
+                        try {
+                            isReauthProposed = await sdk.isReauthProposed(normalizedAddress);
+                        } catch (reAuthError) {
+                            if (DEBUG) console.error(`Error checking reauth proposal for ${normalizedAddress}`, reAuthError);
+                        }
+                    }
+
                     // Create wallet data
                     const walletInfo = info as any;
                     const walletData: CommunityWalletData = {
                         address: normalizedAddress,
                         name: walletInfo.name || 'Community Wallet',
-                        balance
+                        balance,
+                        isAuthorized,
+                        isReauthProposed
                     };
 
                     // Update store - won't clear other entries
@@ -222,10 +250,15 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                     const namesMap = await sdk.getCommunityWalletNames() || {};
                     debugLog('SDK returned names map');
 
+                    // Check if the authorization check method is available
+                    const hasAuthCheck = typeof sdk.isDonorVoiceAuthorized === 'function';
+                    // Check if reauth proposal check is available
+                    const hasReauthCheck = typeof sdk.isReauthProposed === 'function';
+
                     // Process each address
                     const updatePromises = addresses.map(async (address: string) => {
                         try {
-                            const normalizedAddress = address.toLowerCase().replace(/^0x0+/, '0x');
+                            const normalizedAddress = normalizeAddress(address);
                             const accountData = await sdk.getAccount(normalizedAddress);
 
                             // Extract balance
@@ -243,11 +276,33 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                             // Get name from map
                             const name = namesMap[normalizedAddress] || 'Community Wallet';
 
+                            // Check if the wallet is authorized if the method is available
+                            let isAuthorized = false;
+                            if (hasAuthCheck) {
+                                try {
+                                    isAuthorized = await sdk.isDonorVoiceAuthorized(normalizedAddress);
+                                } catch (authError) {
+                                    if (DEBUG) console.error(`Error checking authorization for ${normalizedAddress}`, authError);
+                                }
+                            }
+
+                            // Check reauth proposal status if available
+                            let isReauthProposed = false;
+                            if (hasReauthCheck) {
+                                try {
+                                    isReauthProposed = await sdk.isReauthProposed(normalizedAddress);
+                                } catch (reAuthError) {
+                                    if (DEBUG) console.error(`Error checking reauth proposal for ${normalizedAddress}`, reAuthError);
+                                }
+                            }
+
                             // Create wallet data
                             const walletData: CommunityWalletData = {
                                 address: normalizedAddress,
                                 name,
-                                balance
+                                balance,
+                                isAuthorized,
+                                isReauthProposed
                             };
 
                             // Update store

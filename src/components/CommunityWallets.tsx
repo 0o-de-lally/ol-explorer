@@ -3,11 +3,13 @@ import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView, useWindowD
 import { observer } from '@legendapp/state/react';
 import { useCommunityWallets } from '../hooks/useCommunityWallets';
 import { CommunityWalletData } from '../store/communityWalletStore';
-import { formatAddressForDisplay, stripLeadingZeros } from '../utils/addressUtils';
+import { formatAddressForDisplay, stripLeadingZeros, normalizeAddress } from '../utils/addressUtils';
 import { Card, Row, Column } from './Layout';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import tokenConfig from '../config/tokenConfig';
+import { router } from 'expo-router';
+import appConfig from '../config/appConfig';
 
 // Debug flag - set to false in production
 const DEBUG = false;
@@ -27,7 +29,8 @@ const formatBalance = (balance: number): string => {
     const wholePartFormatted = wholePart.toLocaleString();
 
     // Return formatted balance with token symbol
-    return `${wholePartFormatted} ${tokenConfig.tokens.libraToken.symbol}`;
+    // return `${wholePartFormatted} ${tokenConfig.tokens.libraToken.symbol}`;
+    return `${wholePartFormatted}`;
 };
 
 // Format wallet address for display
@@ -53,8 +56,8 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
     // Now the wallets array contains already unwrapped data, no need for getObservableValue
     const copyToClipboard = async (text: string) => {
         try {
-            // Use the same stripLeadingZeros function for consistency
-            const addressToCopy = stripLeadingZeros(text);
+            // Use normalizeAddress for consistency with the rest of the application
+            const addressToCopy = normalizeAddress(text);
             await Clipboard.setStringAsync(addressToCopy);
             setCopySuccess('Address copied!');
             setTimeout(() => setCopySuccess(null), 2000);
@@ -87,9 +90,11 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
 
         return (
             <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
-                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">ADDRESS</Text>
-                <Text className="font-bold text-text-muted text-sm w-2/5 font-sans text-center truncate">NAME</Text>
-                <Text className="font-bold text-text-muted text-sm w-1/5 font-sans text-center truncate">BALANCE</Text>
+                <Text className="font-bold text-text-muted text-sm w-3/12 font-sans text-center truncate">NAME</Text>
+                <Text className="font-bold text-text-muted text-sm w-3/12 font-sans text-center truncate">ADDRESS</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/12 font-sans text-center truncate">{tokenConfig.tokens.libraToken.symbol}</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/12 font-sans text-center truncate">PROPOSED</Text>
+                <Text className="font-bold text-text-muted text-sm w-2/12 font-sans text-center truncate">AUTHORIZED</Text>
             </View>
         );
     };
@@ -161,55 +166,147 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                                 <View>
                                     {/* Table rows */}
                                     {wallets.map((wallet: CommunityWalletData) => (
-                                        <View key={wallet.address} className="flex flex-row py-3 px-4 w-full border-b border-border/30">
-                                            <View className="w-2/5">
-                                                <TouchableOpacity onPress={() => copyToClipboard(wallet.address)}>
-                                                    <View className="flex-row items-center">
-                                                        <Text className="text-text-light font-mono text-sm mr-1">
-                                                            {formatAddressDisplay(wallet.address)}
-                                                        </Text>
-                                                        <Ionicons name="copy-outline" size={14} color="#A0AEC0" />
-                                                    </View>
-                                                </TouchableOpacity>
+                                        <TouchableOpacity
+                                            key={wallet.address}
+                                            onPress={() => {
+                                                router.push(`/account/${stripLeadingZeros(normalizeAddress(wallet.address))}`);
+                                            }}
+                                        >
+                                            <View className="flex flex-row py-3 px-4 w-full border-b border-border/30 hover:bg-secondary/50">
+                                                <View className="w-3/12">
+                                                    <Text className="text-text-light text-sm">
+                                                        {wallet.name || 'Community Wallet'}
+                                                    </Text>
+                                                </View>
+                                                <View className="w-3/12">
+                                                    <Text className="text-text-light font-mono text-sm">
+                                                        {formatAddressDisplay(wallet.address)}
+                                                    </Text>
+                                                </View>
+                                                <View className="w-2/12">
+                                                    <Text className="text-text-light font-mono text-sm text-right">
+                                                        {formatBalance(wallet.balance || 0)}
+                                                    </Text>
+                                                </View>
+                                                <View className="w-2/12 items-center">
+                                                    {wallet.isReauthProposed ? (
+                                                        <TouchableOpacity
+                                                            onPress={(e: React.SyntheticEvent) => {
+                                                                e.stopPropagation(); // Prevent row click
+                                                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`)}&initialArgs=${encodeURIComponent(`"${stripLeadingZeros(normalizeAddress(wallet.address))}"`)}`)
+                                                            }}
+                                                        >
+                                                            <View className="rounded-full px-2 py-1 bg-blue-800">
+                                                                <Text className="text-white text-xs font-bold">
+                                                                    YES
+                                                                </Text>
+                                                            </View>
+                                                        </TouchableOpacity>
+                                                    ) : (
+                                                        <TouchableOpacity
+                                                            onPress={(e: React.SyntheticEvent) => {
+                                                                e.stopPropagation(); // Prevent row click
+                                                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`)}&initialArgs=${encodeURIComponent(`"${stripLeadingZeros(normalizeAddress(wallet.address))}"`)}`)
+                                                            }}
+                                                        >
+                                                            <View className="rounded-full px-2 py-1 bg-gray-700">
+                                                                <Text className="text-gray-300 text-xs font-bold">
+                                                                    NO
+                                                                </Text>
+                                                            </View>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                                <View className="w-2/12 items-center">
+                                                    {wallet.isAuthorized ? (
+                                                        <View className="rounded-full px-2 py-1 bg-green-800">
+                                                            <Text className="text-white text-xs font-bold">
+                                                                YES
+                                                            </Text>
+                                                        </View>
+                                                    ) : (
+                                                        <TouchableOpacity
+                                                            onPress={(e: React.SyntheticEvent) => {
+                                                                e.stopPropagation(); // Prevent row click
+                                                                router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`)}&initialArgs=${encodeURIComponent(`"${stripLeadingZeros(normalizeAddress(wallet.address))}"`)}`)
+                                                            }}
+                                                        >
+                                                            <View className="rounded-full px-2 py-1 bg-red-800">
+                                                                <Text className="text-white text-xs font-bold">
+                                                                    NO
+                                                                </Text>
+                                                            </View>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
                                             </View>
-                                            <View className="w-2/5">
-                                                <Text className="text-text-light text-sm">
-                                                    {wallet.name || 'Community Wallet'}
-                                                </Text>
-                                            </View>
-                                            <View className="w-1/5">
-                                                <Text className="text-text-light font-mono text-sm text-right">
-                                                    {formatBalance(wallet.balance || 0)}
-                                                </Text>
-                                            </View>
-                                        </View>
+                                        </TouchableOpacity>
                                     ))}
                                 </View>
                             ) : (
                                 /* Mobile view - stacked cards */
                                 <View className="space-y-3">
                                     {wallets.map((wallet: CommunityWalletData) => (
-                                        <View
+                                        <TouchableOpacity
                                             key={wallet.address}
-                                            className="bg-background/50 rounded-lg p-3 border border-border/30"
+                                            onPress={() => {
+                                                router.push(`/account/${stripLeadingZeros(normalizeAddress(wallet.address))}`);
+                                            }}
                                         >
-                                            <TouchableOpacity onPress={() => copyToClipboard(wallet.address)}>
-                                                <View className="flex-row items-center mb-2">
-                                                    <Text className="text-text-light font-mono text-sm mr-1">
-                                                        {formatAddressDisplay(wallet.address)}
+                                            <View
+                                                className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3 hover:bg-secondary/50"
+                                            >
+                                                <Text className="text-text-light font-mono text-sm mb-2">
+                                                    {formatAddressDisplay(wallet.address)}
+                                                </Text>
+
+                                                <View className="flex-row justify-between items-center mb-2">
+                                                    <Text className="text-text-light text-base">
+                                                        {wallet.name || 'Community Wallet'}
                                                     </Text>
-                                                    <Ionicons name="copy-outline" size={14} color="#A0AEC0" />
+                                                    <View className="flex-row gap-2">
+                                                        {wallet.isReauthProposed && (
+                                                            <TouchableOpacity
+                                                                onPress={(e: React.SyntheticEvent) => {
+                                                                    e.stopPropagation(); // Prevent row click
+                                                                    router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`)}&initialArgs=${encodeURIComponent(`"${stripLeadingZeros(normalizeAddress(wallet.address))}"`)}`)
+                                                                }}
+                                                            >
+                                                                <View className="rounded-full px-2 py-1 bg-blue-800">
+                                                                    <Text className="text-white text-xs font-bold">
+                                                                        PROPOSED
+                                                                    </Text>
+                                                                </View>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                        {wallet.isAuthorized ? (
+                                                            <View className="rounded-full px-2 py-1 bg-green-800">
+                                                                <Text className="text-white text-xs font-bold">
+                                                                    AUTHORIZED
+                                                                </Text>
+                                                            </View>
+                                                        ) : (
+                                                            <TouchableOpacity
+                                                                onPress={(e: React.SyntheticEvent) => {
+                                                                    e.stopPropagation(); // Prevent row click
+                                                                    router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`)}&initialArgs=${encodeURIComponent(`"${stripLeadingZeros(normalizeAddress(wallet.address))}"`)}`)
+                                                                }}
+                                                            >
+                                                                <View className="rounded-full px-2 py-1 bg-red-800">
+                                                                    <Text className="text-white text-xs font-bold">
+                                                                        NOT AUTHORIZED
+                                                                    </Text>
+                                                                </View>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </View>
                                                 </View>
-                                            </TouchableOpacity>
 
-                                            <Text className="text-text-light text-base mb-1">
-                                                {wallet.name || 'Community Wallet'}
-                                            </Text>
-
-                                            <Text className="text-text-light font-mono text-sm">
-                                                {formatBalance(wallet.balance || 0)}
-                                            </Text>
-                                        </View>
+                                                <Text className="text-text-light font-mono text-sm">
+                                                    {formatBalance(wallet.balance || 0)}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
                                     ))}
                                 </View>
                             )}

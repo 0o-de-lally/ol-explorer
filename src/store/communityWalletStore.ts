@@ -24,6 +24,8 @@ export interface CommunityWalletData {
     address: string;
     name: string;
     balance: number;
+    isAuthorized: boolean;
+    isReauthProposed: boolean;
 }
 
 // Define the store structure with record pattern
@@ -169,12 +171,36 @@ export const fetchCommunityWallets = async (sdk: any) => {
                     // Get the wallet name from the GitHub data
                     const name = walletNames[normalizedAddress] || 'Community Wallet';
 
-                    debugLog(`Wallet ${normalizedAddress}: name=${name}, balance=${balance}`);
+                    // Check if the wallet is authorized
+                    let isAuthorized = false;
+                    if (typeof sdk.isDonorVoiceAuthorized === 'function') {
+                        try {
+                            isAuthorized = await sdk.isDonorVoiceAuthorized(normalizedAddress);
+                            debugLog(`Authorization status for ${normalizedAddress}: ${isAuthorized}`);
+                        } catch (authError) {
+                            if (DEBUG) console.error(`Error checking authorization for ${normalizedAddress}`, authError);
+                        }
+                    }
+
+                    // Check if reauthorization is proposed
+                    let isReauthProposed = false;
+                    if (typeof sdk.isReauthProposed === 'function') {
+                        try {
+                            isReauthProposed = await sdk.isReauthProposed(normalizedAddress);
+                            debugLog(`Reauth proposal status for ${normalizedAddress}: ${isReauthProposed}`);
+                        } catch (reAuthError) {
+                            if (DEBUG) console.error(`Error checking reauth proposal for ${normalizedAddress}`, reAuthError);
+                        }
+                    }
+
+                    debugLog(`Wallet ${normalizedAddress}: name=${name}, balance=${balance}, authorized=${isAuthorized}, reauth=${isReauthProposed}`);
 
                     return {
                         address: normalizedAddress,
                         name,
-                        balance
+                        balance,
+                        isAuthorized,
+                        isReauthProposed
                     };
                 } catch (error) {
                     if (DEBUG) console.error(`Error fetching data for wallet ${address}`, error);
