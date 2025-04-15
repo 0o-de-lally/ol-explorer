@@ -9,6 +9,9 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import tokenConfig from '../config/tokenConfig';
 
+// Debug flag - set to false in production
+const DEBUG = false;
+
 // Token decimals for formatting balances
 const TOKEN_DECIMALS = tokenConfig.tokens.libraToken.decimals;
 
@@ -56,7 +59,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
             setCopySuccess('Address copied!');
             setTimeout(() => setCopySuccess(null), 2000);
         } catch (err) {
-            console.error('Clipboard operation failed:', err);
+            if (DEBUG) console.error('Clipboard operation failed', err);
         }
     };
 
@@ -73,7 +76,7 @@ export const CommunityWallets = observer(({ isVisible = true }: CommunityWallets
                 }, 500);
             })
             .catch((error: Error) => {
-                console.error('Manual refresh failed:', error);
+                if (DEBUG) console.error('Manual refresh failed', error);
                 setIsManualRefreshing(false);
             });
     };

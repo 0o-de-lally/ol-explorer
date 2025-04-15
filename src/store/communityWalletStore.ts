@@ -3,6 +3,16 @@ import appConfig from '../config/appConfig';
 import { normalizeAddress } from '../utils/addressUtils';
 import { BlockchainSDK } from '../types/blockchain';
 
+// Debug flag - set to false in production
+const DEBUG = false;
+
+// A safe logging function that only logs in debug mode
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG) {
+        console.log(`[CommunityWalletStore] ${message}`, ...args);
+    }
+};
+
 // Config for data freshness
 export const COMMUNITY_WALLET_CONFIG = {
     MIN_FRESHNESS_MS: 30000, // 30 seconds
@@ -107,7 +117,7 @@ export const communityWalletActions = {
 
 // Initialize the wallet data store
 export const fetchCommunityWallets = async (sdk: any) => {
-    console.log('[CommunityWalletStore] Fetching community wallets');
+    debugLog('Fetching community wallets');
     communityWalletActions.setLoading(true);
     communityWalletActions.setError(null);
 
@@ -121,29 +131,28 @@ export const fetchCommunityWallets = async (sdk: any) => {
         if (hasAllWalletsFn) {
             walletAddresses = await sdk.getAllCommunityWallets();
         } else {
-            console.warn('[CommunityWalletStore] getAllCommunityWallets not available in SDK');
+            if (DEBUG) console.warn('getAllCommunityWallets not available in SDK');
         }
-        console.log('[CommunityWalletStore] Wallet addresses from blockchain:', walletAddresses);
+        debugLog(`Found ${walletAddresses.length} wallet addresses`);
 
         // Get wallet names from GitHub repository (if supported)
         let walletNames: Record<string, string> = {};
         if (hasNamesFn) {
             walletNames = await sdk.getCommunityWalletNames() || {};
         } else {
-            console.warn('[CommunityWalletStore] getCommunityWalletNames not available in SDK');
+            if (DEBUG) console.warn('getCommunityWalletNames not available in SDK');
         }
-        console.log('[CommunityWalletStore] Wallet names from GitHub:', walletNames);
+        debugLog(`Found ${Object.keys(walletNames).length} wallet names`);
 
         // Parallel fetch of wallet data using Promise.allSettled for error handling
         const results = await Promise.allSettled(
             walletAddresses.map(async (address: string) => {
                 try {
                     const normalizedAddress = normalizeAddress(address);
-                    console.log(`[CommunityWalletStore] Fetching data for wallet: ${normalizedAddress}`);
+                    debugLog(`Fetching data for wallet: ${normalizedAddress}`);
 
                     // Get the account data from the SDK
                     const accountData = await sdk.getAccount(normalizedAddress);
-                    console.log(`[CommunityWalletStore] Account data for ${normalizedAddress}:`, accountData);
 
                     // Extract balance from account data
                     let balance = 0;
@@ -160,7 +169,7 @@ export const fetchCommunityWallets = async (sdk: any) => {
                     // Get the wallet name from the GitHub data
                     const name = walletNames[normalizedAddress] || 'Community Wallet';
 
-                    console.log(`[CommunityWalletStore] Wallet data for ${normalizedAddress}: name=${name}, balance=${balance}`);
+                    debugLog(`Wallet ${normalizedAddress}: name=${name}, balance=${balance}`);
 
                     return {
                         address: normalizedAddress,
@@ -168,29 +177,37 @@ export const fetchCommunityWallets = async (sdk: any) => {
                         balance
                     };
                 } catch (error) {
-                    console.error(`[CommunityWalletStore] Error fetching data for wallet ${address}:`, error);
+                    if (DEBUG) console.error(`Error fetching data for wallet ${address}`, error);
                     throw error;
                 }
             })
         );
 
-        console.log('[CommunityWalletStore] Fetch results:', results);
+        debugLog(`Processed ${results.length} wallets`);
 
-        // Process the results and update the store
-        results.forEach((result: PromiseSettledResult<CommunityWalletData>) => {
+        // Process the results of the parallel fetch
+        let successCount = 0;
+        for (const result of results) {
             if (result.status === 'fulfilled') {
-                const wallet = result.value;
-                communityWalletActions.updateWallet(wallet.address, wallet);
-            } else {
-                console.error('[CommunityWalletStore] Failed to fetch wallet data:', result.reason);
+                const walletData = result.value;
+                communityWalletActions.updateWallet(walletData.address, walletData);
+                successCount++;
             }
-        });
+            // Errors are already logged in the map function
+        }
 
-        console.log('[CommunityWalletStore] Updated store with wallet data');
-    } catch (error) {
-        console.error('[CommunityWalletStore] Error fetching community wallets:', error);
-        communityWalletActions.setError('Failed to load community wallets');
-    } finally {
+        debugLog(`Successfully updated ${successCount} of ${results.length} wallets`);
+
+        // Update the store with the results
         communityWalletActions.setLoading(false);
+        communityWalletActions.setError(null);
+        communityWalletActions.forceUpdate();
+
+        return true;
+    } catch (error) {
+        console.error('Error fetching community wallets', error);
+        communityWalletActions.setError('Failed to load community wallets');
+        communityWalletActions.setLoading(false);
+        return false;
     }
 }; 

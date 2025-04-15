@@ -7,6 +7,9 @@ import { useObservable } from '@legendapp/state/react';
 import { useSdkContext } from '../context/SdkContext';
 import { communityWalletStore, communityWalletActions, CommunityWalletData, COMMUNITY_WALLET_CONFIG } from '../store/communityWalletStore';
 
+// Debug flag - set to false in production
+const DEBUG = false;
+
 interface UseCommunityWalletsResult {
     wallets: CommunityWalletData[];
     isLoading: boolean;
@@ -14,6 +17,13 @@ interface UseCommunityWalletsResult {
     refresh: (force?: boolean) => Promise<void>;
     isStale: boolean;
 }
+
+// A safe logging function that only logs in debug mode
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG) {
+        console.log(`[useCommunityWallets] ${message}`, ...args);
+    }
+};
 
 /**
  * Helper function to recursively unwrap observable values - adapted from AccountDetails
@@ -95,7 +105,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
     // Direct GitHub fetch as fallback
     const fetchWalletsFromGitHub = async () => {
         try {
-            console.log('[useCommunityWallets] Fetching wallets directly from GitHub');
+            debugLog('Fetching wallets directly from GitHub');
             const response = await fetch('https://raw.githubusercontent.com/0LNetworkCommunity/v7-addresses/refs/heads/main/community-wallets.json');
 
             if (!response.ok) {
@@ -103,7 +113,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
             }
 
             const data = await response.json();
-            console.log('[useCommunityWallets] GitHub data received:', data);
+            debugLog('GitHub data received');
 
             if (!data || !data.communityWallets) {
                 throw new Error('Invalid data format from GitHub');
@@ -139,12 +149,12 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
 
                     // Update store - won't clear other entries
                     if (isMounted.current) {
-                        console.log(`[useCommunityWallets] Adding wallet to store: ${normalizedAddress}`);
+                        debugLog(`Adding wallet to store: ${normalizedAddress}`);
                         return communityWalletActions.updateWallet(normalizedAddress, walletData);
                     }
                     return false;
                 } catch (error) {
-                    console.error(`[useCommunityWallets] Error processing wallet ${address}:`, error);
+                    if (DEBUG) console.error(`Error processing wallet ${address}:`, error);
                     return false;
                 }
             });
@@ -153,7 +163,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
             await Promise.allSettled(updatePromises);
             return true;
         } catch (error) {
-            console.error('[useCommunityWallets] Error fetching from GitHub:', error);
+            console.error('Error fetching community wallets from GitHub', error);
             if (isMounted.current) {
                 communityWalletActions.setError('Failed to load community wallets');
             }
@@ -175,7 +185,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
         }
 
         if (!isInitialized || !sdk) {
-            console.warn('[useCommunityWallets] SDK not initialized, cannot refresh wallets');
+            if (DEBUG) console.warn('SDK not initialized, cannot refresh wallets');
             if (isMounted.current) {
                 communityWalletActions.setError('SDK not initialized');
             }
@@ -183,7 +193,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
         }
 
         if (isMounted.current) {
-            console.log('[useCommunityWallets] Refreshing community wallet data');
+            debugLog('Refreshing community wallet data');
             communityWalletActions.setLoading(true);
             communityWalletActions.setError(null);
             setLastFetchTime(now);
@@ -194,26 +204,26 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
             typeof sdk.getAllCommunityWallets === 'function' &&
             typeof sdk.getCommunityWalletNames === 'function';
 
-        console.log(`[useCommunityWallets] SDK has wallet functions: ${hasSdkWalletFunctions}`);
+        debugLog(`SDK has wallet functions: ${hasSdkWalletFunctions}`);
 
         try {
             if (hasSdkWalletFunctions) {
                 // Try SDK method first
                 try {
                     const addresses = await sdk.getAllCommunityWallets();
-                    console.log('[useCommunityWallets] SDK returned addresses:', addresses);
+                    debugLog('SDK returned addresses');
 
                     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
-                        console.log('[useCommunityWallets] No addresses from SDK, falling back to GitHub');
+                        debugLog('No addresses from SDK, falling back to GitHub');
                         await fetchWalletsFromGitHub();
                         return Promise.resolve();
                     }
 
                     const namesMap = await sdk.getCommunityWalletNames() || {};
-                    console.log('[useCommunityWallets] SDK returned names map:', namesMap);
+                    debugLog('SDK returned names map');
 
                     // Process each address
-                    const updatePromises = addresses.map(async (address) => {
+                    const updatePromises = addresses.map(async (address: string) => {
                         try {
                             const normalizedAddress = address.toLowerCase().replace(/^0x0+/, '0x');
                             const accountData = await sdk.getAccount(normalizedAddress);
@@ -245,14 +255,14 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                                 communityWalletActions.updateWallet(normalizedAddress, walletData);
                             }
                         } catch (error) {
-                            console.error(`[useCommunityWallets] Error processing address ${address}:`, error);
+                            if (DEBUG) console.error(`Error processing address ${address}`, error);
                         }
                     });
 
                     // Wait for all updates to complete
                     await Promise.allSettled(updatePromises);
                 } catch (sdkError) {
-                    console.error('[useCommunityWallets] Error using SDK methods:', sdkError);
+                    if (DEBUG) console.error('Error using SDK methods, falling back to GitHub', sdkError);
                     await fetchWalletsFromGitHub();
                 }
             } else {
@@ -260,7 +270,7 @@ export const useCommunityWallets = (isVisible = true): UseCommunityWalletsResult
                 await fetchWalletsFromGitHub();
             }
         } catch (error) {
-            console.error('[useCommunityWallets] Error in refresh function:', error);
+            console.error('Error refreshing community wallets', error);
             if (isMounted.current) {
                 communityWalletActions.setError('Failed to refresh community wallets');
             }
