@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {View, Text, TouchableOpacity, ActivityIndicator, AppState, AppStateStatus, useWindowDimensions} from 'react-native';
-import {observer} from '@legendapp/state/react';
-import {blockchainStore, blockchainActions} from '../store/blockchainStore';
-import {formatTimestamp} from '../utils/formatters';
-import {formatAddressForDisplay, normalizeTransactionHash} from '../utils/addressUtils';
-import {useSdkContext} from '../context/SdkContext';
-import {useForceUpdateTransactions} from '../hooks/useForceUpdate';
-import {router} from 'expo-router';
-import {useSdk} from '../hooks/useSdk';
+import { View, Text, TouchableOpacity, ActivityIndicator, AppState, AppStateStatus, useWindowDimensions } from 'react-native';
+import { observer } from '@legendapp/state/react';
+import { blockchainStore, blockchainActions } from '../store/blockchainStore';
+import { formatTimestamp } from '../utils/formatters';
+import { formatAddressForDisplay, normalizeTransactionHash } from '../utils/addressUtils';
+import { useSdkContext } from '../context/SdkContext';
+import { useForceUpdateTransactions } from '../hooks/useForceUpdate';
+import { router } from 'expo-router';
+import { useSdk } from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
-import {getTransactionStatus, getStatusPillStyle} from '../utils/transactionUtils';
+import { getTransactionStatus, getStatusPillStyle } from '../utils/transactionUtils';
+import { Ionicons } from '@expo/vector-icons';
 
 type TransactionsListProps = {
   testID?: string;
@@ -452,7 +453,7 @@ export const TransactionsList = observer(({
               <ActivityIndicator size="small" color="#E75A5C" />
             ) : (
               <TouchableOpacity onPress={handleRefresh} className="p-2">
-                <Text className="text-primary">Refresh</Text>
+                <Ionicons name="refresh" size={16} color="#E75A5C" />
               </TouchableOpacity>
             )}
           </View>
@@ -484,7 +485,7 @@ export const TransactionsList = observer(({
               <ActivityIndicator size="small" color="#E75A5C" />
             ) : (
               <TouchableOpacity onPress={handleRefresh} className="p-2">
-                <Text className="text-primary">Refresh</Text>
+                <Ionicons name="refresh" size={16} color="#E75A5C" />
               </TouchableOpacity>
             )}
           </View>

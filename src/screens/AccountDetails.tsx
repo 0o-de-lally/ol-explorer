@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { observer } from '@legendapp/state/react';
 import { useAccount } from '../hooks/useAccount';
 import { ACCOUNT_DATA_CONFIG } from '../store/accountStore';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { AccountTransactionsList } from '../components/AccountTransactionsList';
 import appConfig from '../config/appConfig';
 import tokenConfig from '../config/tokenConfig';
@@ -829,7 +829,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
                     onPress={handleRefresh}
                     className="p-2"
                   >
-                    <Text className="text-primary">Refresh</Text>
+                    <Ionicons name="refresh" size={16} color="#E75A5C" />
                   </TouchableOpacity>
                 )}
               </View>

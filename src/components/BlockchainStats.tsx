@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import {View, Text, useWindowDimensions, ActivityIndicator} from 'react-native';
-import {useObservable} from '@legendapp/state/react';
-import {blockchainStore} from '../store/blockchainStore';
-import {useForceUpdate} from '../hooks/useForceUpdate';
+import { View, Text, useWindowDimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useObservable } from '@legendapp/state/react';
+import { blockchainStore } from '../store/blockchainStore';
+import { useForceUpdate } from '../hooks/useForceUpdate';
+import { Ionicons } from '@expo/vector-icons';
 
 type BlockchainStatsProps = {
   testID?: string;

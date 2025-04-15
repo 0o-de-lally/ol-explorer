@@ -7,6 +7,7 @@ import { useSdkContext } from '../context/SdkContext';
 import { SupplyStats as SupplyStatsType } from '../hooks/useSdk';
 import appConfig from '../config/appConfig';
 import tokenConfig from '../config/tokenConfig';
+import { Ionicons } from '@expo/vector-icons';
 
 // Use polling interval from config
 const AUTO_REFRESH_INTERVAL = appConfig.metrics.calculations.updateInterval;
@@ -173,7 +174,7 @@ export const SupplyStats = observer(({ isVisible = true }: SupplyStatsProps) => 
                             <ActivityIndicator size="small" color="#E75A5C" />
                         ) : (
                             <TouchableOpacity onPress={handleRefresh} className="p-2">
-                                <Text className="text-primary">Refresh</Text>
+                                <Ionicons name="refresh" size={16} color="#E75A5C" />
                             </TouchableOpacity>
                         )}
                     </View>
