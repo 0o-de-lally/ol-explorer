@@ -743,13 +743,6 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
               </TouchableOpacity>
             </Row>
 
-            <Row alignItems="center" className="mb-2">
-              <Text className="text-text-light text-sm ml-4">Bid Format:</Text>
-              <Text className="text-white text-xs ml-2">
-                Current Bid / Maximum Bid Allowed
-              </Text>
-            </Row>
-
             {/* Only show validator grade and proposals if the validator is in the active set */}
             {isInCurrentValidators && (
               <>
