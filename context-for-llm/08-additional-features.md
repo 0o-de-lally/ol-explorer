@@ -481,7 +481,7 @@ Follow these steps during implementation:
      // Safely unwrap the data
      const featureData = getObservableValue(data, null);
      
-     return (
+       return (
        <View className="w-full mb-5">
          <Card>
            <View className="h-1 bg-primary/20" />
@@ -517,7 +517,7 @@ Follow these steps during implementation:
                  <Text className="text-text-light text-base">
                    {new Date(featureData.timestamp).toLocaleString()}
                  </Text>
-               </View>
+         </View>
              )}
              
              {/* Loading overlay - shown only for initial load, not refresh */}
@@ -525,7 +525,7 @@ Follow these steps during implementation:
                <View className="absolute inset-0 flex items-center justify-center bg-background/50">
                  <ActivityIndicator size="large" color="#E75A5C" />
                  <Text className="text-white text-base mt-2">Loading data...</Text>
-               </View>
+         </View>
              )}
              
              {/* Empty state */}
@@ -1178,7 +1178,7 @@ Maintaining data visibility during refresh operations is critical for good user 
    - Implement fallback mechanisms for missing methods
    - Handle SDK method absence gracefully with user feedback
    ```typescript
-   const fetchData = useCallback(async () => {
+     const fetchData = useCallback(async () => {
      if (!sdk) return;
      
      try {
@@ -1241,7 +1241,7 @@ function useTransactions() {
       });
       
       setError(null);
-    } catch (err) {
+       } catch (err) {
       setError('Failed to load transactions');
       console.error(err);
       // Important: Don't clear existing data on error
@@ -1261,16 +1261,16 @@ function useTransactions() {
       return Promise.resolve();
     } catch (error) {
       return Promise.reject(error);
-    } finally {
+       } finally {
       setIsRefreshing(false);
       if (manual) setIsManualRefreshing(false);
       // Initial loading state is only cleared after first load
       setIsLoading(false);
-    }
+       }
   }, [fetchData, isRefreshing]);
-  
+
   // Initial data load
-  useEffect(() => {
+     useEffect(() => {
     refresh().catch(console.error);
   }, [refresh]);
   
@@ -1281,10 +1281,10 @@ function useTransactions() {
 function TransactionsList() {
   const { 
     data, 
-    isLoading, 
+       isLoading,
     isRefreshing, 
     isManualRefreshing, 
-    error, 
+       error,
     refresh 
   } = useTransactions();
   
@@ -1338,7 +1338,7 @@ Maintaining visual consistency across the application is critical for a professi
 
 Components displayed on the HomeScreen follow a consistent card styling pattern:
 
-```tsx
+   ```tsx
 <View className="w-full mb-5">
   <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
     {/* Thin accent line at top */}
@@ -1403,7 +1403,7 @@ Example of a component that follows this pattern:
 export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetricsProps) => {
   // Component logic...
   
-  return (
+       return (
     <View className="w-full mb-5">
       <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
         <View className="h-1 bg-primary/20" />
@@ -1419,13 +1419,13 @@ export const BlockchainMetrics = observer(({ isVisible = true }: BlockchainMetri
                 <Text className="text-primary">Refresh</Text>
               </TouchableOpacity>
             )}
-          </View>
+         </View>
         </View>
         
         {/* Component-specific content */}
       </View>
-    </View>
-  );
+         </View>
+       );
 });
 ```
 
@@ -1440,18 +1440,18 @@ For components that display tabular data (like TransactionsList and CommunityWal
 const renderTableHeader = () => {
   if (!isDesktop) return null; // Only show table headers on desktop
 
-  return (
+       return (
     <View className="flex flex-row py-2.5 px-4 bg-background border-b border-border w-full">
       <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN ONE</Text>
       <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN TWO</Text>
       <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN THREE</Text>
       <Text className="font-bold text-text-muted text-sm w-1/4 font-sans text-center truncate">COLUMN FOUR</Text>
-    </View>
-  );
+         </View>
+       );
 };
 
 // In the render section
-return (
+     return (
   <View className="w-full mb-5">
     <View className="bg-secondary/90 rounded-lg overflow-hidden backdrop-blur-lg">
       <View className="h-1 bg-primary/20" />
@@ -1464,9 +1464,9 @@ return (
       {renderTableHeader()}
       
       {/* Component content */}
-      <View className="p-4">
+         <View className="p-4">
         {/* ... component content ... */}
-      </View>
+         </View>
     </View>
   </View>
 );
@@ -1597,13 +1597,13 @@ Maintaining data visibility during refresh operations is critical for good user 
      } catch (error) {
        console.error('Error refreshing:', error);
        return Promise.reject(error);
-     } finally {
+       } finally {
        // Reset loading states - always executes even on error
        setIsRefreshing(false);
        if (manual) setIsManualRefreshing(false);
        // Initial loading state is only cleared after first load
-       setIsLoading(false);
-     }
+         setIsLoading(false);
+       }
    }, [fetchData, isRefreshing]);
    ```
 
@@ -1764,9 +1764,9 @@ function TransactionsList() {
   // Only show full loading state when no data available
   if (isLoading && data.length === 0) {
     return <FullLoadingView />;
-  }
-  
-  return (
+     }
+     
+     return (
     <Card>
       <CardHeader>
         <CardTitle>Transactions</CardTitle>

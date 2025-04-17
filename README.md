@@ -448,7 +448,8 @@ For more in-depth documentation about this project, explore the files in the `co
 - [Build Summary](context-for-llm/05-build-summary.md) - Build process and output
 - [Deployment Summary](context-for-llm/06-deployment-summary.md) - Deployment options and instructions
 - [Future Updates](context-for-llm/07-future-updates.md) - Guidelines for maintaining and updating the project
-- [Additional Features](context-for-llm/08-additional-features.md) - Instructions for extending the project
+- [Additional Features](context-for-llm/08-additional-features.md) - Comprehensive guide for extending the project
+- [Change Request Template](context-for-llm/09-change-request-template.md) - Standard template for implementing changes following the data flow pattern
 
 Additional documentation:
 - [NativeWind CSS](docs/nativewind-css.md) - Details about CSS styling with NativeWind
@@ -457,6 +458,26 @@ Additional documentation:
 - [Grid System](docs/grid-system.md) - Grid system usage
 - [Layout](docs/layout.md) - Layout component documentation
 - [Responsive Improvements](docs/responsive-improvements.md) - Recent responsive design improvements
+
+## Adding New Features or Making Changes
+
+When extending or modifying the OL Explorer, always follow these steps:
+
+1. **Use the Change Request Template**: Start with the [Change Request Template](context-for-llm/09-change-request-template.md) to structure your changes. This template ensures you follow the project's established data flow pattern:
+   ```
+   SDK → SDK Context → Store → Hook → Component
+   ```
+
+2. **Follow the Implementation Guide**: Refer to the [Additional Features Guide](context-for-llm/08-additional-features.md) for detailed implementation patterns and best practices for:
+   - Data persistence during refreshes
+   - Component styling consistency
+   - Observable state management
+   - Error handling strategies
+   - Memory management techniques
+
+3. **Maintain the Architectural Pattern**: All modifications should maintain the unidirectional data flow architecture described in the [Data Flow Architecture](#data-flow-architecture) section.
+
+Using these templates will ensure all code changes are consistent with the project's architecture and coding standards.
 
 ## Key Technologies
 
@@ -636,10 +657,6 @@ This centralized approach ensures all components use the same RPC endpoint throu
 ## Future Maintenance
 
 See [context-for-llm/07-future-updates.md](context-for-llm/07-future-updates.md) for detailed information on maintaining and updating the project.
-
-## Adding New Features
-
-See [context-for-llm/08-additional-features.md](context-for-llm/08-additional-features.md) for guidance on extending the project with new features.
 
 ## License
 
