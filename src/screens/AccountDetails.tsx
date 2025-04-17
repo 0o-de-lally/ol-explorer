@@ -433,7 +433,7 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
         const currentValidators = await openLibraSdk.getCurrentValidators();
 
         // Normalize all addresses for case-insensitive comparison
-        const normalizedAddress = accountAddress.toLowerCase();
+        const normalizedAddress = (accountAddress as string).toLowerCase();
         const normalizedValidators = currentValidators.map(addr =>
           typeof addr === 'string' ? addr.toLowerCase() : ''
         );
@@ -469,6 +469,19 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
 
   const isLiquidationProposed = isCommunityWallet && extendedData.reauth ?
     getObservableValue(extendedData.reauth.isLiquidationProposed, false) : false;
+
+  // Safe access to community wallet data
+  const isDonorVoice = isCommunityWallet && extendedData.communityWallet ?
+    getObservableValue(extendedData.communityWallet.isDonorVoice, false) : false;
+
+  const isAuthorized = isCommunityWallet && extendedData.communityWallet ?
+    getObservableValue(extendedData.communityWallet.isAuthorized, false) : false;
+
+  const isWithinAuthorizeWindow = isCommunityWallet && extendedData.communityWallet ?
+    getObservableValue(extendedData.communityWallet.isWithinAuthorizeWindow, false) : false;
+
+  const vetoTally = isCommunityWallet && extendedData.communityWallet ?
+    getObservableValue(extendedData.communityWallet.vetoTally, 0) : 0;
 
   // Access validator-specific data
   const validatorData = extendedData.validator;
@@ -627,21 +640,81 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
           </Row>
 
           <View className="bg-background rounded px-3 py-3 mb-4">
+            {/* Always show basic community wallet status */}
+            <Row alignItems="center" className="mb-2">
+              <Text className="text-text-light text-sm mr-2">Authorization Status:</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                }}
+              >
+                <View className={`px-2 py-0.5 rounded-md ${isAuthorized ? 'bg-green-800' : 'bg-red-800'}`}>
+                  <Text className="text-white text-xs">
+                    {isAuthorized ? 'Authorized' : 'Not Authorized'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Row>
+
+            {/* Special handling for unauthorized wallets */}
+            {!isAuthorized && (
+              <>
+                {isReauthProposed ? (
+                  // If reauthorization is proposed, show vote information
+                  <Row alignItems="center" className="mb-2">
+                    <Text className="text-text-light text-sm mr-2">Reauthorization:</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_reauth_tally`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                      }}
+                    >
+                      <View className="bg-blue-800 px-2 py-0.5 rounded-md">
+                        <Text className="text-white text-xs">Vote In Progress</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </Row>
+                ) : (
+                  // If no reauthorization proposed, show warning message
+                  <View className="bg-red-800/20 rounded-md p-2 mb-2">
+                    <Text className="text-red-300 text-xs">
+                      This Community Wallet is not authorized and does not have a reauthorization vote in progress.
+                      Donors can propose reauthorization for a wallet that has lost authorization.
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <Row alignItems="center" className="mb-2">
+              <Text className="text-text-light text-sm mr-2">Veto Tally:</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_veto_tally`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                }}
+              >
+                <Text className="text-white text-sm">{vetoTally}</Text>
+              </TouchableOpacity>
+            </Row>
+
+            {/* Show if wallet is within authorization window */}
+            <Row alignItems="center" className="mb-2">
+              <Text className="text-text-light text-sm mr-2">Within Auth Window:</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_within_authorize_window`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                }}
+              >
+                <View className={`px-2 py-0.5 rounded-md ${isWithinAuthorizeWindow ? 'bg-green-800' : 'bg-yellow-800'}`}>
+                  <Text className="text-white text-xs">
+                    {isWithinAuthorizeWindow ? 'Yes' : 'No'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Row>
+
+            {/* Show reauthorization vote details if proposed */}
             {isReauthProposed && (
               <>
-                <Row alignItems="center" className="mb-2">
-                  <Text className="text-text-light text-sm mr-2">Reauthorization Vote:</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_reauth_tally`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
-                    }}
-                  >
-                    <View className="bg-blue-800 px-2 py-0.5 rounded-md">
-                      <Text className="text-white text-xs">In Progress</Text>
-                    </View>
-                  </TouchableOpacity>
-                </Row>
-
                 <Row alignItems="center" className="mb-2 ml-4">
                   <Text className="text-text-light text-xs mr-2">Approval:</Text>
                   <Text className="text-white text-xs">
@@ -656,11 +729,18 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
 
                 <Row alignItems="center" className="mb-4 ml-4">
                   <Text className="text-text-light text-xs mr-2">Deadline (Epoch):</Text>
-                  <Text className="text-white text-xs">{reauthDeadline}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_reauth_deadline`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                    }}
+                  >
+                    <Text className="text-white text-xs">{reauthDeadline}</Text>
+                  </TouchableOpacity>
                 </Row>
               </>
             )}
 
+            {/* Show liquidation information if proposed */}
             {isLiquidationProposed && (
               <Row alignItems="center" className="mb-2">
                 <Text className="text-text-light text-sm mr-2">Liquidation:</Text>
@@ -675,6 +755,20 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
                 </TouchableOpacity>
               </Row>
             )}
+
+            {/* Add a link to view all donors by checking the donations registry */}
+            <Row alignItems="center" className="mt-4">
+              <Text className="text-text-light text-sm mr-2">View Donors:</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice::get_root_registry`)}&initialArgs=${encodeURIComponent('')}`)
+                }}
+              >
+                <View className="bg-blue-800 px-2 py-1 rounded-md">
+                  <Text className="text-white text-xs">Donor Registry</Text>
+                </View>
+              </TouchableOpacity>
+            </Row>
           </View>
         </>
       )}
