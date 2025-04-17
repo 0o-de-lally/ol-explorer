@@ -24,6 +24,7 @@ export interface Account {
   balance: number;
   sequence_number: number;
   resources: AccountResource[] | Record<string, AccountResource>;
+  unlocked_balance?: number;
 }
 
 export interface AccountResource {
@@ -88,4 +89,5 @@ export interface BlockchainSDK {
   error: Error | null;
   isUsingMockData?: boolean;
   ext_getAccountTransactions: (address: string, limit?: number, start?: string) => Promise<any[]>;
+  getAccountBalance?: (address: string) => Promise<[string, string]>;
 } 

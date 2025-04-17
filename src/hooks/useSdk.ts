@@ -49,6 +49,7 @@ export const useSdk = (): BlockchainSDK & {
   isWithinAuthorizeWindow: (address: string) => Promise<boolean>;
   getVetoTally: (address: string) => Promise<number>;
   getSupplyStats: () => Promise<SupplyStats>;
+  getAccountBalance: (address: string) => Promise<[string, string]>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -851,6 +852,38 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
+  // Add new method for fetching account balance using view function
+  const getAccountBalance = async (address: string): Promise<[string, string]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get account balance');
+      return ["0", "0"];
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::ol_account::balance`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      // Handle array response format - expected: [unlocked_balance, total_balance]
+      if (Array.isArray(result) && result.length >= 2) {
+        const unlocked = typeof result[0] === 'string' ? result[0] : String(result[0] || "0");
+        const total = typeof result[1] === 'string' ? result[1] : String(result[1] || "0");
+        return [unlocked, total];
+      }
+
+      // Return default if unexpected format
+      console.warn('Unexpected balance format:', result);
+      return ["0", "0"];
+    } catch (error) {
+      console.error(`Error fetching balance for ${address}:`, error);
+      return ["0", "0"];
+    }
+  };
+
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
     return {
@@ -997,6 +1030,10 @@ export const useSdk = (): BlockchainSDK & {
       getSupplyStats: async () => {
         console.warn('SDK not initialized, cannot get supply stats');
         return { total: 0, slowLocked: 0, donorVoice: 0, pledge: 0, unlocked: 0 };
+      },
+      getAccountBalance: async () => {
+        console.warn('SDK not initialized, cannot get account balance');
+        return ["0", "0"];
       }
     };
   }
@@ -1055,6 +1092,7 @@ export const useSdk = (): BlockchainSDK & {
     isCommunityWalletInit,
     isWithinAuthorizeWindow,
     getVetoTally,
-    getSupplyStats
+    getSupplyStats,
+    getAccountBalance
   };
 }; 

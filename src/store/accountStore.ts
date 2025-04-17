@@ -1,6 +1,6 @@
-import {observable} from '@legendapp/state';
-import {Account, AccountResource} from '../types/blockchain';
-import {ValidatorGrade} from '../hooks/useSdk';
+import { observable } from '@legendapp/state';
+import { Account, AccountResource } from '../types/blockchain';
+import { ValidatorGrade } from '../hooks/useSdk';
 
 // Config for data freshness
 export const ACCOUNT_DATA_CONFIG = {
@@ -41,6 +41,12 @@ export interface ExtendedAccountData {
         jailReputation: number;
         countBuddiesJailed: number;
     };
+}
+
+// Add to the Account interface or define a new extension to it
+export interface AccountBalanceInfo {
+    total: string;
+    unlocked: string;
 }
 
 // Define the account store structure
@@ -152,7 +158,7 @@ export const accountActions = {
         notifyUpdate();
     },
 
-    setAccountData: (address: string, account: Account | null) => {
+    setAccountData: (address: string, account: Account | null, balanceInfo?: AccountBalanceInfo) => {
         // Validate account data
         if (account) {
             // Ensure required fields exist
@@ -165,7 +171,13 @@ export const accountActions = {
             if (account.resources === null || account.resources === undefined) {
                 account.resources = [];
             }
-            // Preserve original structure - no conversion to array
+
+            // Update balance from separate balance info if provided
+            if (balanceInfo) {
+                account.balance = parseInt(balanceInfo.total, 10) || 0;
+                // Add unlocked balance as a property (now properly defined in the Account interface)
+                account.unlocked_balance = parseInt(balanceInfo.unlocked, 10) || 0;
+            }
         }
 
         // Initialize account entry if it doesn't exist

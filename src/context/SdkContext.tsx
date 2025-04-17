@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import {BlockchainSDK, LedgerInfo, ViewFunctionParams} from '../types/blockchain';
-import {createMockLibraClient} from '../services/mockSdk';
-import {normalizeAddress, normalizeTransactionHash} from '../utils/addressUtils';
+import { BlockchainSDK, LedgerInfo, ViewFunctionParams } from '../types/blockchain';
+import { createMockLibraClient } from '../services/mockSdk';
+import { normalizeAddress, normalizeTransactionHash } from '../utils/addressUtils';
 import sdkConfig from '../config/sdkConfig';
 // Import Buffer polyfill to ensure it's available
 import '../utils/bufferPolyfill';
@@ -371,6 +371,10 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         console.error('Error calling viewJson function:', error);
                         throw error;
                     }
+                },
+                getAccountBalance: async () => {
+                    console.warn('SDK not initialized, cannot get account balance');
+                    return ["0", "0"];
                 }
             };
 
@@ -584,6 +588,10 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                                 console.error('Error in mock viewJson function:', error);
                                 return null;
                             }
+                        },
+                        getAccountBalance: async (address: string) => {
+                            console.log(`Mock getAccountBalance called for address: ${address}`);
+                            return ["10000000", "100000000"]; // Mock values for [unlocked, total]
                         }
                     };
 

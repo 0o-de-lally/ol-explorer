@@ -881,49 +881,7 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
 
                 <View className="bg-background rounded px-3 py-2 mb-4">
                   <Text className="text-text-light font-mono text-sm">
-                    {(() => {
-                      // Get resources directly using our helper
-                      const rawAccount = accountData;
-                      if (!rawAccount?.resources) return '0';
-
-                      // Extract resources array
-                      let resourcesArray = [];
-                      if (rawAccount.resources) {
-                        resourcesArray = extractResources(rawAccount);
-                      }
-
-                      // Find SlowWallet resource
-                      const slowWallet = resourcesArray.find(resource =>
-                        resource?.type === '0x1::slow_wallet::SlowWallet'
-                      );
-
-                      if (slowWallet?.data?.unlocked) {
-                        // Calculate whole and fractional parts based on TOKEN_DECIMALS
-                        const balance = Number(slowWallet.data.unlocked);
-                        const divisor = Math.pow(10, TOKEN_DECIMALS);
-                        const wholePart = Math.floor(balance / divisor);
-                        const fractionalPart = balance % divisor;
-
-                        // Format with proper decimal places
-                        const wholePartFormatted = wholePart.toLocaleString();
-
-                        // Convert fractional part to string with proper padding
-                        const fractionalStr = fractionalPart.toString().padStart(TOKEN_DECIMALS, '0');
-
-                        // Trim trailing zeros but keep at least 2 decimal places if there's a fractional part
-                        const trimmedFractional = fractionalPart > 0
-                          ? fractionalStr.replace(/0+$/, '').padEnd(2, '0')
-                          : '00';
-
-                        // Only show decimal part if it's non-zero
-                        const formattedBalance = trimmedFractional === '00'
-                          ? wholePartFormatted
-                          : `${wholePartFormatted}.${trimmedFractional}`;
-
-                        return `${formattedBalance} ${tokenConfig.tokens.libraToken.symbol}`;
-                      }
-                      return `0 ${tokenConfig.tokens.libraToken.symbol}`;
-                    })()}
+                    {formatBalance(getObservableValue(accountData.unlocked_balance, 0))} {tokenConfig.tokens.libraToken.symbol}
                   </Text>
                 </View>
 
