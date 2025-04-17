@@ -41,7 +41,7 @@ export const useSdk = (): BlockchainSDK & {
   getLastActivityUsecs: (address: string) => Promise<number>;
   isInitializedOnV8: (address: string) => Promise<boolean>;
   getCurrentValidators: () => Promise<string[]>;
-  getCurrentBid: (address: string) => Promise<number>;
+  getCurrentBid: (address: string) => Promise<[number, number]>;
   getValidatorGrade: (address: string) => Promise<ValidatorGrade>;
   getJailReputation: (address: string) => Promise<number>;
   getCountBuddiesJailed: (address: string) => Promise<number>;
@@ -50,6 +50,21 @@ export const useSdk = (): BlockchainSDK & {
   getVetoTally: (address: string) => Promise<number>;
   getSupplyStats: () => Promise<SupplyStats>;
   getAccountBalance: (address: string) => Promise<[string, string]>;
+
+  // Add new methods for account type detection
+  isSlowWallet: (address: string) => Promise<boolean>;
+  isV8Authorized: (address: string) => Promise<boolean>;
+  isInValidatorUniverse: (address: string) => Promise<boolean>;
+  getUserDonations: (dvAddress: string, userAddress: string) => Promise<number>;
+  getReauthTally: (address: string) => Promise<[number, number, number]>;
+  getReauthDeadline: (address: string) => Promise<number>;
+  isLiquidationProposed: (address: string) => Promise<boolean>;
+
+  // Add new validator-related functions
+  isJailed: (address: string) => Promise<boolean>;
+  getBidders: () => Promise<string[]>;
+  getMaxSeatsOffered: () => Promise<number>;
+  getFilledSeats: () => Promise<number>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -336,10 +351,10 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
-  const getCurrentBid = async (address: string): Promise<number> => {
+  const getCurrentBid = async (address: string): Promise<[number, number]> => {
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get current bid');
-      return 0;
+      return [0, 0];
     }
 
     try {
@@ -351,14 +366,17 @@ export const useSdk = (): BlockchainSDK & {
         arguments: [normalizedAddress]
       });
 
-      if (Array.isArray(result) && result.length > 0) {
-        return typeof result[0] === 'number' ? result[0] : 0;
+      if (Array.isArray(result) && result.length >= 2) {
+        return [
+          typeof result[0] === 'number' ? result[0] : parseInt(result[0] || '0', 10),
+          typeof result[1] === 'number' ? result[1] : parseInt(result[1] || '0', 10)
+        ];
       }
 
-      return typeof result === 'number' ? result : 0;
+      return [0, 0];
     } catch (error) {
       console.error(`Error getting current bid for ${address}:`, error);
-      return 0;
+      return [0, 0];
     }
   };
 
@@ -437,7 +455,18 @@ export const useSdk = (): BlockchainSDK & {
       });
 
       if (Array.isArray(result) && result.length > 0) {
+        // Handle string values (like "12") by parsing them to numbers
+        if (typeof result[0] === 'string') {
+          const parsed = parseInt(result[0], 10);
+          return isNaN(parsed) ? 0 : parsed;
+        }
         return typeof result[0] === 'number' ? result[0] : 0;
+      }
+
+      // Handle string or number directly
+      if (typeof result === 'string') {
+        const parsed = parseInt(result, 10);
+        return isNaN(parsed) ? 0 : parsed;
       }
 
       return typeof result === 'number' ? result : 0;
@@ -884,6 +913,311 @@ export const useSdk = (): BlockchainSDK & {
     }
   };
 
+  // Check if an account is a slow wallet
+  const isSlowWallet = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if slow wallet');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::slow_wallet::is_slow`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is a slow wallet:`, error);
+      return false;
+    }
+  };
+
+  // Check if an account is v8 authorized
+  const isV8Authorized = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if v8 authorized');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::reauthorization::is_v8_authorized`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is v8 authorized:`, error);
+      return false;
+    }
+  };
+
+  // Check if an account is in validator universe
+  const isInValidatorUniverse = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if in validator universe');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::validator_universe::is_in_universe`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is in validator universe:`, error);
+      return false;
+    }
+  };
+
+  // Get user donations to a community wallet
+  const getUserDonations = async (dvAddress: string, userAddress: string): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get user donations');
+      return 0;
+    }
+
+    try {
+      const normalizedDVAddress = normalizeAddress(dvAddress);
+      const normalizedUserAddress = normalizeAddress(userAddress);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_governance::check_is_donor`,
+        typeArguments: [],
+        arguments: [normalizedDVAddress, normalizedUserAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        // The result might be a boolean or a number depending on the implementation
+        if (typeof result[0] === 'boolean') {
+          return result[0] ? 1 : 0;
+        }
+        return typeof result[0] === 'number' ? result[0] : 0;
+      }
+
+      return 0;
+    } catch (error) {
+      console.error(`Error getting user donations from ${userAddress} to ${dvAddress}:`, error);
+      return 0;
+    }
+  };
+
+  // Get reauthorization vote tally for a community wallet
+  const getReauthTally = async (address: string): Promise<[number, number, number]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get reauth tally');
+      return [0, 0, 0];
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_governance::get_reauth_tally`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      // Returns tuple (percent approval, turnout percent, threshold needed to pass)
+      if (Array.isArray(result) && result.length >= 3) {
+        return [
+          typeof result[0] === 'number' ? result[0] : 0,
+          typeof result[1] === 'number' ? result[1] : 0,
+          typeof result[2] === 'number' ? result[2] : 0
+        ];
+      }
+
+      return [0, 0, 0];
+    } catch (error) {
+      console.error(`Error getting reauth tally for ${address}:`, error);
+      return [0, 0, 0];
+    }
+  };
+
+  // Get reauthorization deadline for a community wallet
+  const getReauthDeadline = async (address: string): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get reauth deadline');
+      return 0;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_governance::get_reauth_deadline`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return typeof result[0] === 'number' ? result[0] : 0;
+      }
+
+      return typeof result === 'number' ? result : 0;
+    } catch (error) {
+      console.error(`Error getting reauth deadline for ${address}:`, error);
+      return 0;
+    }
+  };
+
+  // Check if liquidation is proposed for a community wallet
+  const isLiquidationProposed = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if liquidation proposed');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::donor_voice_governance::is_liquidation_proposed`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if liquidation proposed for ${address}:`, error);
+      return false;
+    }
+  };
+
+  // Check if a validator is jailed
+  const isJailed = async (address: string): Promise<boolean> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot check if validator is jailed');
+      return false;
+    }
+
+    try {
+      const normalizedAddress = normalizeAddress(address);
+
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::jail::is_jailed`,
+        typeArguments: [],
+        arguments: [normalizedAddress]
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0] === true;
+      }
+
+      return result === true;
+    } catch (error) {
+      console.error(`Error checking if ${address} is jailed:`, error);
+      return false;
+    }
+  };
+
+  // Get all bidders in the current epoch
+  const getBidders = async (): Promise<string[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get bidders');
+      return [];
+    }
+
+    try {
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::epoch_boundary::get_bidders`,
+        typeArguments: [],
+        arguments: []
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        // The result might be an array within an array
+        if (Array.isArray(result[0])) {
+          return result[0].map(addr => String(addr));
+        }
+        return result.map(addr => String(addr));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error getting bidders:', error);
+      return [];
+    }
+  };
+
+  // Get the maximum seats offered in the validator set
+  const getMaxSeatsOffered = async (): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get max seats offered');
+      return 0;
+    }
+
+    try {
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::epoch_boundary::get_max_seats_offered`,
+        typeArguments: [],
+        arguments: []
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return typeof result[0] === 'number' ? result[0] : parseInt(result[0] || '0', 10);
+      }
+
+      return typeof result === 'number' ? result : 0;
+    } catch (error) {
+      console.error('Error getting max seats offered:', error);
+      return 0;
+    }
+  };
+
+  // Get the number of filled validator seats
+  const getFilledSeats = async (): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get filled seats');
+      return 0;
+    }
+
+    try {
+      const result = await sdk.view({
+        function: `${OL_FRAMEWORK}::epoch_boundary::get_filled_seats`,
+        typeArguments: [],
+        arguments: []
+      });
+
+      if (Array.isArray(result) && result.length > 0) {
+        return typeof result[0] === 'number' ? result[0] : parseInt(result[0] || '0', 10);
+      }
+
+      return typeof result === 'number' ? result : 0;
+    } catch (error) {
+      console.error('Error getting filled seats:', error);
+      return 0;
+    }
+  };
+
   // If SDK is not initialized yet, return a stub that indicates that state
   if (!sdk) {
     return {
@@ -1000,7 +1334,7 @@ export const useSdk = (): BlockchainSDK & {
       },
       getCurrentBid: async () => {
         console.warn('SDK not initialized, cannot get current bid');
-        return 0;
+        return [0, 0];
       },
       getValidatorGrade: async () => {
         console.warn('SDK not initialized, cannot get validator grade');
@@ -1034,6 +1368,51 @@ export const useSdk = (): BlockchainSDK & {
       getAccountBalance: async () => {
         console.warn('SDK not initialized, cannot get account balance');
         return ["0", "0"];
+      },
+      // Add the new methods
+      isSlowWallet: async () => {
+        console.warn('SDK not initialized, cannot check if slow wallet');
+        return false;
+      },
+      isV8Authorized: async () => {
+        console.warn('SDK not initialized, cannot check if v8 authorized');
+        return false;
+      },
+      isInValidatorUniverse: async () => {
+        console.warn('SDK not initialized, cannot check if in validator universe');
+        return false;
+      },
+      getUserDonations: async () => {
+        console.warn('SDK not initialized, cannot get user donations');
+        return 0;
+      },
+      getReauthTally: async () => {
+        console.warn('SDK not initialized, cannot get reauth tally');
+        return [0, 0, 0];
+      },
+      getReauthDeadline: async () => {
+        console.warn('SDK not initialized, cannot get reauth deadline');
+        return 0;
+      },
+      isLiquidationProposed: async () => {
+        console.warn('SDK not initialized, cannot check if liquidation proposed');
+        return false;
+      },
+      isJailed: async () => {
+        console.warn('SDK not initialized, cannot check if validator is jailed');
+        return false;
+      },
+      getBidders: async () => {
+        console.warn('SDK not initialized, cannot get bidders');
+        return [];
+      },
+      getMaxSeatsOffered: async () => {
+        console.warn('SDK not initialized, cannot get max seats offered');
+        return 0;
+      },
+      getFilledSeats: async () => {
+        console.warn('SDK not initialized, cannot get filled seats');
+        return 0;
       }
     };
   }
@@ -1093,6 +1472,19 @@ export const useSdk = (): BlockchainSDK & {
     isWithinAuthorizeWindow,
     getVetoTally,
     getSupplyStats,
-    getAccountBalance
+    getAccountBalance,
+
+    // Add the new methods
+    isSlowWallet,
+    isV8Authorized,
+    isInValidatorUniverse,
+    getUserDonations,
+    getReauthTally,
+    getReauthDeadline,
+    isLiquidationProposed,
+    isJailed,
+    getBidders,
+    getMaxSeatsOffered,
+    getFilledSeats
   };
 }; 

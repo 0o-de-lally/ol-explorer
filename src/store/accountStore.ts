@@ -36,10 +36,36 @@ export interface ExtendedAccountData {
     };
     validator: {
         isValidator: boolean;
-        currentBid: number;
+        currentBid: [number, number];
         grade: ValidatorGrade;
         jailReputation: number;
         countBuddiesJailed: number;
+        isJailed: boolean;
+    };
+    // Add accountType property
+    accountType: {
+        // Account can be one of these types
+        isRegularWallet: boolean;
+        isSlowWallet: boolean;
+        isValidatorWallet: boolean;
+        isCommunityWallet: boolean;
+        // Account can have multiple of these statuses
+        isV8Authorized: boolean;
+    };
+    // Additional data for specific account types
+    slowWallet?: {
+        unlockedAmount: string;
+        transferredAmount: string;
+    };
+    donations?: {
+        hasDonated: boolean;
+        donationAmount: number;
+    };
+    reauth?: {
+        isReauthProposed: boolean;
+        reauthTally: [number, number, number]; // [approval percent, turnout percent, threshold]
+        reauthDeadline: number;
+        isLiquidationProposed: boolean;
     };
 }
 

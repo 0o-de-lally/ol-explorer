@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Account, AccountResource } from '../types/blockchain';
-import { accountStore, accountActions } from '../store/accountStore';
+import { accountStore, accountActions, ExtendedAccountData } from '../store/accountStore';
 import { useSdkContext } from '../context/SdkContext';
 import { useObservable } from '@legendapp/state/react';
 import { isValidAddressFormat } from '../utils/addressUtils';
@@ -9,37 +9,6 @@ import { ValidatorGrade } from './useSdk';
 import appConfig from '../config/appConfig';
 
 // Extended Account interface with the additional data
-interface ExtendedAccountData {
-    communityWallet: {
-        isDonorVoice: boolean;
-        isAuthorized: boolean;
-        isReauthProposed: boolean;
-        isInitialized: boolean;
-        isWithinAuthorizeWindow: boolean;
-        vetoTally: number;
-    };
-    founder: {
-        isFounder: boolean;
-        hasFriends: boolean;
-    };
-    vouching: {
-        vouchScore: number;
-        hasValidVouchScore: boolean;
-    };
-    activity: {
-        hasBeenTouched: boolean;
-        onboardingTimestamp: number;
-        lastActivityTimestamp: number;
-        isInitializedOnV8: boolean;
-    };
-    validator: {
-        isValidator: boolean;
-        currentBid: number;
-        grade: ValidatorGrade;
-        jailReputation: number;
-        countBuddiesJailed: number;
-    };
-}
 
 interface UseAccountResult {
     account: Account | null;
@@ -72,7 +41,7 @@ export const useAccount = (address: string | null): UseAccountResult => {
     const isStale = address ? accountActions.isDataStale(address) : false;
 
     // Function to fetch extended account data
-    const fetchExtendedAccountData = async (address: string): Promise<ExtendedAccountData> => {
+    const fetchExtendedAccountData = async (address: string, account: Account, resources: AccountResource[]): Promise<ExtendedAccountData> => {
         if (!sdk) {
             // Return default ExtendedAccountData structure when no SDK
             return {
@@ -100,211 +69,154 @@ export const useAccount = (address: string | null): UseAccountResult => {
                 },
                 validator: {
                     isValidator: false,
-                    currentBid: 0,
+                    currentBid: [0, 0],
                     grade: { isCompliant: false, acceptedProposals: 0, failedProposals: 0 },
                     jailReputation: 0,
-                    countBuddiesJailed: 0
+                    countBuddiesJailed: 0,
+                    isJailed: false
+                },
+                accountType: {
+                    isRegularWallet: true,
+                    isSlowWallet: false,
+                    isValidatorWallet: false,
+                    isCommunityWallet: false,
+                    isV8Authorized: false
                 }
             };
         }
 
-        // Get account transactions for the account
-        let transactions: any[] = [];
         try {
-            // Use ext_getAccountTransactions if available for better performance
-            transactions = await openLibraSdk.ext_getAccountTransactions(address, 10);
+            // Check if account is a validator
+            const isInValidatorUniverse = await openLibraSdk.isInValidatorUniverse(address);
+            // Get validator data if it's a validator
+            const currentBid = await openLibraSdk.getCurrentBid(address);
+            const validatorGrade = await openLibraSdk.getValidatorGrade(address);
+            const jailReputation = await openLibraSdk.getJailReputation(address);
+            const countBuddiesJailed = await openLibraSdk.getCountBuddiesJailed(address);
+            const isJailed = await openLibraSdk.isJailed(address);
+
+            // Check if account is a community wallet (donor voice)
+            const isDonorVoice = await openLibraSdk.isDonorVoice(address);
+            // Get community wallet data
+            const isAuthorized = await openLibraSdk.isDonorVoiceAuthorized(address);
+            const isReauthProposed = await openLibraSdk.isReauthProposed(address);
+            const isCommunityWalletInit = await openLibraSdk.isCommunityWalletInit(address);
+            const isWithinAuthorizeWindow = await openLibraSdk.isWithinAuthorizeWindow(address);
+            const vetoTally = await openLibraSdk.getVetoTally(address);
+
+            // Check if account is a slow wallet
+            const isSlowWallet = await openLibraSdk.isSlowWallet(address);
+            // No specific slow wallet data fetching needed here
+
+            // Check if account has verified account status (founder, etc.)
+            const isFounder = await openLibraSdk.isFounder(address);
+            const hasFriends = await openLibraSdk.hasFounderFriends(address);
+            const hasValidVouchScore = await openLibraSdk.isVoucherScoreValid(address);
+            const vouchScore = await openLibraSdk.getVouchScore(address);
+
+            // Get activity data
+            const hasBeenTouched = await openLibraSdk.hasEverBeenTouched(address);
+            const onboardingTimestamp = await openLibraSdk.getOnboardingUsecs(address);
+            const lastActivityTimestamp = await openLibraSdk.getLastActivityUsecs(address);
+            const isInitializedOnV8 = await openLibraSdk.isInitializedOnV8(address);
+            const isV8Authorized = await openLibraSdk.isV8Authorized(address);
+
+            // Reauth data if available
+            const reauthTally = await openLibraSdk.getReauthTally(address);
+            const reauthDeadline = await openLibraSdk.getReauthDeadline(address);
+            const isLiquidationProposed = await openLibraSdk.isLiquidationProposed(address);
+
+            // Create the extended account data object
+            return {
+                communityWallet: {
+                    isDonorVoice,
+                    isAuthorized,
+                    isReauthProposed,
+                    isInitialized: isCommunityWalletInit,
+                    isWithinAuthorizeWindow,
+                    vetoTally
+                },
+                founder: {
+                    isFounder,
+                    hasFriends
+                },
+                vouching: {
+                    vouchScore,
+                    hasValidVouchScore
+                },
+                activity: {
+                    hasBeenTouched,
+                    onboardingTimestamp,
+                    lastActivityTimestamp,
+                    isInitializedOnV8
+                },
+                validator: {
+                    isValidator: isInValidatorUniverse,
+                    currentBid,
+                    grade: validatorGrade,
+                    jailReputation,
+                    countBuddiesJailed,
+                    isJailed
+                },
+                accountType: {
+                    isRegularWallet: !isDonorVoice && !isSlowWallet && !isInValidatorUniverse,
+                    isSlowWallet,
+                    isValidatorWallet: isInValidatorUniverse,
+                    isCommunityWallet: isDonorVoice,
+                    isV8Authorized
+                },
+                // Include optional fields if applicable
+                reauth: {
+                    isReauthProposed,
+                    reauthTally,
+                    reauthDeadline,
+                    isLiquidationProposed
+                }
+            };
         } catch (error) {
-            console.error(`Error fetching account transactions: ${error}`);
-        }
+            console.error(`Error fetching extended account data for ${address}:`, error);
 
-        // Default values for extended data
-        let voucherScore = 0;
-        let isValidated = false;
-        let isFounder = false;
-        let hasFriends = false;
-        let isDonorVoice = false;
-        let isInitializedOnV8 = false;
-        let onboardingTimestamp = 0;
-        let lastActivityTimestamp = 0;
-        let isValidator = false;
-        let currentBid = 0;
-        let validatorGrade = { isCompliant: false, acceptedProposals: 0, failedProposals: 0 };
-        let jailReputation = 0;
-        let countBuddiesJailed = 0;
-
-        // Use Promise.allSettled to fetch all data in parallel and handle errors individually
-        const results = await Promise.allSettled([
-            // Vouching data
-            openLibraSdk.getVouchScore(address),
-            openLibraSdk.isVoucherScoreValid(address),
-
-            // Founder data
-            openLibraSdk.isFounder(address),
-            openLibraSdk.hasFounderFriends(address),
-
-            // Community wallet data
-            openLibraSdk.isDonorVoice(address),
-
-            // Activity data
-            openLibraSdk.hasEverBeenTouched(address),
-            openLibraSdk.isInitializedOnV8(address),
-            openLibraSdk.getOnboardingUsecs(address),
-            openLibraSdk.getLastActivityUsecs(address),
-
-            // Validator data - first get the list to check if this account is a validator
-            openLibraSdk.getCurrentValidators()
-        ]);
-
-        // Process results
-        if (results[0].status === 'fulfilled') {
-            voucherScore = results[0].value;
-        }
-
-        if (results[1].status === 'fulfilled') {
-            isValidated = results[1].value;
-        }
-
-        if (results[2].status === 'fulfilled') {
-            isFounder = results[2].value;
-        }
-
-        if (results[3].status === 'fulfilled') {
-            hasFriends = results[3].value;
-        }
-
-        if (results[4].status === 'fulfilled') {
-            isDonorVoice = results[4].value;
-        }
-
-        if (results[5].status === 'fulfilled') {
-            // We already have transactions, but this is a more direct check
-            const hasTouched = results[5].value;
-            // Use the result only if we don't have transactions
-            if (!transactions.length) {
-                transactions = hasTouched ? [{}] : [];
-            }
-        }
-
-        if (results[6].status === 'fulfilled') {
-            isInitializedOnV8 = results[6].value;
-        }
-
-        if (results[7].status === 'fulfilled') {
-            onboardingTimestamp = results[7].value;
-        }
-
-        if (results[8].status === 'fulfilled') {
-            lastActivityTimestamp = results[8].value;
-        }
-
-        // Check if account is a validator
-        if (results[9].status === 'fulfilled') {
-            const validators = results[9].value;
-            const normalizedAddress = address.toLowerCase();
-
-            // Check if the address is in the validators list
-            isValidator = validators.some(val =>
-                typeof val === 'string' && val.toLowerCase() === normalizedAddress
-            );
-
-            // If this is a validator, get additional information
-            if (isValidator) {
-                // Use Promise.allSettled again for validator-specific data
-                const validatorResults = await Promise.allSettled([
-                    openLibraSdk.getCurrentBid(address),
-                    openLibraSdk.getValidatorGrade(address),
-                    openLibraSdk.getJailReputation(address),
-                    openLibraSdk.getCountBuddiesJailed(address)
-                ]);
-
-                if (validatorResults[0].status === 'fulfilled') {
-                    currentBid = validatorResults[0].value;
+            // Return default data in case of error
+            return {
+                communityWallet: {
+                    isDonorVoice: false,
+                    isAuthorized: false,
+                    isReauthProposed: false,
+                    isInitialized: false,
+                    isWithinAuthorizeWindow: false,
+                    vetoTally: 0
+                },
+                founder: {
+                    isFounder: false,
+                    hasFriends: false
+                },
+                vouching: {
+                    vouchScore: 0,
+                    hasValidVouchScore: false
+                },
+                activity: {
+                    hasBeenTouched: false,
+                    onboardingTimestamp: 0,
+                    lastActivityTimestamp: 0,
+                    isInitializedOnV8: false
+                },
+                validator: {
+                    isValidator: false,
+                    currentBid: [0, 0],
+                    grade: { isCompliant: false, acceptedProposals: 0, failedProposals: 0 },
+                    jailReputation: 0,
+                    countBuddiesJailed: 0,
+                    isJailed: false
+                },
+                accountType: {
+                    isRegularWallet: true,
+                    isSlowWallet: false,
+                    isValidatorWallet: false,
+                    isCommunityWallet: false,
+                    isV8Authorized: false
                 }
-
-                if (validatorResults[1].status === 'fulfilled') {
-                    validatorGrade = validatorResults[1].value;
-                }
-
-                if (validatorResults[2].status === 'fulfilled') {
-                    jailReputation = validatorResults[2].value;
-                }
-
-                if (validatorResults[3].status === 'fulfilled') {
-                    countBuddiesJailed = validatorResults[3].value;
-                }
-            }
+            };
         }
-
-        // Get community wallet detailed data if this is a donor voice
-        let isAuthorized = false;
-        let isReauthProposed = false;
-        let isInitialized = false;
-        let isWithinAuthorizeWindow = false;
-        let vetoTally = 0;
-
-        if (isDonorVoice) {
-            // Fetch community wallet specific data
-            const communityWalletResults = await Promise.allSettled([
-                openLibraSdk.isDonorVoiceAuthorized(address),
-                openLibraSdk.isReauthProposed(address),
-                openLibraSdk.isCommunityWalletInit(address),
-                openLibraSdk.isWithinAuthorizeWindow(address),
-                openLibraSdk.getVetoTally(address)
-            ]);
-
-            if (communityWalletResults[0].status === 'fulfilled') {
-                isAuthorized = communityWalletResults[0].value;
-            }
-
-            if (communityWalletResults[1].status === 'fulfilled') {
-                isReauthProposed = communityWalletResults[1].value;
-            }
-
-            if (communityWalletResults[2].status === 'fulfilled') {
-                isInitialized = communityWalletResults[2].value;
-            }
-
-            if (communityWalletResults[3].status === 'fulfilled') {
-                isWithinAuthorizeWindow = communityWalletResults[3].value;
-            }
-
-            if (communityWalletResults[4].status === 'fulfilled') {
-                vetoTally = communityWalletResults[4].value;
-            }
-        }
-
-        // Create and return properly structured extended data
-        return {
-            communityWallet: {
-                isDonorVoice,
-                isAuthorized,
-                isReauthProposed,
-                isInitialized,
-                isWithinAuthorizeWindow,
-                vetoTally
-            },
-            founder: {
-                isFounder,
-                hasFriends
-            },
-            vouching: {
-                vouchScore: voucherScore,
-                hasValidVouchScore: isValidated
-            },
-            activity: {
-                hasBeenTouched: transactions.length > 0,
-                onboardingTimestamp,
-                lastActivityTimestamp,
-                isInitializedOnV8
-            },
-            validator: {
-                isValidator,
-                currentBid,
-                grade: validatorGrade,
-                jailReputation,
-                countBuddiesJailed
-            }
-        };
     };
 
     // Simplified fetchAccount function with minimal data manipulation
@@ -345,8 +257,13 @@ export const useAccount = (address: string | null): UseAccountResult => {
             // Fetch balance information using the new SDK method
             const [unlocked, total] = await openLibraSdk.getAccountBalance(address);
 
-            // Fetch extended account data
-            const extendedAccountData = await fetchExtendedAccountData(address);
+            // Get resources for extended account data
+            let resources: AccountResource[] = Array.isArray(fetchedAccount.resources)
+                ? fetchedAccount.resources
+                : [];
+
+            // Fetch extended account data with necessary resources
+            const extendedAccountData = await fetchExtendedAccountData(address, fetchedAccount, resources);
 
             // Update account in store with balance information
             accountActions.setAccountData(address, fetchedAccount, {

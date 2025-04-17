@@ -375,6 +375,10 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                 getAccountBalance: async () => {
                     console.warn('SDK not initialized, cannot get account balance');
                     return ["0", "0"];
+                },
+                getCurrentBid: async () => {
+                    console.warn('SDK not initialized, cannot get current bid');
+                    return [0, 0];
                 }
             };
 
@@ -592,6 +596,10 @@ export const SdkProvider: React.FC<SdkProviderProps> = ({ children }) => {
                         getAccountBalance: async (address: string) => {
                             console.log(`Mock getAccountBalance called for address: ${address}`);
                             return ["10000000", "100000000"]; // Mock values for [unlocked, total]
+                        },
+                        getCurrentBid: async () => {
+                            console.warn('SDK not initialized, cannot get current bid');
+                            return [0, 0];
                         }
                     };
 
