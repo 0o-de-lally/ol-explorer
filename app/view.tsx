@@ -10,13 +10,16 @@ export default function ViewFunction() {
     const sdk = useSdk();
     const params = useLocalSearchParams();
     const autoExecutedRef = useRef(false);
+    const manualExecutionRef = useRef(false);
 
     // Get initial values from URL params if available
     const initialPath = params?.initialPath as string | undefined;
     const initialArgs = params?.initialArgs as string | undefined;
+    const initialTypeArgs = params?.initialTypeArgs as string | undefined;
+    const source = params?.source as string | undefined;
 
     const [functionPath, setFunctionPath] = useState<string>(initialPath || `${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`);
-    const [typeArguments, setTypeArguments] = useState<string>('');
+    const [typeArguments, setTypeArguments] = useState<string>(initialTypeArgs || '');
     const [arguments_, setArguments] = useState<string>(initialArgs || '');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [result, setResult] = useState<any>(null);
@@ -94,6 +97,22 @@ export default function ViewFunction() {
 
             console.log('View function response:', response);
             setResult(response);
+
+            // Only update URL if this was a manual execution (button click)
+            // This helps prevent infinite loops
+            if (manualExecutionRef.current) {
+                // Update URL without causing a navigation
+                router.replace({
+                    pathname: '/view',
+                    params: {
+                        initialPath: functionPath,
+                        initialTypeArgs: typeArguments,
+                        initialArgs: arguments_,
+                        source: 'manual'
+                    }
+                });
+                manualExecutionRef.current = false;
+            }
         } catch (e) {
             console.error('Error executing view function:', e);
             setError(e instanceof Error ? e.message : String(e));
@@ -102,26 +121,49 @@ export default function ViewFunction() {
         }
     }, [functionPath, typeArguments, arguments_, sdk, parseArguments, parseTypeArguments]);
 
+    // Function to update state and URL without refreshing
+    const updateExampleSelection = useCallback((newPath: string, newTypeArgs: string, newArgs: string) => {
+        // Update state
+        setFunctionPath(newPath);
+        setTypeArguments(newTypeArgs);
+        setArguments(newArgs);
+
+        // Update URL without causing a navigation
+        router.replace({
+            pathname: '/view',
+            params: {
+                initialPath: newPath,
+                initialTypeArgs: newTypeArgs,
+                initialArgs: newArgs,
+                source: 'example'
+            }
+        });
+    }, []);
+
     // Attempt auto-execution only when SDK is ready and it hasn't been attempted before
     useEffect(() => {
-        if (sdkReady && initialPath && initialArgs && !autoExecutedRef.current && !isLoading) {
-            console.log('Auto-executing view function with:', {
-                initialPath,
-                initialArgs,
-                sdkReady
-            });
+        if (sdkReady && initialPath && !autoExecutedRef.current && !isLoading) {
+            // Only auto-execute if the source is not from a manual execution
+            if (source !== 'manual') {
+                console.log('Auto-executing view function with:', {
+                    initialPath,
+                    initialArgs,
+                    initialTypeArgs,
+                    sdkReady
+                });
 
-            // Mark that we've attempted execution
-            autoExecutedRef.current = true;
+                // Mark that we've attempted execution
+                autoExecutedRef.current = true;
 
-            // Delay execution slightly to ensure everything is properly set up
-            const timer = setTimeout(() => {
-                executeViewFunction();
-            }, 300);
+                // Delay execution slightly to ensure everything is properly set up
+                const timer = setTimeout(() => {
+                    executeViewFunction();
+                }, 300);
 
-            return () => clearTimeout(timer);
+                return () => clearTimeout(timer);
+            }
         }
-    }, [initialPath, initialArgs, executeViewFunction, sdkReady, isLoading]);
+    }, [initialPath, initialArgs, initialTypeArgs, executeViewFunction, sdkReady, isLoading, source]);
 
     const copyToClipboard = () => {
         const resultStr = JSON.stringify(result, null, 2);
@@ -204,7 +246,10 @@ export default function ViewFunction() {
                         {/* Execute Button */}
                         <TouchableOpacity
                             className={`rounded-lg py-3 items-center mb-4 ${sdkReady ? 'bg-primary' : 'bg-gray-600'}`}
-                            onPress={executeViewFunction}
+                            onPress={() => {
+                                manualExecutionRef.current = true;
+                                executeViewFunction();
+                            }}
                             disabled={isLoading || !sdkReady}
                         >
                             <Text className="text-white font-bold">
@@ -259,13 +304,15 @@ export default function ViewFunction() {
                     <View className="bg-secondary rounded-lg p-4 mb-4">
                         <Text className="text-white text-lg font-bold mb-4">Example Functions</Text>
 
+                        {/* General/Network Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Network Information</Text>
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
-                            onPress={() => {
-                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`);
-                                setTypeArguments('');
-                                setArguments('');
-                            }}
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`,
+                                '',
+                                ''
+                            )}
                         >
                             <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`}</Text>
                             <Text className="text-gray-400 text-sm">Get current validators</Text>
@@ -273,11 +320,175 @@ export default function ViewFunction() {
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
-                            onPress={() => {
-                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`);
-                                setTypeArguments('');
-                                setArguments('"0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"');
-                            }}
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`,
+                                '',
+                                'true'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`}</Text>
+                            <Text className="text-gray-400 text-sm">Get qualified bidders and their bids</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`,
+                                '',
+                                'false'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`}</Text>
+                            <Text className="text-gray-400 text-sm">Get all bidders and their bids (including unqualified)</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::supply::get_stats`,
+                                '',
+                                ''
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::supply::get_stats`}</Text>
+                            <Text className="text-gray-400 text-sm">Get supply statistics</Text>
+                        </TouchableOpacity>
+
+                        {/* Account Information Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Account Information</Text>
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::ol_account::balance`,
+                                '',
+                                '"0x9A990A584D7BAD8C6155FA62E3B87D3AD9BE782CF4D4EC96BB690ECE78116027"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::ol_account::balance`}</Text>
+                            <Text className="text-gray-400 text-sm">Get account balance</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::reauthorization::is_v8_authorized`,
+                                '',
+                                '"0x9A990A584D7BAD8C6155FA62E3B87D3AD9BE782CF4D4EC96BB690ECE78116027"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::reauthorization::is_v8_authorized`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if account is V8 authorized</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::activity::has_ever_been_touched`,
+                                '',
+                                '"0x9A990A584D7BAD8C6155FA62E3B87D3AD9BE782CF4D4EC96BB690ECE78116027"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::activity::has_ever_been_touched`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if account has been touched</Text>
+                        </TouchableOpacity>
+
+                        {/* Slow Wallet Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Slow Wallet</Text>
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::slow_wallet::is_slow`,
+                                '',
+                                '"0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::slow_wallet::is_slow`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if account is a slow wallet</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::slow_wallet::unlocked_amount`,
+                                '',
+                                '"0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::slow_wallet::unlocked_amount`}</Text>
+                            <Text className="text-gray-400 text-sm">Get slow wallet unlocked amount</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::slow_wallet::transferred_amount`,
+                                '',
+                                '"0xd67f3ff22bd719eb5be2df6577c9b42d"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::slow_wallet::transferred_amount`}</Text>
+                            <Text className="text-gray-400 text-sm">Get slow wallet transferred amount</Text>
+                        </TouchableOpacity>
+
+                        {/* Validator Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Validator</Text>
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::validator_universe::is_in_universe`,
+                                '',
+                                '"0x9A710919B1A1E67EDA335269C0085C91"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::validator_universe::is_in_universe`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if account is in validator universe</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::proof_of_fee::current_bid`,
+                                '',
+                                '"0x9A710919B1A1E67EDA335269C0085C91"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::current_bid`}</Text>
+                            <Text className="text-gray-400 text-sm">Get validator's current bid</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::jail::is_jailed`,
+                                '',
+                                '"0x9A710919B1A1E67EDA335269C0085C91"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::jail::is_jailed`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if validator is jailed</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::grade::get_validator_grade`,
+                                '',
+                                '"0x9A710919B1A1E67EDA335269C0085C91"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::grade::get_validator_grade`}</Text>
+                            <Text className="text-gray-400 text-sm">Get validator grade</Text>
+                        </TouchableOpacity>
+
+                        {/* Community Wallet Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Community Wallet</Text>
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`,
+                                '',
+                                '"0xC906F67F626683B77145D1F20C1A753B"'
+                            )}
                         >
                             <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`}</Text>
                             <Text className="text-gray-400 text-sm">Check if account is a community wallet</Text>
@@ -285,23 +496,85 @@ export default function ViewFunction() {
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
-                            onPress={() => {
-                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::founder::is_founder`);
-                                setTypeArguments('');
-                                setArguments('"0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"');
-                            }}
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`,
+                                '',
+                                '"0xC906F67F626683B77145D1F20C1A753B"'
+                            )}
                         >
-                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::founder::is_founder`}</Text>
-                            <Text className="text-gray-400 text-sm">Check if account is a founder</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::donor_voice_reauth::is_authorized`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if community wallet is authorized</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_veto_tally`,
+                                '',
+                                '"0xC906F67F626683B77145D1F20C1A753B"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_veto_tally`}</Text>
+                            <Text className="text-gray-400 text-sm">Get veto tally for community wallet</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`,
+                                '',
+                                '"0xC906F67F626683B77145D1F20C1A753B"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`}</Text>
+                            <Text className="text-gray-400 text-sm">Check if reauth is proposed</Text>
+                        </TouchableOpacity>
+
+                        {/* Vouching Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Vouching</Text>
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::vouch::get_given_vouches`,
+                                '',
+                                '"0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::vouch::get_given_vouches`}</Text>
+                            <Text className="text-gray-400 text-sm">Get outbound vouches for an account</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::vouch::get_received_vouches`,
+                                '',
+                                '"0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::vouch::get_received_vouches`}</Text>
+                            <Text className="text-gray-400 text-sm">Get inbound vouches for an account</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-2"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::page_rank_lazy::get_cached_score`,
+                                '',
+                                '"0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"'
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::page_rank_lazy::get_cached_score`}</Text>
+                            <Text className="text-gray-400 text-sm">Get page rank score</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3"
-                            onPress={() => {
-                                setFunctionPath(`${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`);
-                                setTypeArguments('');
-                                setArguments(`["${appConfig.network.OL_FRAMEWORK}"], "0x87515d94a244235a1433d7117bc0cb154c613c2f4b1e67ca8d98a542ee3f59f5"`);
-                            }}
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`,
+                                '',
+                                `["${appConfig.network.OL_FRAMEWORK}"], "0xD3F6B48DE139E02DF101658D5FCF5EFBA5DC4C47ADC7CED6748D97B42FAF5F41"`
+                            )}
                         >
                             <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::vouch_score::evaluate_users_vouchers`}</Text>
                             <Text className="text-gray-400 text-sm">Get vouch score for an account</Text>
