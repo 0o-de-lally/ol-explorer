@@ -25,6 +25,7 @@ export default function ViewFunction() {
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [copySuccess, setCopySuccess] = useState<boolean>(false);
+    const [shareSuccess, setShareSuccess] = useState<boolean>(false);
     const [sdkReady, setSdkReady] = useState<boolean>(false);
 
     // Check when SDK is ready
@@ -99,16 +100,14 @@ export default function ViewFunction() {
             setResult(response);
 
             // Only update URL if this was a manual execution (button click)
-            // This helps prevent infinite loops
             if (manualExecutionRef.current) {
-                // Update URL without causing a navigation
+                // Update URL without causing a navigation, but don't add source parameter
                 router.replace({
                     pathname: '/view',
                     params: {
                         initialPath: functionPath,
                         initialTypeArgs: typeArguments,
-                        initialArgs: arguments_,
-                        source: 'manual'
+                        initialArgs: arguments_
                     }
                 });
                 manualExecutionRef.current = false;
@@ -121,6 +120,33 @@ export default function ViewFunction() {
         }
     }, [functionPath, typeArguments, arguments_, sdk, parseArguments, parseTypeArguments]);
 
+    // Handle button click - modify the TouchableOpacity in the render section
+    const handleExecuteButtonClick = useCallback(() => {
+        // Always reset autoExecutedRef when manually clicking to ensure
+        // manual execution always works regardless of previous auto-execution
+        autoExecutedRef.current = false;
+        manualExecutionRef.current = true;
+        executeViewFunction();
+    }, [executeViewFunction]);
+
+    // Add a new effect to handle direct page visits with no URL parameters
+    useEffect(() => {
+        // If SDK is ready and there are no URL params, but we haven't executed yet
+        if (sdkReady && !initialPath && !initialArgs && !autoExecutedRef.current && !isLoading) {
+            console.log('Direct page visit detected with no URL parameters, executing default function');
+
+            // Mark that we've attempted execution to prevent multiple runs
+            autoExecutedRef.current = true;
+
+            // Small delay to ensure everything is ready
+            const timer = setTimeout(() => {
+                executeViewFunction();
+            }, 300);
+
+            return () => clearTimeout(timer);
+        }
+    }, [sdkReady, initialPath, initialArgs, isLoading, executeViewFunction]);
+
     // Function to update state and URL without refreshing
     const updateExampleSelection = useCallback((newPath: string, newTypeArgs: string, newArgs: string) => {
         // Update state
@@ -128,48 +154,53 @@ export default function ViewFunction() {
         setTypeArguments(newTypeArgs);
         setArguments(newArgs);
 
-        // Update URL without causing a navigation
+        // Update URL without causing a navigation, without source parameter
         router.replace({
             pathname: '/view',
             params: {
                 initialPath: newPath,
                 initialTypeArgs: newTypeArgs,
-                initialArgs: newArgs,
-                source: 'example'
+                initialArgs: newArgs
             }
         });
     }, []);
 
-    // Attempt auto-execution only when SDK is ready and it hasn't been attempted before
+    // Existing auto-execution effect for when URL parameters are present
     useEffect(() => {
         if (sdkReady && initialPath && !autoExecutedRef.current && !isLoading) {
-            // Only auto-execute if the source is not from a manual execution
-            if (source !== 'manual') {
-                console.log('Auto-executing view function with:', {
-                    initialPath,
-                    initialArgs,
-                    initialTypeArgs,
-                    sdkReady
-                });
+            // Remove the check for source !== 'manual'
+            console.log('Auto-executing view function with:', {
+                initialPath,
+                initialArgs,
+                initialTypeArgs,
+                sdkReady
+            });
 
-                // Mark that we've attempted execution
-                autoExecutedRef.current = true;
+            // Mark that we've attempted execution
+            autoExecutedRef.current = true;
 
-                // Delay execution slightly to ensure everything is properly set up
-                const timer = setTimeout(() => {
-                    executeViewFunction();
-                }, 300);
+            // Delay execution slightly to ensure everything is properly set up
+            const timer = setTimeout(() => {
+                executeViewFunction();
+            }, 300);
 
-                return () => clearTimeout(timer);
-            }
+            return () => clearTimeout(timer);
         }
-    }, [initialPath, initialArgs, initialTypeArgs, executeViewFunction, sdkReady, isLoading, source]);
+    }, [initialPath, initialArgs, initialTypeArgs, executeViewFunction, sdkReady, isLoading]);
 
     const copyToClipboard = () => {
         const resultStr = JSON.stringify(result, null, 2);
         Clipboard.setString(resultStr);
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
+    };
+
+    const shareUrl = () => {
+        // Get the current URL from the window object (works on web)
+        const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+        Clipboard.setString(currentUrl);
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 2000);
     };
 
     const handleBackPress = () => {
@@ -246,10 +277,7 @@ export default function ViewFunction() {
                         {/* Execute Button */}
                         <TouchableOpacity
                             className={`rounded-lg py-3 items-center mb-4 ${sdkReady ? 'bg-primary' : 'bg-gray-600'}`}
-                            onPress={() => {
-                                manualExecutionRef.current = true;
-                                executeViewFunction();
-                            }}
+                            onPress={handleExecuteButtonClick}
                             disabled={isLoading || !sdkReady}
                         >
                             <Text className="text-white font-bold">
@@ -296,6 +324,25 @@ export default function ViewFunction() {
                                         {JSON.stringify(result, null, 2)}
                                     </Text>
                                 </ScrollView>
+
+                                {/* Add Share Button at the bottom right of results */}
+                                <View className="flex-row justify-end mt-3">
+                                    <TouchableOpacity
+                                        onPress={shareUrl}
+                                        className="p-2 bg-primary rounded-md flex items-center justify-center"
+                                    >
+                                        <View className="flex-row items-center">
+                                            <MaterialIcons name="share" size={14} color="white" />
+                                            <Text className="text-white ml-1 text-sm font-medium">Share URL</Text>
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {shareSuccess && (
+                                        <View className="absolute right-0 bottom-10 bg-green-800/80 px-2 py-1 rounded z-10">
+                                            <Text className="text-white text-xs">URL copied!</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                         )}
                     </View>
