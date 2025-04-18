@@ -94,6 +94,15 @@ export const useSdk = (): BlockchainSDK & {
   getBidders: () => Promise<string[]>;
   getMaxSeatsOffered: () => Promise<number>;
   getFilledSeats: () => Promise<number>;
+
+  // Vouching related methods
+  getAccountVouchesOutbound: (address: string) => Promise<string[]>;
+  getAccountVouchesInbound: (address: string) => Promise<string[]>;
+  getAccountPageRankScore: (address: string) => Promise<number>;
+
+  // Donations related methods
+  getDonationsMadeByAccount: (address: string) => Promise<any[]>;
+  getDonationsReceivedByDV: (dvAddress: string) => Promise<any[]>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -1258,16 +1267,18 @@ export const useSdk = (): BlockchainSDK & {
     return logSdkOperation('getBidders', {}, async () => {
       try {
         const result = await sdk.view({
-          function: `${OL_FRAMEWORK}::epoch_boundary::get_bidders`,
+          function: `${OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`,
           typeArguments: [],
-          arguments: []
+          arguments: [true] // pass a true to remove unqualified validators
         });
 
         if (Array.isArray(result) && result.length > 0) {
-          // The result might be an array within an array
-          if (Array.isArray(result[0])) {
-            return result[0].map(addr => String(addr));
+          // The new response format is an array of [address, [numerator, denominator]] tuples
+          if (Array.isArray(result[0]) && result[0].length >= 1) {
+            // Extract just the addresses (first element of each inner array)
+            return result.map(item => String(item[0]));
           }
+          // Fallback in case the format is different
           return result.map(addr => String(addr));
         }
 
@@ -1288,6 +1299,8 @@ export const useSdk = (): BlockchainSDK & {
 
     return logSdkOperation('getMaxSeatsOffered', {}, async () => {
       try {
+        // Note: get_max_seats_offered is missing the #[view] attribute in the Move code
+        // but should still work as a view function
         const result = await sdk.view({
           function: `${OL_FRAMEWORK}::epoch_boundary::get_max_seats_offered`,
           typeArguments: [],
@@ -1329,6 +1342,154 @@ export const useSdk = (): BlockchainSDK & {
       } catch (error) {
         console.error('Error getting filled seats:', error);
         return 0;
+      }
+    });
+  };
+
+  // Vouching related methods
+  const getAccountVouchesOutbound = async (address: string): Promise<string[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get outbound vouches');
+      return [];
+    }
+
+    return logSdkOperation('getAccountVouchesOutbound', { address }, async () => {
+      try {
+        const normalizedAddress = normalizeAddress(address);
+
+        const result = await sdk.view({
+          function: `${OL_FRAMEWORK}::vouch::get_given_vouches`,
+          typeArguments: [],
+          arguments: [normalizedAddress]
+        });
+
+        // The function returns a tuple: (vector<address>, vector<u64>)
+        // We only need the addresses (first element of the tuple)
+        if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
+          return result[0];
+        }
+
+        return [];
+      } catch (error) {
+        console.error(`Error getting outbound vouches for ${address}:`, error);
+        return [];
+      }
+    });
+  };
+
+  const getAccountVouchesInbound = async (address: string): Promise<string[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get inbound vouches');
+      return [];
+    }
+
+    return logSdkOperation('getAccountVouchesInbound', { address }, async () => {
+      try {
+        const normalizedAddress = normalizeAddress(address);
+
+        const result = await sdk.view({
+          function: `${OL_FRAMEWORK}::vouch::get_received_vouches`,
+          typeArguments: [],
+          arguments: [normalizedAddress]
+        });
+
+        // The function returns a tuple: (vector<address>, vector<u64>)
+        // We only need the addresses (first element of the tuple)
+        if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
+          return result[0];
+        }
+
+        return [];
+      } catch (error) {
+        console.error(`Error getting inbound vouches for ${address}:`, error);
+        return [];
+      }
+    });
+  };
+
+  const getAccountPageRankScore = async (address: string): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get page rank score');
+      return 0;
+    }
+
+    return logSdkOperation('getAccountPageRankScore', { address }, async () => {
+      try {
+        const normalizedAddress = normalizeAddress(address);
+
+        const result = await sdk.view({
+          function: `${OL_FRAMEWORK}::page_rank_lazy::get_cached_score`,
+          typeArguments: [],
+          arguments: [normalizedAddress]
+        });
+
+        if (Array.isArray(result) && result.length > 0) {
+          return typeof result[0] === 'number' ? result[0] :
+            typeof result[0] === 'string' ? parseFloat(result[0]) || 0 : 0;
+        }
+
+        return typeof result === 'number' ? result :
+          typeof result === 'string' ? parseFloat(result) || 0 : 0;
+      } catch (error) {
+        console.error(`Error getting page rank score for ${address}:`, error);
+        return 0;
+      }
+    });
+  };
+
+  // Donations related methods
+  const getDonationsMadeByAccount = async (address: string): Promise<any[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get user donations');
+      return [];
+    }
+
+    return logSdkOperation('getDonationsMadeByAccount', { address }, async () => {
+      try {
+        const normalizedAddress = normalizeAddress(address);
+
+        const result = await sdk.view({
+          function: `${OL_FRAMEWORK}::donor_voice_governance::get_user_donations`,
+          typeArguments: [],
+          arguments: [normalizedAddress]
+        });
+
+        if (Array.isArray(result)) {
+          return result;
+        }
+
+        return [];
+      } catch (error) {
+        console.error(`Error getting donations for ${address}:`, error);
+        return [];
+      }
+    });
+  };
+
+  const getDonationsReceivedByDV = async (dvAddress: string): Promise<any[]> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get donations to DV');
+      return [];
+    }
+
+    return logSdkOperation('getDonationsReceivedByDV', { dvAddress }, async () => {
+      try {
+        const normalizedAddress = normalizeAddress(dvAddress);
+
+        const result = await sdk.view({
+          function: `${OL_FRAMEWORK}::donor_voice::get_donations_to_dv`,
+          typeArguments: [],
+          arguments: [normalizedAddress]
+        });
+
+        if (Array.isArray(result)) {
+          return result;
+        }
+
+        return [];
+      } catch (error) {
+        console.error(`Error getting donations to DV ${dvAddress}:`, error);
+        return [];
       }
     });
   };
@@ -1528,6 +1689,26 @@ export const useSdk = (): BlockchainSDK & {
       getFilledSeats: async () => {
         console.warn('SDK not initialized, cannot get filled seats');
         return 0;
+      },
+      getAccountVouchesOutbound: async () => {
+        console.warn('SDK not initialized, cannot get outbound vouches');
+        return [];
+      },
+      getAccountVouchesInbound: async () => {
+        console.warn('SDK not initialized, cannot get inbound vouches');
+        return [];
+      },
+      getAccountPageRankScore: async () => {
+        console.warn('SDK not initialized, cannot get page rank score');
+        return 0;
+      },
+      getDonationsMadeByAccount: async () => {
+        console.warn('SDK not initialized, cannot get user donations');
+        return [];
+      },
+      getDonationsReceivedByDV: async () => {
+        console.warn('SDK not initialized, cannot get donations to DV');
+        return [];
       }
     };
   }
@@ -1627,6 +1808,11 @@ export const useSdk = (): BlockchainSDK & {
     isJailed,
     getBidders,
     getMaxSeatsOffered,
-    getFilledSeats
+    getFilledSeats,
+    getAccountVouchesOutbound,
+    getAccountVouchesInbound,
+    getAccountPageRankScore,
+    getDonationsMadeByAccount,
+    getDonationsReceivedByDV
   };
 }; 
