@@ -665,7 +665,7 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
                     <Text className="text-text-light text-sm mr-2">Reauthorization:</Text>
                     <TouchableOpacity
                       onPress={() => {
-                        router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_reauth_tally`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                        router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::is_reauth_proposed`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
                       }}
                     >
                       <View className="bg-blue-800 px-2 py-0.5 rounded-md">
@@ -717,9 +717,15 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
               <>
                 <Row alignItems="center" className="mb-2 ml-4">
                   <Text className="text-text-light text-xs mr-2">Approval:</Text>
-                  <Text className="text-white text-xs">
-                    {reauthTally[0]}% (Need {reauthTally[2]}%)
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice_governance::get_reauth_tally`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                    }}
+                  >
+                    <Text className="text-white text-xs">
+                      {reauthTally[0]}% (Need {reauthTally[2]}%)
+                    </Text>
+                  </TouchableOpacity>
                 </Row>
 
                 <Row alignItems="center" className="mb-2 ml-4">
@@ -756,8 +762,22 @@ const AccountTypeSection: React.FC<AccountTypeSectionProps> = ({ accountData, ex
               </Row>
             )}
 
+            {/* Add a link to check if this account is a donor voice account */}
+            <Row alignItems="center" className="mb-2 mt-4">
+              <Text className="text-text-light text-sm mr-2">Donor Voice Status:</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::donor_voice::is_donor_voice`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                }}
+              >
+                <View className="bg-indigo-800 px-2 py-1 rounded-md">
+                  <Text className="text-white text-xs">Check Status</Text>
+                </View>
+              </TouchableOpacity>
+            </Row>
+
             {/* Add a link to view all donors by checking the donations registry */}
-            <Row alignItems="center" className="mt-4">
+            <Row alignItems="center" className="mt-2">
               <Text className="text-text-light text-sm mr-2">View Donors:</Text>
               <TouchableOpacity
                 onPress={() => {
