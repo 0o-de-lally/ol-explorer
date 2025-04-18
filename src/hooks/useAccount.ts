@@ -86,93 +86,193 @@ export const useAccount = (address: string | null): UseAccountResult => {
         }
 
         try {
-            // Check if account is a validator
-            const isInValidatorUniverse = await openLibraSdk.isInValidatorUniverse(address);
-            // Get validator data if it's a validator
-            const currentBid = await openLibraSdk.getCurrentBid(address);
-            const validatorGrade = await openLibraSdk.getValidatorGrade(address);
-            const jailReputation = await openLibraSdk.getJailReputation(address);
-            const countBuddiesJailed = await openLibraSdk.getCountBuddiesJailed(address);
-            const isJailed = await openLibraSdk.isJailed(address);
+            console.log(`Fetching extended data for account: ${address}`);
 
-            // Check if account is a community wallet (donor voice)
-            const isDonorVoice = await openLibraSdk.isDonorVoice(address);
-            // Get community wallet data
-            const isAuthorized = await openLibraSdk.isDonorVoiceAuthorized(address);
-            const isReauthProposed = await openLibraSdk.isReauthProposed(address);
-            const isCommunityWalletInit = await openLibraSdk.isCommunityWalletInit(address);
-            const isWithinAuthorizeWindow = await openLibraSdk.isWithinAuthorizeWindow(address);
-            const vetoTally = await openLibraSdk.getVetoTally(address);
-
-            // Check if account is a slow wallet
-            const isSlowWallet = await openLibraSdk.isSlowWallet(address);
-            // No specific slow wallet data fetching needed here
-
-            // Check if account has verified account status (founder, etc.)
-            const isFounder = await openLibraSdk.isFounder(address);
-            const hasFriends = await openLibraSdk.hasFounderFriends(address);
-            const hasValidVouchScore = await openLibraSdk.isVoucherScoreValid(address);
-            const vouchScore = await openLibraSdk.getVouchScore(address);
-
-            // Get activity data
+            // First, get activity and authorization data which applies to all accounts
             const hasBeenTouched = await openLibraSdk.hasEverBeenTouched(address);
-            const onboardingTimestamp = await openLibraSdk.getOnboardingUsecs(address);
-            const lastActivityTimestamp = await openLibraSdk.getLastActivityUsecs(address);
             const isInitializedOnV8 = await openLibraSdk.isInitializedOnV8(address);
             const isV8Authorized = await openLibraSdk.isV8Authorized(address);
 
-            // Reauth data if available
-            const reauthTally = await openLibraSdk.getReauthTally(address);
-            const reauthDeadline = await openLibraSdk.getReauthDeadline(address);
-            const isLiquidationProposed = await openLibraSdk.isLiquidationProposed(address);
+            // Next, determine account type - this will guide which additional data we fetch
+            const isDonorVoice = await openLibraSdk.isDonorVoice(address);
+            const isSlowWallet = await openLibraSdk.isSlowWallet(address);
+            const isInValidatorUniverse = await openLibraSdk.isInValidatorUniverse(address);
 
-            // Create the extended account data object
-            return {
-                communityWallet: {
-                    isDonorVoice,
-                    isAuthorized,
-                    isReauthProposed,
-                    isInitialized: isCommunityWalletInit,
-                    isWithinAuthorizeWindow,
-                    vetoTally
-                },
-                founder: {
-                    isFounder,
-                    hasFriends
-                },
-                vouching: {
-                    vouchScore,
-                    hasValidVouchScore
-                },
+            // Determine the account type based on the checks
+            const accountType = {
+                isRegularWallet: !isDonorVoice && !isSlowWallet && !isInValidatorUniverse,
+                isSlowWallet: isSlowWallet,
+                isValidatorWallet: isInValidatorUniverse,
+                isCommunityWallet: isDonorVoice,
+                isV8Authorized: isV8Authorized
+            };
+
+            console.log(`Account ${address} type determined:`, {
+                isRegularWallet: accountType.isRegularWallet,
+                isSlowWallet: accountType.isSlowWallet,
+                isValidatorWallet: accountType.isValidatorWallet,
+                isCommunityWallet: accountType.isCommunityWallet,
+                isV8Authorized: accountType.isV8Authorized
+            });
+
+            // Initialize data structure with common fields
+            const extendedData: ExtendedAccountData = {
+                accountType,
                 activity: {
                     hasBeenTouched,
-                    onboardingTimestamp,
-                    lastActivityTimestamp,
+                    onboardingTimestamp: 0, // Will be populated conditionally
+                    lastActivityTimestamp: 0, // Will be populated conditionally
                     isInitializedOnV8
+                },
+                founder: {
+                    isFounder: false,
+                    hasFriends: false
+                },
+                vouching: {
+                    vouchScore: 0,
+                    hasValidVouchScore: false
                 },
                 validator: {
                     isValidator: isInValidatorUniverse,
+                    currentBid: [0, 0],
+                    grade: { isCompliant: false, acceptedProposals: 0, failedProposals: 0 },
+                    jailReputation: 0,
+                    countBuddiesJailed: 0,
+                    isJailed: false
+                },
+                communityWallet: {
+                    isDonorVoice,
+                    isAuthorized: false,
+                    isReauthProposed: false,
+                    isInitialized: false,
+                    isWithinAuthorizeWindow: false,
+                    vetoTally: 0
+                }
+            };
+
+            // Fetch additional data based on account type
+
+            // For all account types, fetch activity data if they've been touched
+            if (hasBeenTouched) {
+                console.log(`Fetching activity data for ${address} (has been touched)`);
+                const onboardingTimestamp = await openLibraSdk.getOnboardingUsecs(address);
+                const lastActivityTimestamp = await openLibraSdk.getLastActivityUsecs(address);
+                extendedData.activity.onboardingTimestamp = onboardingTimestamp;
+                extendedData.activity.lastActivityTimestamp = lastActivityTimestamp;
+
+                // Check founder status for all accounts except community wallets
+                if (!isDonorVoice) {
+                    console.log(`Checking founder status for ${address}`);
+                    const isFounder = await openLibraSdk.isFounder(address);
+                    if (isFounder) {
+                        const hasFriends = await openLibraSdk.hasFounderFriends(address);
+                        extendedData.founder.isFounder = isFounder;
+                        extendedData.founder.hasFriends = hasFriends;
+                    }
+
+                    // Check vouching score for all accounts except community wallets
+                    const hasValidVouchScore = await openLibraSdk.isVoucherScoreValid(address);
+                    if (hasValidVouchScore) {
+                        const vouchScore = await openLibraSdk.getVouchScore(address);
+                        extendedData.vouching.vouchScore = vouchScore;
+                    }
+                    extendedData.vouching.hasValidVouchScore = hasValidVouchScore;
+                }
+            }
+
+            // Fetch data specific to community wallets
+            if (isDonorVoice) {
+                console.log(`Fetching community wallet specific data for ${address}`);
+                const isAuthorized = await openLibraSdk.isDonorVoiceAuthorized(address);
+                const isWithinAuthorizeWindow = await openLibraSdk.isWithinAuthorizeWindow(address);
+                const isCommunityWalletInit = await openLibraSdk.isCommunityWalletInit(address);
+                const vetoTally = await openLibraSdk.getVetoTally(address);
+
+                extendedData.communityWallet = {
+                    isDonorVoice,
+                    isAuthorized,
+                    isReauthProposed: false, // Will check conditionally
+                    isInitialized: isCommunityWalletInit,
+                    isWithinAuthorizeWindow,
+                    vetoTally
+                };
+
+                // Only check reauth status if not authorized
+                if (!isAuthorized) {
+                    console.log(`Community wallet ${address} not authorized, checking reauth status`);
+                    const isReauthProposed = await openLibraSdk.isReauthProposed(address);
+                    extendedData.communityWallet.isReauthProposed = isReauthProposed;
+
+                    // Only fetch additional reauth data if a reauth proposal exists
+                    if (isReauthProposed) {
+                        console.log(`Reauth proposed for ${address}, fetching details`);
+                        const reauthTally = await openLibraSdk.getReauthTally(address);
+                        const reauthDeadline = await openLibraSdk.getReauthDeadline(address);
+                        const isLiquidationProposed = await openLibraSdk.isLiquidationProposed(address);
+
+                        extendedData.reauth = {
+                            isReauthProposed,
+                            reauthTally,
+                            reauthDeadline,
+                            isLiquidationProposed
+                        };
+                    }
+                }
+            }
+
+            // Fetch data specific to slow wallets
+            if (isSlowWallet) {
+                console.log(`Fetching slow wallet specific data for ${address}`);
+                const unlockedAmount = await openLibraSdk.view({
+                    function: `${appConfig.network.OL_FRAMEWORK}::slow_wallet::unlocked_amount`,
+                    typeArguments: [],
+                    arguments: [address]
+                }) as string;
+
+                const transferredAmount = await openLibraSdk.view({
+                    function: `${appConfig.network.OL_FRAMEWORK}::slow_wallet::transferred_amount`,
+                    typeArguments: [],
+                    arguments: [address]
+                }) as string;
+
+                extendedData.slowWallet = {
+                    unlockedAmount: String(unlockedAmount || "0"),
+                    transferredAmount: String(transferredAmount || "0")
+                };
+            }
+
+            // Fetch data specific to validator wallets
+            if (isInValidatorUniverse) {
+                console.log(`Fetching validator specific data for ${address}`);
+                const currentValidators = await openLibraSdk.getCurrentValidators();
+                const isInCurrentValidators = currentValidators.some(
+                    v => v.toLowerCase() === address.toLowerCase()
+                );
+
+                if (isInCurrentValidators) {
+                    console.log(`${address} is an active validator, fetching grade`);
+                    const validatorGrade = await openLibraSdk.getValidatorGrade(address);
+                    extendedData.validator.grade = validatorGrade;
+                }
+
+                const currentBid = await openLibraSdk.getCurrentBid(address);
+                const jailReputation = await openLibraSdk.getJailReputation(address);
+                const countBuddiesJailed = await openLibraSdk.getCountBuddiesJailed(address);
+                const isJailed = await openLibraSdk.isJailed(address);
+
+                extendedData.validator = {
+                    isValidator: isInValidatorUniverse,
                     currentBid,
-                    grade: validatorGrade,
+                    grade: extendedData.validator.grade,
                     jailReputation,
                     countBuddiesJailed,
                     isJailed
-                },
-                accountType: {
-                    isRegularWallet: !isDonorVoice && !isSlowWallet && !isInValidatorUniverse,
-                    isSlowWallet,
-                    isValidatorWallet: isInValidatorUniverse,
-                    isCommunityWallet: isDonorVoice,
-                    isV8Authorized
-                },
-                // Include optional fields if applicable
-                reauth: {
-                    isReauthProposed,
-                    reauthTally,
-                    reauthDeadline,
-                    isLiquidationProposed
-                }
-            };
+                };
+            }
+
+            console.log(`Completed fetching extended data for ${address}`);
+            return extendedData;
+
         } catch (error) {
             console.error(`Error fetching extended account data for ${address}:`, error);
 
