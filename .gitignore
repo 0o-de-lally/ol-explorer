@@ -10,3 +10,6 @@ coverage/lcov-report
 coverage/coverage-final.json
 coverage/clover.xml
 coverage/lcov.info
+
+# helper files for the llm
+libra-framework/
