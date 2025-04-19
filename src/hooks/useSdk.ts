@@ -7,7 +7,7 @@ import appConfig from '../config/appConfig';
 
 // DEBUG flag to enable SDK operation logging
 // Set to true to log all SDK calls and responses
-const DEBUG = true;
+const DEBUG = false;
 
 // Debug logging wrapper for SDK functions
 const logSdkOperation = async <T>(

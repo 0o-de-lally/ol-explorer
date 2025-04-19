@@ -436,7 +436,7 @@ export const AccountTypeSection = observer(({
                                     <Text className="text-white text-xs">{reauthTally[1]}%</Text>
                                 </Row>
 
-                                <Row alignItems="center" className="mb-4 ml-4">
+                                <Row alignItems="center" className="mb-4">
                                     <Text className="text-text-light text-xs mr-2">Deadline (Epoch):</Text>
                                     <TouchableOpacity
                                         onPress={() => {
@@ -545,21 +545,6 @@ export const AccountTypeSection = observer(({
                             </TouchableOpacity>
                         </Row>
 
-                        <Row alignItems="center" className="mb-2">
-                            <Text className="text-text-light text-sm mr-2">Current Bid:</Text>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::current_bid`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
-                                }}
-                            >
-                                <Text className="text-white text-sm">
-                                    {Array.isArray(currentBid) ?
-                                        `${currentBid[0].toLocaleString()} / ${currentBid[1].toLocaleString()}`
-                                        : '0 / 0'}
-                                </Text>
-                            </TouchableOpacity>
-                        </Row>
-
                         {/* Only show validator grade and proposals if the validator is in the active set */}
                         {isInCurrentValidators && (
                             <>
@@ -638,12 +623,22 @@ export const AccountTypeSection = observer(({
                                     }}
                                 >
                                     <Text className="text-white text-sm">
-                                        {Array.isArray(currentBid) ?
-                                            `${currentBid[0].toLocaleString()} / ${currentBid[1].toLocaleString()}`
-                                            : '0 / 0'}
+                                        {Array.isArray(currentBid) && currentBid[0] > 0 ?
+                                            `${(currentBid[0] / 10).toFixed(1)}%`
+                                            : '0%'}
                                     </Text>
                                 </TouchableOpacity>
                             </Row>
+
+                            {/* Add new row for expiry epoch */}
+                            {Array.isArray(currentBid) && currentBid[1] > 0 && (
+                                <Row alignItems="center" className="mb-2">
+                                    <Text className="text-text-light text-sm mr-2">Bid Expiry Epoch:</Text>
+                                    <Text className="text-white text-sm">
+                                        {currentBid[1].toLocaleString()}
+                                    </Text>
+                                </Row>
+                            )}
 
                             <TouchableOpacity
                                 onPress={() => {

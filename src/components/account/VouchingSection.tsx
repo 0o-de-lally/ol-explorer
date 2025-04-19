@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import { Card, Row, Column } from '../Layout';
 import { useVouching } from '../../hooks/useVouching';
 import { VouchInfo } from '../../hooks/useSdk';
 import appConfig from '../../config/appConfig';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 type VouchingSectionProps = {
     accountAddress: string;
@@ -22,6 +23,8 @@ export const VouchingSection = observer(({
     isVisible = true
 }: VouchingSectionProps) => {
     const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+    const [hoveredAddress, setHoveredAddress] = useState<string | null>(null);
+    const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
     // Use our custom hook
     const {
@@ -182,9 +185,51 @@ export const VouchingSection = observer(({
         });
     };
 
+    // Function to copy address to clipboard
+    const copyToClipboard = (address: string) => {
+        Clipboard.setString(address);
+        setCopySuccess(address);
+        setTimeout(() => {
+            setCopySuccess(null);
+        }, 2000);
+    };
+
+    // New functions to copy vouch and revoke commands
+    const copyVouchCommand = (address: string) => {
+        const command = `libra txs user vouch --vouch-for ${address}`;
+        Clipboard.setString(command);
+        setCopySuccess(`vouch-${address}`);
+        setTimeout(() => {
+            setCopySuccess(null);
+        }, 2000);
+    };
+
+    const copyRevokeCommand = (address: string) => {
+        const command = `libra txs user vouch --vouch-for ${address} --revoke`;
+        Clipboard.setString(command);
+        setCopySuccess(`revoke-${address}`);
+        setTimeout(() => {
+            setCopySuccess(null);
+        }, 2000);
+    };
+
+    // Add this function to handle address click without navigation
+    const handleAddressClick = (e: any, vouchInfo: VouchInfo) => {
+        e.stopPropagation();
+        setHoveredAddress(vouchInfo.address);
+    };
+
     // Check if we have actual data to display
     const hasData = vouchesOutbound.length > 0 || vouchesInbound.length > 0;
     const initialLoading = isLoading && !hasData;
+
+    // Add this function to check if there's a mutual vouch relationship
+    const hasMutualVouch = (inboundAddress: string): boolean => {
+        return sortedOutboundVouches.some(outbound =>
+            outbound.address === inboundAddress &&
+            (currentEpoch <= 0 || (outbound.epoch + appConfig.vouching.expiryWindow) > currentEpoch)
+        );
+    };
 
     return (
         <Card className="mb-4">
@@ -356,6 +401,8 @@ export const VouchingSection = observer(({
                                             <View className="border border-border/30 rounded-md overflow-hidden">
                                                 {sortedOutboundVouches.map((vouchInfo, index) => {
                                                     const statusInfo = getVouchStatusInfo(vouchInfo.epoch, currentEpoch);
+                                                    const isExpiringSoon = statusInfo.statusText === 'Expiring Soon';
+
                                                     return (
                                                         <TouchableOpacity
                                                             key={`outbound-${vouchInfo.address}-${vouchInfo.epoch}`}
@@ -363,9 +410,62 @@ export const VouchingSection = observer(({
                                                             className={`p-2 ${index !== sortedOutboundVouches.length - 1 ? 'border-b border-border/30' : ''} ${statusInfo.bgColor}`}
                                                         >
                                                             <Row justifyContent="between" alignItems="center">
-                                                                <Text className="text-white text-sm font-mono">
-                                                                    {isDesktop ? vouchInfo.address : formatAddressForDisplay(vouchInfo.address)}
-                                                                </Text>
+                                                                <View className="flex-row items-center relative">
+                                                                    <Text className="text-white text-sm font-mono">
+                                                                        {isDesktop ? vouchInfo.address : formatAddressForDisplay(vouchInfo.address)}
+                                                                    </Text>
+                                                                    {!isDesktop && (
+                                                                        <Text
+                                                                            className="absolute opacity-0 h-0 overflow-hidden"
+                                                                            accessibilityLabel={vouchInfo.address}
+                                                                        >
+                                                                            {vouchInfo.address}
+                                                                        </Text>
+                                                                    )}
+                                                                    <View className="flex-row ml-2">
+                                                                        <TouchableOpacity
+                                                                            onPress={(e) => {
+                                                                                e.stopPropagation();
+                                                                                copyToClipboard(vouchInfo.address);
+                                                                            }}
+                                                                            className="w-6 h-6 rounded-full bg-primary/90 flex items-center justify-center mr-1"
+                                                                        >
+                                                                            <Ionicons
+                                                                                name={copySuccess === vouchInfo.address ? "checkmark" : "copy-outline"}
+                                                                                size={12}
+                                                                                color="white"
+                                                                            />
+                                                                        </TouchableOpacity>
+                                                                        {isExpiringSoon && (
+                                                                            <TouchableOpacity
+                                                                                onPress={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    copyVouchCommand(vouchInfo.address);
+                                                                                }}
+                                                                                className="w-6 h-6 rounded-full bg-green-700/90 flex items-center justify-center mr-1"
+                                                                            >
+                                                                                <Ionicons
+                                                                                    name={copySuccess === `vouch-${vouchInfo.address}` ? "checkmark" : "add-circle-outline"}
+                                                                                    size={12}
+                                                                                    color="white"
+                                                                                />
+                                                                            </TouchableOpacity>
+                                                                        )}
+                                                                        <TouchableOpacity
+                                                                            onPress={(e) => {
+                                                                                e.stopPropagation();
+                                                                                copyRevokeCommand(vouchInfo.address);
+                                                                            }}
+                                                                            className="w-6 h-6 rounded-full bg-red-700/90 flex items-center justify-center"
+                                                                        >
+                                                                            <Ionicons
+                                                                                name={copySuccess === `revoke-${vouchInfo.address}` ? "checkmark" : "remove-circle-outline"}
+                                                                                size={12}
+                                                                                color="white"
+                                                                            />
+                                                                        </TouchableOpacity>
+                                                                    </View>
+                                                                </View>
                                                                 <View className="flex-row items-center">
                                                                     <Text className={`text-xs ${statusInfo.textColor} mr-2`}>
                                                                         {statusInfo.epochsText}
@@ -406,6 +506,8 @@ export const VouchingSection = observer(({
                                             <View className="border border-border/30 rounded-md overflow-hidden">
                                                 {sortedInboundVouches.map((vouchInfo, index) => {
                                                     const statusInfo = getVouchStatusInfo(vouchInfo.epoch, currentEpoch);
+                                                    const hasMutualVouchRelationship = hasMutualVouch(vouchInfo.address);
+
                                                     return (
                                                         <TouchableOpacity
                                                             key={`inbound-${vouchInfo.address}-${vouchInfo.epoch}`}
@@ -413,10 +515,53 @@ export const VouchingSection = observer(({
                                                             className={`p-2 ${index !== sortedInboundVouches.length - 1 ? 'border-b border-border/30' : ''} ${statusInfo.bgColor}`}
                                                         >
                                                             <Row justifyContent="between" alignItems="center">
-                                                                <Text className="text-white text-sm font-mono">
-                                                                    {isDesktop ? vouchInfo.address : formatAddressForDisplay(vouchInfo.address)}
-                                                                </Text>
+                                                                <View className="flex-row items-center relative">
+                                                                    <Text className="text-white text-sm font-mono">
+                                                                        {isDesktop ? vouchInfo.address : formatAddressForDisplay(vouchInfo.address)}
+                                                                    </Text>
+                                                                    {!isDesktop && (
+                                                                        <Text
+                                                                            className="absolute opacity-0 h-0 overflow-hidden"
+                                                                            accessibilityLabel={vouchInfo.address}
+                                                                        >
+                                                                            {vouchInfo.address}
+                                                                        </Text>
+                                                                    )}
+                                                                    <View className="flex-row ml-2">
+                                                                        <TouchableOpacity
+                                                                            onPress={(e) => {
+                                                                                e.stopPropagation();
+                                                                                copyToClipboard(vouchInfo.address);
+                                                                            }}
+                                                                            className="w-6 h-6 rounded-full bg-primary/90 flex items-center justify-center mr-1"
+                                                                        >
+                                                                            <Ionicons
+                                                                                name={copySuccess === vouchInfo.address ? "checkmark" : "copy-outline"}
+                                                                                size={12}
+                                                                                color="white"
+                                                                            />
+                                                                        </TouchableOpacity>
+                                                                        <TouchableOpacity
+                                                                            onPress={(e) => {
+                                                                                e.stopPropagation();
+                                                                                copyVouchCommand(vouchInfo.address);
+                                                                            }}
+                                                                            className="w-6 h-6 rounded-full bg-green-700/90 flex items-center justify-center"
+                                                                        >
+                                                                            <Ionicons
+                                                                                name={copySuccess === `vouch-${vouchInfo.address}` ? "checkmark" : "add-circle-outline"}
+                                                                                size={12}
+                                                                                color="white"
+                                                                            />
+                                                                        </TouchableOpacity>
+                                                                    </View>
+                                                                </View>
                                                                 <View className="flex-row items-center">
+                                                                    {hasMutualVouchRelationship && (
+                                                                        <View className="px-1.5 py-0.5 rounded-md bg-blue-700 mr-2">
+                                                                            <Text className="text-white text-xs">Mutual</Text>
+                                                                        </View>
+                                                                    )}
                                                                     <Text className={`text-xs ${statusInfo.textColor} mr-2`}>
                                                                         {statusInfo.epochsText}
                                                                     </Text>
