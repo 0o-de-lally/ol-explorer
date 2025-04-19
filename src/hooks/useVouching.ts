@@ -1,35 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useObservable } from '@legendapp/state/react';
-import { useSdk } from './useSdk';
+import { useSdk, VouchInfo } from './useSdk';
 import { useSdkContext } from '../context/SdkContext';
 import { vouchingStore, vouchingActions, VOUCHING_DATA_CONFIG } from '../store/vouchingStore';
+import appConfig from '../config/appConfig';
 
 interface UseVouchingResult {
-    vouchesOutbound: string[];
-    vouchesInbound: string[];
+    vouchesOutbound: VouchInfo[];
+    vouchesInbound: VouchInfo[];
     pageRankScore: number;
     isLoading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
+    currentEpoch: number;
 }
 
 export const useVouching = (address: string, isVisible = true): UseVouchingResult => {
     const sdk = useSdk();
     const { isInitialized } = useSdkContext();
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [currentEpoch, setCurrentEpoch] = useState(0);
 
-    // Get store data using observables
-    const vouchingData = useObservable(vouchingStore.items[address]);
-    const isLoadingObservable = useObservable(vouchingStore.isLoading);
-    const errorObservable = useObservable(vouchingStore.error);
+    // Track state directly with useState to guarantee reactivity
+    const [outboundVouches, setOutboundVouches] = useState<VouchInfo[]>([]);
+    const [inboundVouches, setInboundVouches] = useState<VouchInfo[]>([]);
+    const [pageRankScore, setPageRankScore] = useState(0);
+
+    // Get store loading and error states
+    const isLoadingObs = useObservable(vouchingStore.isLoading);
+    const errorObs = useObservable(vouchingStore.error);
 
     // Refs for lifecycle management
     const isMounted = useRef(true);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const appState = useRef(AppState.currentState);
 
-    // Set isMounted ref
+    // Set isMounted ref for proper cleanup
     useEffect(() => {
         isMounted.current = true;
         return () => { isMounted.current = false; };
@@ -52,7 +59,7 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
         };
     }, [isVisible, address]);
 
-    // Fetch data function
+    // Fetch data function (now uses the dedicated getCurrentEpoch function)
     const fetchData = async (force = false) => {
         if (!isInitialized || !sdk || !address) return;
 
@@ -64,6 +71,19 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
         try {
             // Set loading state WITHOUT clearing existing data
             vouchingActions.setLoading(true);
+
+            // Fetch epoch directly using the dedicated function
+            let epochValue = 0;
+            try {
+                if (typeof sdk.getCurrentEpoch === 'function') {
+                    const fetchedEpoch = await sdk.getCurrentEpoch();
+                    epochValue = fetchedEpoch;
+                    setCurrentEpoch(epochValue);
+                    console.log('Fetched current epoch:', epochValue);
+                }
+            } catch (epochError) {
+                console.warn('Error fetching epoch, using current value:', epochError);
+            }
 
             // Check SDK methods at runtime
             const hasOutboundMethod = typeof sdk.getAccountVouchesOutbound === 'function';
@@ -78,11 +98,27 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
             ]);
 
             if (isMounted.current) {
+                // Process results safely
+                const outboundVouches = outboundResult.status === 'fulfilled' ? outboundResult.value : [];
+                const inboundVouches = inboundResult.status === 'fulfilled' ? inboundResult.value : [];
+                const pageRankValue = pageRankResult.status === 'fulfilled' ? pageRankResult.value : 0;
+
+                // Ensure arrays are properly initialized
+                const safeOutboundVouches = Array.isArray(outboundVouches) ? outboundVouches : [];
+                const safeInboundVouches = Array.isArray(inboundVouches) ? inboundVouches : [];
+
+                // Update local state for immediate UI reactivity
+                setOutboundVouches(safeOutboundVouches);
+                setInboundVouches(safeInboundVouches);
+                setPageRankScore(pageRankValue);
+
                 // Update store with all data at once
                 vouchingActions.updateVouchingData(address, {
-                    vouchesOutbound: outboundResult.status === 'fulfilled' ? outboundResult.value : [],
-                    vouchesInbound: inboundResult.status === 'fulfilled' ? inboundResult.value : [],
-                    pageRankScore: pageRankResult.status === 'fulfilled' ? pageRankResult.value : 0
+                    vouchesOutbound: safeOutboundVouches,
+                    vouchesInbound: safeInboundVouches,
+                    pageRankScore: pageRankValue,
+                    lastUpdated: Date.now(),
+                    currentEpoch: epochValue // We'll need to add this to the type
                 });
 
                 vouchingActions.setError(null);
@@ -136,37 +172,32 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
         await fetchData(true);
     };
 
-    // Helper to safely unwrap observable values
-    const unwrapObservable = (value: any): any => {
-        if (value === undefined || value === null) {
-            return value;
+    // Force a refresh if we have no data but should have received it
+    useEffect(() => {
+        if (outboundVouches.length === 0 && inboundVouches.length === 0 &&
+            !isLoadingObs.get() && address && isInitialized) {
+            console.log("No vouches data, forcing refresh");
+            refresh();
         }
+    }, [address, isInitialized]);
 
-        // Handle observable with get() method (LegendState observable)
-        if (typeof value === 'object' && value !== null && typeof value.get === 'function') {
-            try {
-                return unwrapObservable(value.get());
-            } catch (e) {
-                return value;
-            }
+    // Get the stored error value safely
+    const getErrorValue = (): string | null => {
+        try {
+            const error = errorObs.get();
+            return typeof error === 'string' ? error : null;
+        } catch (e) {
+            return null;
         }
-
-        return value;
-    };
-
-    // Get the data from observables
-    const vouchingDataUnwrapped = unwrapObservable(vouchingData) || {
-        vouchesOutbound: [],
-        vouchesInbound: [],
-        pageRankScore: 0
     };
 
     return {
-        vouchesOutbound: vouchingDataUnwrapped.vouchesOutbound,
-        vouchesInbound: vouchingDataUnwrapped.vouchesInbound,
-        pageRankScore: vouchingDataUnwrapped.pageRankScore,
-        isLoading: unwrapObservable(isLoadingObservable),
-        error: unwrapObservable(errorObservable),
-        refresh
+        vouchesOutbound: outboundVouches,
+        vouchesInbound: inboundVouches,
+        pageRankScore: pageRankScore,
+        isLoading: isLoadingObs.get(),
+        error: getErrorValue(),
+        refresh,
+        currentEpoch: currentEpoch
     };
 }; 

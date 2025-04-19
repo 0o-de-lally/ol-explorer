@@ -1,4 +1,5 @@
 import { observable } from '@legendapp/state';
+import { VouchInfo } from '../hooks/useSdk';
 
 // Config for data freshness
 export const VOUCHING_DATA_CONFIG = {
@@ -8,10 +9,11 @@ export const VOUCHING_DATA_CONFIG = {
 
 // Define data interfaces
 export interface VouchingData {
-    vouchesOutbound: string[];
-    vouchesInbound: string[];
+    vouchesOutbound: VouchInfo[];
+    vouchesInbound: VouchInfo[];
     pageRankScore: number;
     lastUpdated: number;
+    currentEpoch?: number; // Make it optional for backward compatibility
 }
 
 // Define store structure
@@ -30,43 +32,82 @@ export const vouchingStore = observable<VouchingStoreType>({
     lastUpdated: 0
 });
 
-// Function to notify UI updates
+/**
+ * Notify subscribers about updates to the vouching store
+ * This ensures reactivity by recreating references for nested objects
+ * and triggering a custom event for component listeners
+ */
 const notifyUpdate = () => {
-    vouchingStore.lastUpdated.set(Date.now());
+    // Update lastUpdated timestamp to trigger reactivity
+    const now = Date.now();
+    vouchingStore.lastUpdated.set(now);
+
+    console.log(`Vouching store update at ${new Date(now).toISOString()}`);
+
+    // Ensure all nested objects get new references to trigger reactivity properly
+    const addresses = Object.keys(vouchingStore.items.peek() || {});
+    console.log(`Updating references for ${addresses.length} addresses`);
+
+    for (const address of addresses) {
+        const item = vouchingStore.items[address].peek();
+        if (item) {
+            // Create new references for arrays to ensure reactivity
+            if (Array.isArray(item.vouchesOutbound)) {
+                vouchingStore.items[address].vouchesOutbound.set([...item.vouchesOutbound]);
+                console.log(`Updated outbound vouches for ${address}: ${item.vouchesOutbound.length} items`);
+            }
+
+            if (Array.isArray(item.vouchesInbound)) {
+                vouchingStore.items[address].vouchesInbound.set([...item.vouchesInbound]);
+                console.log(`Updated inbound vouches for ${address}: ${item.vouchesInbound.length} items`);
+            }
+
+            vouchingStore.items[address].lastUpdated.set(now);
+        }
+    }
+
+    // Dispatch a custom event that components can listen for
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vouching-updated', {
+            detail: { timestamp: now, addresses }
+        }));
+        console.log('Dispatched vouching-updated event');
+    }
+};
+
+/**
+ * Update vouching data for an address
+ * @param address The address to update data for
+ * @param data The new vouching data
+ */
+const updateVouchingData = (address: string, data: VouchingData) => {
+    console.log(`Setting vouching data for ${address}:`, data);
+
+    // Ensure the address exists in the store
+    if (!vouchingStore.items[address].peek()) {
+        vouchingStore.items[address].set({
+            vouchesOutbound: [],
+            vouchesInbound: [],
+            pageRankScore: 0,
+            lastUpdated: Date.now()
+        });
+    }
+
+    // Update each property individually to ensure reactivity
+    vouchingStore.items[address].vouchesOutbound.set([...data.vouchesOutbound]);
+    vouchingStore.items[address].vouchesInbound.set([...data.vouchesInbound]);
+    vouchingStore.items[address].pageRankScore.set(data.pageRankScore);
+    vouchingStore.items[address].lastUpdated.set(Date.now());
+
+    console.log(`Verify data was set for ${address}:`, vouchingStore.items[address].peek());
+
+    // Notify UI about the update
+    notifyUpdate();
 };
 
 // Store actions
 export const vouchingActions = {
-    updateVouchingData: (address: string, data: Partial<VouchingData>) => {
-        const existingData = vouchingStore.items[address].peek();
-        const timestamp = Date.now();
-
-        if (!existingData) {
-            // Initialize new entry
-            vouchingStore.items[address].set({
-                vouchesOutbound: data.vouchesOutbound || [],
-                vouchesInbound: data.vouchesInbound || [],
-                pageRankScore: data.pageRankScore ?? 0,
-                lastUpdated: timestamp
-            });
-        } else {
-            // Update existing data WITHOUT clearing other fields
-            if (data.vouchesOutbound !== undefined) {
-                vouchingStore.items[address].vouchesOutbound.set(data.vouchesOutbound);
-            }
-            if (data.vouchesInbound !== undefined) {
-                vouchingStore.items[address].vouchesInbound.set(data.vouchesInbound);
-            }
-            if (data.pageRankScore !== undefined) {
-                vouchingStore.items[address].pageRankScore.set(data.pageRankScore);
-            }
-
-            // Update timestamp
-            vouchingStore.items[address].lastUpdated.set(timestamp);
-        }
-
-        notifyUpdate();
-    },
+    updateVouchingData: updateVouchingData,
 
     setLoading: (isLoading: boolean) => {
         vouchingStore.isLoading.set(isLoading);

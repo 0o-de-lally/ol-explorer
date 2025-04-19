@@ -50,6 +50,12 @@ export interface SupplyStats {
   unlocked: number;
 }
 
+// Add the VouchInfo interface here
+export interface VouchInfo {
+  address: string;
+  epoch: number;
+}
+
 /**
  * Hook for accessing the SDK instance.
  * This is a thin wrapper over the SDK context that handles address normalization.
@@ -96,13 +102,16 @@ export const useSdk = (): BlockchainSDK & {
   getFilledSeats: () => Promise<number>;
 
   // Vouching related methods
-  getAccountVouchesOutbound: (address: string) => Promise<string[]>;
-  getAccountVouchesInbound: (address: string) => Promise<string[]>;
+  getAccountVouchesOutbound: (address: string) => Promise<VouchInfo[]>;
+  getAccountVouchesInbound: (address: string) => Promise<VouchInfo[]>;
   getAccountPageRankScore: (address: string) => Promise<number>;
 
   // Donations related methods
   getDonationsMadeByAccount: (address: string) => Promise<any[]>;
   getDonationsReceivedByDV: (dvAddress: string) => Promise<any[]>;
+
+  // Add current epoch method
+  getCurrentEpoch: () => Promise<number>;
 } => {
   const { sdk, isInitialized, isInitializing, error, reinitialize, isUsingMockData } = useSdkContext();
 
@@ -1346,11 +1355,16 @@ export const useSdk = (): BlockchainSDK & {
     });
   };
 
-  // Vouching related methods
-  const getAccountVouchesOutbound = async (address: string): Promise<string[]> => {
+  // Define VouchInfo type
+  interface VouchInfo {
+    address: string;
+    epoch: number;
+  }
+
+  const getAccountVouchesOutbound = async (address: string): Promise<VouchInfo[]> => {
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get outbound vouches');
-      return [];
+      return [] as VouchInfo[];
     }
 
     return logSdkOperation('getAccountVouchesOutbound', { address }, async () => {
@@ -1363,12 +1377,26 @@ export const useSdk = (): BlockchainSDK & {
           arguments: [normalizedAddress]
         });
 
+        // Debug the raw response
+        console.log(`Raw outbound vouches for ${address}:`, result);
+
         // The function returns a tuple: (vector<address>, vector<u64>)
-        // We only need the addresses (first element of the tuple)
-        if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
-          return result[0];
+        // First element contains addresses, second element contains epochs
+        if (Array.isArray(result) && result.length >= 2 &&
+          Array.isArray(result[0]) && Array.isArray(result[1]) &&
+          result[0].length === result[1].length) {
+
+          // Combine the two arrays into an array of objects
+          const vouches = result[0].map((addr, index) => ({
+            address: addr,
+            epoch: parseInt(result[1][index], 10)
+          }));
+
+          console.log(`Processed outbound vouches for ${address}:`, vouches);
+          return vouches;
         }
 
+        console.warn(`Invalid format for outbound vouches: ${JSON.stringify(result)}`);
         return [];
       } catch (error) {
         console.error(`Error getting outbound vouches for ${address}:`, error);
@@ -1377,10 +1405,10 @@ export const useSdk = (): BlockchainSDK & {
     });
   };
 
-  const getAccountVouchesInbound = async (address: string): Promise<string[]> => {
+  const getAccountVouchesInbound = async (address: string): Promise<VouchInfo[]> => {
     if (!isInitialized || !sdk) {
       console.warn('SDK not initialized, cannot get inbound vouches');
-      return [];
+      return [] as VouchInfo[];
     }
 
     return logSdkOperation('getAccountVouchesInbound', { address }, async () => {
@@ -1393,12 +1421,26 @@ export const useSdk = (): BlockchainSDK & {
           arguments: [normalizedAddress]
         });
 
+        // Debug the raw response
+        console.log(`Raw inbound vouches for ${address}:`, result);
+
         // The function returns a tuple: (vector<address>, vector<u64>)
-        // We only need the addresses (first element of the tuple)
-        if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
-          return result[0];
+        // First element contains addresses, second element contains epochs
+        if (Array.isArray(result) && result.length >= 2 &&
+          Array.isArray(result[0]) && Array.isArray(result[1]) &&
+          result[0].length === result[1].length) {
+
+          // Combine the two arrays into an array of objects
+          const vouches = result[0].map((addr, index) => ({
+            address: addr,
+            epoch: parseInt(result[1][index], 10)
+          }));
+
+          console.log(`Processed inbound vouches for ${address}:`, vouches);
+          return vouches;
         }
 
+        console.warn(`Invalid format for inbound vouches: ${JSON.stringify(result)}`);
         return [];
       } catch (error) {
         console.error(`Error getting inbound vouches for ${address}:`, error);
@@ -1490,6 +1532,75 @@ export const useSdk = (): BlockchainSDK & {
       } catch (error) {
         console.error(`Error getting donations to DV ${dvAddress}:`, error);
         return [];
+      }
+    });
+  };
+
+  // Add this getCurrentEpoch function before the return statement
+  const getCurrentEpoch = async (): Promise<number> => {
+    if (!isInitialized || !sdk) {
+      console.warn('SDK not initialized, cannot get current epoch');
+      return 0;
+    }
+
+    return logSdkOperation('getCurrentEpoch', {}, async () => {
+      try {
+        // Try to get current epoch directly from ledger info first (most reliable)
+        try {
+          const ledgerInfo = await sdk.getLedgerInfo();
+          if (ledgerInfo && ledgerInfo.epoch) {
+            const epochValue = parseInt(ledgerInfo.epoch, 10);
+            if (!isNaN(epochValue)) {
+              return epochValue;
+            }
+          }
+        } catch (ledgerError) {
+          console.warn('Error getting epoch from ledger info:', ledgerError);
+          // Continue to fallback methods
+        }
+
+        // Fallback 1: Try using view function to get current epoch
+        try {
+          const result = await sdk.view({
+            function: `${OL_FRAMEWORK}::ol_framework::get_current_epoch`,
+            typeArguments: [],
+            arguments: []
+          });
+
+          if (typeof result === 'number') {
+            return result;
+          } else if (typeof result === 'string') {
+            const parsed = parseInt(result, 10);
+            return isNaN(parsed) ? 0 : parsed;
+          } else if (Array.isArray(result) && result.length > 0) {
+            if (typeof result[0] === 'number') {
+              return result[0];
+            } else if (typeof result[0] === 'string') {
+              const parsed = parseInt(result[0], 10);
+              return isNaN(parsed) ? 0 : parsed;
+            }
+          }
+        } catch (viewError) {
+          console.warn('Error getting epoch from view function:', viewError);
+          // Continue to fallback methods
+        }
+
+        // Fallback 2: Try getting epoch from getLatestEpoch function
+        try {
+          if (typeof sdk.getLatestEpoch === 'function') {
+            const epochValue = await sdk.getLatestEpoch();
+            return epochValue;
+          }
+        } catch (latestError) {
+          console.warn('Error getting epoch from getLatestEpoch:', latestError);
+        }
+
+        // If all methods fail, return 0
+        console.warn('All methods to get current epoch failed, returning 0');
+        return 0;
+      } catch (error) {
+        console.error('Error getting current epoch:', error);
+        return 0;
       }
     });
   };
@@ -1692,11 +1803,11 @@ export const useSdk = (): BlockchainSDK & {
       },
       getAccountVouchesOutbound: async () => {
         console.warn('SDK not initialized, cannot get outbound vouches');
-        return [];
+        return [] as VouchInfo[];
       },
       getAccountVouchesInbound: async () => {
         console.warn('SDK not initialized, cannot get inbound vouches');
-        return [];
+        return [] as VouchInfo[];
       },
       getAccountPageRankScore: async () => {
         console.warn('SDK not initialized, cannot get page rank score');
@@ -1709,6 +1820,11 @@ export const useSdk = (): BlockchainSDK & {
       getDonationsReceivedByDV: async () => {
         console.warn('SDK not initialized, cannot get donations to DV');
         return [];
+      },
+      // Add stub getCurrentEpoch function
+      getCurrentEpoch: async () => {
+        console.warn('SDK not initialized, cannot get current epoch');
+        return 0;
       }
     };
   }
@@ -1813,6 +1929,8 @@ export const useSdk = (): BlockchainSDK & {
     getAccountVouchesInbound,
     getAccountPageRankScore,
     getDonationsMadeByAccount,
-    getDonationsReceivedByDV
+    getDonationsReceivedByDV,
+    // Add the new getCurrentEpoch method to the return value
+    getCurrentEpoch
   };
 }; 

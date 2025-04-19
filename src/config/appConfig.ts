@@ -16,7 +16,8 @@ export const appConfig = {
 
   // Vouching configuration
   vouching: {
-    threshold: 2            // Threshold value for valid vouching (100% = this value)
+    expiryWindow: 45,       // Number of epochs before a vouch expires
+    warningThreshold: 10    // Number of epochs before expiry to start showing warnings
   },
 
   // Blockchain metrics configuration
