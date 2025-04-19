@@ -223,12 +223,21 @@ export const VouchingSection = observer(({
     const hasData = vouchesOutbound.length > 0 || vouchesInbound.length > 0;
     const initialLoading = isLoading && !hasData;
 
-    // Add this function to check if there's a mutual vouch relationship
-    const hasMutualVouch = (inboundAddress: string): boolean => {
-        return sortedOutboundVouches.some(outbound =>
-            outbound.address === inboundAddress &&
-            (currentEpoch <= 0 || (outbound.epoch + appConfig.vouching.expiryWindow) > currentEpoch)
-        );
+    // First, fix the hasMutualVouch function to check the correct list for each direction
+    const hasMutualVouch = (address: string, isOutbound: boolean): boolean => {
+        if (isOutbound) {
+            // For outbound addresses, check if they have vouched for us (exist in inbound list)
+            return sortedInboundVouches.some(inbound =>
+                inbound.address === address &&
+                (currentEpoch <= 0 || (inbound.epoch + appConfig.vouching.expiryWindow) > currentEpoch)
+            );
+        } else {
+            // For inbound addresses, check if we have vouched for them (exist in outbound list)
+            return sortedOutboundVouches.some(outbound =>
+                outbound.address === address &&
+                (currentEpoch <= 0 || (outbound.epoch + appConfig.vouching.expiryWindow) > currentEpoch)
+            );
+        }
     };
 
     return (
@@ -467,6 +476,11 @@ export const VouchingSection = observer(({
                                                                     </View>
                                                                 </View>
                                                                 <View className="flex-row items-center">
+                                                                    {hasMutualVouch(vouchInfo.address, true) && (
+                                                                        <View className="px-1.5 py-0.5 rounded-md bg-blue-700 mr-2">
+                                                                            <Text className="text-white text-xs">Mutual</Text>
+                                                                        </View>
+                                                                    )}
                                                                     <Text className={`text-xs ${statusInfo.textColor} mr-2`}>
                                                                         {statusInfo.epochsText}
                                                                     </Text>
@@ -506,7 +520,7 @@ export const VouchingSection = observer(({
                                             <View className="border border-border/30 rounded-md overflow-hidden">
                                                 {sortedInboundVouches.map((vouchInfo, index) => {
                                                     const statusInfo = getVouchStatusInfo(vouchInfo.epoch, currentEpoch);
-                                                    const hasMutualVouchRelationship = hasMutualVouch(vouchInfo.address);
+                                                    const hasMutualVouchRelationship = hasMutualVouch(vouchInfo.address, false);
 
                                                     return (
                                                         <TouchableOpacity

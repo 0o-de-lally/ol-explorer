@@ -1377,9 +1377,6 @@ export const useSdk = (): BlockchainSDK & {
           arguments: [normalizedAddress]
         });
 
-        // Debug the raw response
-        console.log(`Raw outbound vouches for ${address}:`, result);
-
         // The function returns a tuple: (vector<address>, vector<u64>)
         // First element contains addresses, second element contains epochs
         if (Array.isArray(result) && result.length >= 2 &&
@@ -1392,7 +1389,6 @@ export const useSdk = (): BlockchainSDK & {
             epoch: parseInt(result[1][index], 10)
           }));
 
-          console.log(`Processed outbound vouches for ${address}:`, vouches);
           return vouches;
         }
 
@@ -1421,9 +1417,6 @@ export const useSdk = (): BlockchainSDK & {
           arguments: [normalizedAddress]
         });
 
-        // Debug the raw response
-        console.log(`Raw inbound vouches for ${address}:`, result);
-
         // The function returns a tuple: (vector<address>, vector<u64>)
         // First element contains addresses, second element contains epochs
         if (Array.isArray(result) && result.length >= 2 &&
@@ -1436,7 +1429,6 @@ export const useSdk = (): BlockchainSDK & {
             epoch: parseInt(result[1][index], 10)
           }));
 
-          console.log(`Processed inbound vouches for ${address}:`, vouches);
           return vouches;
         }
 

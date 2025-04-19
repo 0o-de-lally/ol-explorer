@@ -42,11 +42,8 @@ const notifyUpdate = () => {
     const now = Date.now();
     vouchingStore.lastUpdated.set(now);
 
-    console.log(`Vouching store update at ${new Date(now).toISOString()}`);
-
     // Ensure all nested objects get new references to trigger reactivity properly
     const addresses = Object.keys(vouchingStore.items.peek() || {});
-    console.log(`Updating references for ${addresses.length} addresses`);
 
     for (const address of addresses) {
         const item = vouchingStore.items[address].peek();
@@ -54,12 +51,10 @@ const notifyUpdate = () => {
             // Create new references for arrays to ensure reactivity
             if (Array.isArray(item.vouchesOutbound)) {
                 vouchingStore.items[address].vouchesOutbound.set([...item.vouchesOutbound]);
-                console.log(`Updated outbound vouches for ${address}: ${item.vouchesOutbound.length} items`);
             }
 
             if (Array.isArray(item.vouchesInbound)) {
                 vouchingStore.items[address].vouchesInbound.set([...item.vouchesInbound]);
-                console.log(`Updated inbound vouches for ${address}: ${item.vouchesInbound.length} items`);
             }
 
             vouchingStore.items[address].lastUpdated.set(now);
@@ -71,7 +66,6 @@ const notifyUpdate = () => {
         window.dispatchEvent(new CustomEvent('vouching-updated', {
             detail: { timestamp: now, addresses }
         }));
-        console.log('Dispatched vouching-updated event');
     }
 };
 
@@ -81,8 +75,6 @@ const notifyUpdate = () => {
  * @param data The new vouching data
  */
 const updateVouchingData = (address: string, data: VouchingData) => {
-    console.log(`Setting vouching data for ${address}:`, data);
-
     // Ensure the address exists in the store
     if (!vouchingStore.items[address].peek()) {
         vouchingStore.items[address].set({
@@ -98,8 +90,6 @@ const updateVouchingData = (address: string, data: VouchingData) => {
     vouchingStore.items[address].vouchesInbound.set([...data.vouchesInbound]);
     vouchingStore.items[address].pageRankScore.set(data.pageRankScore);
     vouchingStore.items[address].lastUpdated.set(Date.now());
-
-    console.log(`Verify data was set for ${address}:`, vouchingStore.items[address].peek());
 
     // Notify UI about the update
     notifyUpdate();

@@ -86,8 +86,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
         }
 
         try {
-            console.log(`Fetching extended data for account: ${address}`);
-
             // First, get activity and authorization data which applies to all accounts
             const hasBeenTouched = await openLibraSdk.hasEverBeenTouched(address);
             const isInitializedOnV8 = await openLibraSdk.isInitializedOnV8(address);
@@ -106,14 +104,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
                 isCommunityWallet: isDonorVoice,
                 isV8Authorized: isV8Authorized
             };
-
-            console.log(`Account ${address} type determined:`, {
-                isRegularWallet: accountType.isRegularWallet,
-                isSlowWallet: accountType.isSlowWallet,
-                isValidatorWallet: accountType.isValidatorWallet,
-                isCommunityWallet: accountType.isCommunityWallet,
-                isV8Authorized: accountType.isV8Authorized
-            });
 
             // Initialize data structure with common fields
             const extendedData: ExtendedAccountData = {
@@ -154,7 +144,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // For all account types, fetch activity data if they've been touched
             if (hasBeenTouched) {
-                console.log(`Fetching activity data for ${address} (has been touched)`);
                 const onboardingTimestamp = await openLibraSdk.getOnboardingUsecs(address);
                 const lastActivityTimestamp = await openLibraSdk.getLastActivityUsecs(address);
                 extendedData.activity.onboardingTimestamp = onboardingTimestamp;
@@ -162,7 +151,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
                 // Check founder status for all accounts except community wallets
                 if (!isDonorVoice) {
-                    console.log(`Checking founder status for ${address}`);
                     const isFounder = await openLibraSdk.isFounder(address);
                     if (isFounder) {
                         const hasFriends = await openLibraSdk.hasFounderFriends(address);
@@ -182,7 +170,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Fetch data specific to community wallets
             if (isDonorVoice) {
-                console.log(`Fetching community wallet specific data for ${address}`);
                 const isAuthorized = await openLibraSdk.isDonorVoiceAuthorized(address);
                 const isWithinAuthorizeWindow = await openLibraSdk.isWithinAuthorizeWindow(address);
                 const isCommunityWalletInit = await openLibraSdk.isCommunityWalletInit(address);
@@ -199,13 +186,11 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
                 // Only check reauth status if not authorized
                 if (!isAuthorized) {
-                    console.log(`Community wallet ${address} not authorized, checking reauth status`);
                     const isReauthProposed = await openLibraSdk.isReauthProposed(address);
                     extendedData.communityWallet.isReauthProposed = isReauthProposed;
 
                     // Only fetch additional reauth data if a reauth proposal exists
                     if (isReauthProposed) {
-                        console.log(`Reauth proposed for ${address}, fetching details`);
                         const reauthTally = await openLibraSdk.getReauthTally(address);
                         const reauthDeadline = await openLibraSdk.getReauthDeadline(address);
                         const isLiquidationProposed = await openLibraSdk.isLiquidationProposed(address);
@@ -222,7 +207,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Fetch data specific to slow wallets
             if (isSlowWallet) {
-                console.log(`Fetching slow wallet specific data for ${address}`);
                 const unlockedAmount = await openLibraSdk.view({
                     function: `${appConfig.network.OL_FRAMEWORK}::slow_wallet::unlocked_amount`,
                     typeArguments: [],
@@ -243,14 +227,12 @@ export const useAccount = (address: string | null): UseAccountResult => {
 
             // Fetch data specific to validator wallets
             if (isInValidatorUniverse) {
-                console.log(`Fetching validator specific data for ${address}`);
                 const currentValidators = await openLibraSdk.getCurrentValidators();
                 const isInCurrentValidators = currentValidators.some(
                     v => v.toLowerCase() === address.toLowerCase()
                 );
 
                 if (isInCurrentValidators) {
-                    console.log(`${address} is an active validator, fetching grade`);
                     const validatorGrade = await openLibraSdk.getValidatorGrade(address);
                     extendedData.validator.grade = validatorGrade;
                 }
@@ -270,7 +252,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
                 };
 
                 // Fetch epoch boundary data for validator accounts
-                console.log(`Fetching epoch boundary data for validator ${address}`);
                 try {
                     const bidders = await openLibraSdk.getBidders();
                     const maxSeats = await openLibraSdk.getMaxSeatsOffered();
@@ -287,7 +268,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
                         filledSeats,
                         isBidding
                     };
-                    console.log(`Epoch boundary data fetched for ${address}`, extendedData.epoch);
                 } catch (error) {
                     console.error(`Error fetching epoch boundary data for ${address}:`, error);
                     // Provide default epoch data
@@ -300,7 +280,6 @@ export const useAccount = (address: string | null): UseAccountResult => {
                 }
             }
 
-            console.log(`Completed fetching extended data for ${address}`);
             return extendedData;
 
         } catch (error) {

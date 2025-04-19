@@ -79,7 +79,6 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
                     const fetchedEpoch = await sdk.getCurrentEpoch();
                     epochValue = fetchedEpoch;
                     setCurrentEpoch(epochValue);
-                    console.log('Fetched current epoch:', epochValue);
                 }
             } catch (epochError) {
                 console.warn('Error fetching epoch, using current value:', epochError);
@@ -176,7 +175,6 @@ export const useVouching = (address: string, isVisible = true): UseVouchingResul
     useEffect(() => {
         if (outboundVouches.length === 0 && inboundVouches.length === 0 &&
             !isLoadingObs.get() && address && isInitialized) {
-            console.log("No vouches data, forcing refresh");
             refresh();
         }
     }, [address, isInitialized]);
