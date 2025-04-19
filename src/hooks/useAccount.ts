@@ -268,6 +268,36 @@ export const useAccount = (address: string | null): UseAccountResult => {
                     countBuddiesJailed,
                     isJailed
                 };
+
+                // Fetch epoch boundary data for validator accounts
+                console.log(`Fetching epoch boundary data for validator ${address}`);
+                try {
+                    const bidders = await openLibraSdk.getBidders();
+                    const maxSeats = await openLibraSdk.getMaxSeatsOffered();
+                    const filledSeats = await openLibraSdk.getFilledSeats();
+
+                    // Check if this account is in the bidders list
+                    const isBidding = bidders.some(
+                        bidder => bidder.toLowerCase() === address.toLowerCase()
+                    );
+
+                    extendedData.epoch = {
+                        bidders,
+                        maxSeats,
+                        filledSeats,
+                        isBidding
+                    };
+                    console.log(`Epoch boundary data fetched for ${address}`, extendedData.epoch);
+                } catch (error) {
+                    console.error(`Error fetching epoch boundary data for ${address}:`, error);
+                    // Provide default epoch data
+                    extendedData.epoch = {
+                        bidders: [],
+                        maxSeats: 0,
+                        filledSeats: 0,
+                        isBidding: false
+                    };
+                }
             }
 
             console.log(`Completed fetching extended data for ${address}`);

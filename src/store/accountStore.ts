@@ -67,6 +67,13 @@ export interface ExtendedAccountData {
         reauthDeadline: number;
         isLiquidationProposed: boolean;
     };
+    // Add epoch boundary data
+    epoch?: {
+        bidders: string[];
+        maxSeats: number;
+        filledSeats: number;
+        isBidding: boolean;
+    };
 }
 
 // Add to the Account interface or define a new extension to it

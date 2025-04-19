@@ -354,6 +354,20 @@ export default function ViewFunction() {
                         {/* General/Network Examples */}
                         <Text className="text-white text-base font-semibold mb-2">Network Information</Text>
                         <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::supply::get_stats`,
+                                '',
+                                ''
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::supply::get_stats`}</Text>
+                            <Text className="text-gray-400 text-sm">Get supply statistics</Text>
+                        </TouchableOpacity>
+
+                        {/* Proof of Fee Examples */}
+                        <Text className="text-white text-base font-semibold mb-2">Proof of Fee</Text>
+                        <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-2"
                             onPress={() => updateExampleSelection(
                                 `${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`,
@@ -392,13 +406,13 @@ export default function ViewFunction() {
                         <TouchableOpacity
                             className="bg-background rounded-lg p-3 mb-4"
                             onPress={() => updateExampleSelection(
-                                `${appConfig.network.OL_FRAMEWORK}::supply::get_stats`,
+                                `${appConfig.network.OL_FRAMEWORK}::epoch_boundary::get_max_seats_offered`,
                                 '',
                                 ''
                             )}
                         >
-                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::supply::get_stats`}</Text>
-                            <Text className="text-gray-400 text-sm">Get supply statistics</Text>
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::epoch_boundary::get_max_seats_offered`}</Text>
+                            <Text className="text-gray-400 text-sm">Get maximum validator seats available</Text>
                         </TouchableOpacity>
 
                         {/* Account Information Examples */}

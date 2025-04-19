@@ -48,6 +48,8 @@ export const AccountTypeSection = observer(({
 }: AccountTypeSectionProps) => {
     // Add state for tracking if the account is in the current validators list
     const [isInCurrentValidators, setIsInCurrentValidators] = useState(false);
+    // Add state for storing current validator count
+    const [currentValidatorCount, setCurrentValidatorCount] = useState(0);
     // Get SDK reference
     const openLibraSdk = useSdk();
 
@@ -63,10 +65,10 @@ export const AccountTypeSection = observer(({
     const isV8Authorized = getObservableValue(extendedData.accountType.isV8Authorized, false);
 
     // Determine the account type text to display
-    let accountTypeText = "Regular Wallet";
-    let accountTypeDescription = "Standard account with full control over your coins.";
+    let accountTypeText = "Fetching Account...";
+    let accountTypeDescription = "Please wait while we fetch resources for this account.";
     let accountTypeIcon = "wallet-outline" as any;
-    let accountTypeBgColor = "bg-blue-800";
+    let accountTypeBgColor = "bg-gray-800";
 
     if (isCommunityWallet) {
         accountTypeText = "Community Wallet";
@@ -83,6 +85,11 @@ export const AccountTypeSection = observer(({
         accountTypeDescription = "Gradually unlocks coins over time. Reduced withdrawal limits.";
         accountTypeIcon = "hourglass-outline" as any;
         accountTypeBgColor = "bg-amber-800";
+    } else if (isRegularWallet) {
+        accountTypeText = "Regular Wallet";
+        accountTypeDescription = "Standard account with full control over your coins.";
+        accountTypeIcon = "wallet-outline" as any;
+        accountTypeBgColor = "bg-blue-800";
     }
 
     // Helper function to format balance for slow wallet display
@@ -115,14 +122,17 @@ export const AccountTypeSection = observer(({
     // Safe access to address
     const accountAddress = getObservableValue(accountData.address, '');
 
-    // Effect to check if the account is in the current validators list
+    // Effect to check if the account is in the current validators list and get validator count
     useEffect(() => {
-        const checkIfInCurrentValidators = async () => {
+        const fetchValidatorData = async () => {
             if (!accountAddress) return;
 
             try {
                 // Get the current validators list
                 const currentValidators = await openLibraSdk.getCurrentValidators();
+
+                // Set the current validator count
+                setCurrentValidatorCount(currentValidators.length);
 
                 // Normalize all addresses for case-insensitive comparison
                 const normalizedAddress = (accountAddress as string).toLowerCase();
@@ -134,12 +144,13 @@ export const AccountTypeSection = observer(({
                 const isActive = normalizedValidators.includes(normalizedAddress);
                 setIsInCurrentValidators(isActive);
             } catch (error) {
-                console.error('Error checking if in current validators:', error);
+                console.error('Error fetching validator data:', error);
                 setIsInCurrentValidators(false);
+                setCurrentValidatorCount(0);
             }
         };
 
-        checkIfInCurrentValidators();
+        fetchValidatorData();
     }, [accountAddress, openLibraSdk]);
 
     // Safe access to slow wallet data
@@ -589,7 +600,7 @@ export const AccountTypeSection = observer(({
                             </TouchableOpacity>
                         </Row>
 
-                        <Row alignItems="center">
+                        <Row alignItems="center" className="mb-4">
                             <Text className="text-text-light text-sm mr-2">Buddies Jailed:</Text>
                             <TouchableOpacity
                                 onPress={() => {
@@ -601,6 +612,53 @@ export const AccountTypeSection = observer(({
                                 </Text>
                             </TouchableOpacity>
                         </Row>
+
+                        {/* Epoch Boundary Status - Added from EpochBoundarySection */}
+                        <View className="mt-2 pt-2 border-t border-border/30">
+                            <Text className="text-text-light text-sm font-bold mb-2">Proof of Fee:</Text>
+
+                            <Row alignItems="center" className="mb-2">
+                                <Text className="text-text-light text-sm mr-2">Validator Seats:</Text>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::stake::get_current_validators`)}&initialArgs=${encodeURIComponent('')}`)
+                                    }}
+                                >
+                                    <Text className="text-white text-sm">
+                                        {currentValidatorCount} / {getObservableValue(extendedData.epoch?.maxSeats, 0)} filled
+                                    </Text>
+                                </TouchableOpacity>
+                            </Row>
+
+                            <Row alignItems="center" className="mb-2">
+                                <Text className="text-text-light text-sm mr-2">Current Bid:</Text>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::current_bid`)}&initialArgs=${encodeURIComponent(`"${accountAddress}"`)}`)
+                                    }}
+                                >
+                                    <Text className="text-white text-sm">
+                                        {Array.isArray(currentBid) ?
+                                            `${currentBid[0].toLocaleString()} / ${currentBid[1].toLocaleString()}`
+                                            : '0 / 0'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </Row>
+
+                            <TouchableOpacity
+                                onPress={() => {
+                                    router.push(`/view?initialPath=${encodeURIComponent(`${appConfig.network.OL_FRAMEWORK}::proof_of_fee::get_bidders_and_bids`)}&initialArgs=${encodeURIComponent('true')}`)
+                                }}
+                                className="flex-row items-center"
+                            >
+                                <Text className="text-text-light text-sm mr-2">
+                                    Current Bidders ({getObservableValue(extendedData.epoch?.bidders, []).length}):
+                                </Text>
+                                <View className="bg-blue-800 px-2 py-0.5 rounded-md">
+                                    <Text className="text-white text-xs">View All</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </>
             )}

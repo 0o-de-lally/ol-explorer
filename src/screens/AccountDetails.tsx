@@ -19,7 +19,7 @@ import { useSdk } from '../hooks/useSdk';
 import { useSdkContext } from '../context/SdkContext';
 import { useScrollToElement } from '../hooks/useScrollToElement';
 import { normalizeAddress, formatAddressForDisplay, stripLeadingZeros } from '../utils/addressUtils';
-import { VouchingSection, EpochBoundarySection, DonationsSection, AccountTypeSection } from '../components/account';
+import { VouchingSection, DonationsSection, AccountTypeSection } from '../components/account';
 
 type AccountDetailsScreenProps = {
   route?: { params: { address: string; resource?: string } };
@@ -831,16 +831,6 @@ export const AccountDetailsScreen = observer(({ route, address: propAddress }: A
               accountAddress={getObservableValue(accountData.address, '')}
               hasValidVouchScore={getObservableValue(extendedData?.vouching?.hasValidVouchScore, false)}
               isDesktop={isDesktop}
-              isVisible={isFocused}
-            />
-          )}
-
-          {/* Only show epoch boundary for validator accounts */}
-          {getObservableValue(extendedData?.accountType?.isValidatorWallet, false) && (
-            <EpochBoundarySection
-              accountAddress={getObservableValue(accountData.address, '')}
-              isDesktop={isDesktop}
-              isValidator={getObservableValue(extendedData?.accountType?.isValidatorWallet, false)}
               isVisible={isFocused}
             />
           )}
