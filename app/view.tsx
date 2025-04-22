@@ -354,7 +354,7 @@ export default function ViewFunction() {
                         {/* General/Network Examples */}
                         <Text className="text-white text-base font-semibold mb-2">Network Information</Text>
                         <TouchableOpacity
-                            className="bg-background rounded-lg p-3 mb-4"
+                            className="bg-background rounded-lg p-3 mb-2"
                             onPress={() => updateExampleSelection(
                                 `${appConfig.network.OL_FRAMEWORK}::supply::get_stats`,
                                 '',
@@ -363,6 +363,19 @@ export default function ViewFunction() {
                         >
                             <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::supply::get_stats`}</Text>
                             <Text className="text-gray-400 text-sm">Get supply statistics</Text>
+                        </TouchableOpacity>
+
+                        {/* New example for slow wallet supply */}
+                        <TouchableOpacity
+                            className="bg-background rounded-lg p-3 mb-4"
+                            onPress={() => updateExampleSelection(
+                                `${appConfig.network.OL_FRAMEWORK}::slow_wallet::get_slow_supply`,
+                                '',
+                                ''
+                            )}
+                        >
+                            <Text className="text-primary font-medium">{`${appConfig.network.OL_FRAMEWORK}::slow_wallet::get_slow_supply`}</Text>
+                            <Text className="text-gray-400 text-sm">Get slow wallet total supply</Text>
                         </TouchableOpacity>
 
                         {/* Proof of Fee Examples */}
