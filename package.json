@@ -4,14 +4,10 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start --web --port 8082 --clear",
-    "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
-    "build": "expo export -p web",
-    "verify-pwa": "node scripts/verify-pwa.js",
-    "validate": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "build": "expo export -p web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
@@ -49,7 +45,6 @@
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
     "babel-preset-expo": "^12.0.9",
-    "cypress": "^13.6.6",
     "eslint": "^9.23.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.2.0",
