@@ -13,4 +13,4 @@ if (typeof global !== 'undefined' && typeof (global as any).Buffer === 'undefine
     console.log('Added Buffer polyfill to global scope');
 }
 
-export default Buffer; 
+export default Buffer;
