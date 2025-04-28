@@ -1,0 +1,37 @@
+name: lint
+
+on:
+  schedule:
+    - cron: "30 01 * * *"
+  push:
+    branches: ['*']
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  bun-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+
+      - name: install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Installs UI packages
+        run: bun install
+
+  eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+
+      - name: install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: install deps
+        run: bun install
+
+      - name: run linter
+        run: bun run lint

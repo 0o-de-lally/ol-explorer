@@ -13,3 +13,5 @@ coverage/lcov.info
 
 # helper files for the llm
 #libra-framework/
+
+bun.lock
