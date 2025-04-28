@@ -5,15 +5,6 @@ dist/
 coverage/
 .expo/
 
-# Test files - they have special globals
-cypress/
-**/*.test.ts
-**/*.test.tsx
-**/*.spec.ts
-**/*.spec.tsx
-src/tests/
-jest.setup.js
-jest.config.js
 
 # Config files
 babel.config.js
@@ -25,4 +16,4 @@ cypress.config.js
 public/
 
 # Special files
-global.d.ts 
+global.d.ts
